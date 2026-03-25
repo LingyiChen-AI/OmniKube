@@ -10,6 +10,7 @@ import { useK8sResource } from '@/hooks/use-k8s-resource';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useClusterStore } from '@/hooks/use-cluster';
 import PageContainer from '@/components/page-container';
+import { isSystemResource } from '@/lib/k8s-helpers';
 
 const phaseColors: Record<string, string> = {
   Running: 'green',
@@ -85,13 +86,16 @@ export default function PodsPage() {
     },
     {
       title: '操作', key: 'actions', width: 80,
-      render: (_: any, record: any) => (
-        <Space>
-          {permissions.canDelete && (
-            <DeleteConfirm name={record.metadata?.name} kindLabel="Pod" onConfirm={() => handleDelete(record)} />
-          )}
-        </Space>
-      ),
+      render: (_: any, record: any) => {
+        const system = isSystemResource(record);
+        return (
+          <Space>
+            {permissions.canDelete && !system && (
+              <DeleteConfirm name={record.metadata?.name} kindLabel="Pod" onConfirm={() => handleDelete(record)} />
+            )}
+          </Space>
+        );
+      },
     },
   ];
 

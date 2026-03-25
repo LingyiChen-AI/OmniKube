@@ -11,6 +11,7 @@ import { usePermissions } from '@/hooks/use-permissions';
 import { useClusterStore } from '@/hooks/use-cluster';
 import PageContainer from '@/components/page-container';
 import { gradientBtnStyle } from '@/lib/styles';
+import { isSystemResource } from '@/lib/k8s-helpers';
 
 export default function DaemonSetsPage() {
   const [namespace, setNamespace] = useState<string | undefined>();
@@ -69,16 +70,19 @@ export default function DaemonSetsPage() {
     },
     {
       title: '操作', key: 'actions', width: 150,
-      render: (_: any, record: any) => (
-        <Space>
-          {permissions.canUpdate && (
-            <Button size="small" type="link" onClick={() => setDrawerState({ open: true, mode: 'edit', record })}>编辑</Button>
-          )}
-          {permissions.canDelete && (
-            <DeleteConfirm name={record.metadata?.name} kindLabel="DaemonSet" onConfirm={() => handleDelete(record)} />
-          )}
-        </Space>
-      ),
+      render: (_: any, record: any) => {
+        const system = isSystemResource(record);
+        return (
+          <Space>
+            {permissions.canUpdate && !system && (
+              <Button size="small" type="link" onClick={() => setDrawerState({ open: true, mode: 'edit', record })}>编辑</Button>
+            )}
+            {permissions.canDelete && !system && (
+              <DeleteConfirm name={record.metadata?.name} kindLabel="DaemonSet" onConfirm={() => handleDelete(record)} />
+            )}
+          </Space>
+        );
+      },
     },
   ];
 
