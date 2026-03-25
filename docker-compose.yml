@@ -11,6 +11,44 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U k8sadmin"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://k8sadmin:k8sadmin@db:5432/k8sadmin
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      SESSION_EXPIRY_HOURS: 24
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASS: ${SMTP_PASS}
+      SMTP_FROM: ${SMTP_FROM:-noreply@k8sadmin.local}
+      NEXT_PUBLIC_WS_URL: ws://localhost:3001
+    depends_on:
+      db:
+        condition: service_healthy
+    command: >
+      sh -c "npx drizzle-kit push && npx tsx src/lib/db/seed.ts && node server.js"
+
+  ws:
+    build: .
+    ports:
+      - "3001:3001"
+    environment:
+      DATABASE_URL: postgresql://k8sadmin:k8sadmin@db:5432/k8sadmin
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      WS_PORT: 3001
+    depends_on:
+      db:
+        condition: service_healthy
+    command: npx tsx src/ws-server.ts
 
 volumes:
   pgdata:
