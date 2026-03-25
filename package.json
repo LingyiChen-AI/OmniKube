@@ -3,13 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "tsx server.ts",
+    "dev": "next dev",
     "build": "next build",
     "start": "NODE_ENV=production tsx server.ts",
     "lint": "eslint",
     "db:seed": "tsx src/lib/db/seed.ts",
     "db:migrate": "drizzle-kit push",
-    "db:reset": "drizzle-kit push && tsx src/lib/db/seed.ts"
+    "db:reset": "drizzle-kit push && tsx src/lib/db/seed.ts",
+    "ws:dev": "tsx --watch src/ws-server.ts"
   },
   "dependencies": {
     "@ant-design/icons": "^6.1.0",
