@@ -1,11 +1,12 @@
 'use client';
 
-import { Card, Col, Row, Statistic, List, Tag, Typography, Spin } from 'antd';
+import { Card, Col, Row, List, Tag, Typography, Spin } from 'antd';
 import {
   ClusterOutlined, RocketOutlined, CloudOutlined, CalendarOutlined,
   CheckCircleOutlined, CloseCircleOutlined, MinusCircleOutlined,
 } from '@ant-design/icons';
 import { useRequest } from 'ahooks';
+import StatCard from '@/components/stat-card';
 
 const { Text } = Typography;
 
@@ -31,30 +32,42 @@ export default function DashboardPage() {
     <Spin spinning={loading && !data}>
       <Row gutter={16} style={{ marginBottom: 24 }}>
         <Col span={6}>
-          <Card>
-            <Statistic title="集群" value={data?.clusterCount ?? '-'} prefix={<ClusterOutlined />} />
-          </Card>
+          <StatCard
+            title="集群"
+            value={data?.clusterCount ?? '-'}
+            gradient="linear-gradient(135deg, #326CE5, #1a4bc7)"
+            icon={<ClusterOutlined />}
+          />
         </Col>
         <Col span={6}>
-          <Card>
-            <Statistic title="运行 Pods" value={data?.podCount ?? '-'} prefix={<CloudOutlined />} />
-          </Card>
+          <StatCard
+            title="运行 Pods"
+            value={data?.podCount ?? '-'}
+            gradient="linear-gradient(135deg, #10b981, #059669)"
+            icon={<CloudOutlined />}
+          />
         </Col>
         <Col span={6}>
-          <Card>
-            <Statistic title="Deployments" value={data?.deploymentCount ?? '-'} prefix={<RocketOutlined />} />
-          </Card>
+          <StatCard
+            title="Deployments"
+            value={data?.deploymentCount ?? '-'}
+            gradient="linear-gradient(135deg, #8b5cf6, #7c3aed)"
+            icon={<RocketOutlined />}
+          />
         </Col>
         <Col span={6}>
-          <Card>
-            <Statistic title="今日发布" value={data?.todayReleaseCount ?? '-'} prefix={<CalendarOutlined />} />
-          </Card>
+          <StatCard
+            title="今日发布"
+            value={data?.todayReleaseCount ?? '-'}
+            gradient="linear-gradient(135deg, #f59e0b, #d97706)"
+            icon={<CalendarOutlined />}
+          />
         </Col>
       </Row>
 
       <Row gutter={16}>
         <Col span={16}>
-          <Card title="最近事件">
+          <Card title="最近事件" style={{ borderRadius: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
             <List
               dataSource={data?.events || []}
               locale={{ emptyText: data ? '暂无事件' : '加载中...' }}
@@ -88,7 +101,7 @@ export default function DashboardPage() {
           </Card>
         </Col>
         <Col span={8}>
-          <Card title="集群状态">
+          <Card title="集群状态" style={{ borderRadius: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
             <List
               dataSource={data?.clusters || []}
               locale={{ emptyText: data ? '暂无集群' : '加载中...' }}
