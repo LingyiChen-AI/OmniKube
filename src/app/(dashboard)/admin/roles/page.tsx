@@ -2,10 +2,12 @@
 
 import { useState } from 'react';
 import {
-  Table, Button, Tag, Space, Popconfirm, message, Modal, Form, Input,
+  Table, Button, Tag, Space, Popconfirm, message, Modal, Form, Input, Checkbox,
 } from 'antd';
 import { PlusOutlined, DeleteOutlined, LockOutlined } from '@ant-design/icons';
 import { useRequest } from 'ahooks';
+import PageContainer from '@/components/page-container';
+import { gradientBtnStyle } from '@/lib/styles';
 
 const RESOURCES = ['deployments', 'statefulsets', 'daemonsets', 'jobs', 'pods', 'services', 'ingresses', 'configmaps', 'secrets', 'persistentvolumeclaims', 'storageclasses', 'namespaces', 'nodes'];
 const ACTIONS = ['get', 'list', 'create', 'update', 'delete'];
@@ -105,15 +107,44 @@ export default function RolesPage() {
     },
   ];
 
+  const permColumns = [
+    {
+      title: '资源',
+      dataIndex: 'resource',
+      key: 'resource',
+      fixed: 'left' as const,
+      width: 180,
+      render: (v: string) => <span style={{ fontWeight: 500 }}>{v}</span>,
+    },
+    ...ACTIONS.map((action) => ({
+      title: action,
+      key: action,
+      width: 80,
+      align: 'center' as const,
+      render: (_: any, record: { resource: string }) => (
+        <Checkbox
+          checked={(permissions[record.resource] || []).includes(action)}
+          onChange={() => toggleAction(record.resource, action)}
+        />
+      ),
+    })),
+  ];
+
+  const permData = RESOURCES.map((r) => ({ key: r, resource: r }));
+
   return (
-    <div>
-      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between' }}>
-        <h2>角色管理</h2>
-        <Button type="primary" icon={<PlusOutlined />} onClick={() => setAddOpen(true)}>
-          创建角色
-        </Button>
-      </div>
-      <Table columns={columns} dataSource={roles} rowKey="id" loading={loading} size="small" />
+    <>
+      <PageContainer
+        title="角色管理"
+        description="管理系统角色和权限配置"
+        extra={
+          <Button type="primary" icon={<PlusOutlined />} onClick={() => setAddOpen(true)} style={gradientBtnStyle}>
+            创建角色
+          </Button>
+        }
+      >
+        <Table columns={columns} dataSource={roles} rowKey="id" loading={loading} size="middle" />
+      </PageContainer>
 
       <Modal
         title="创建角色"
@@ -135,38 +166,16 @@ export default function RolesPage() {
           </Form.Item>
         </Form>
         <div>
-          <p style={{ fontWeight: 'bold', marginBottom: 8 }}>权限配置</p>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr>
-                <th style={{ textAlign: 'left', padding: '4px 8px', borderBottom: '1px solid #f0f0f0' }}>资源</th>
-                {ACTIONS.map((a) => (
-                  <th key={a} style={{ padding: '4px 8px', borderBottom: '1px solid #f0f0f0' }}>{a}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {RESOURCES.map((resource) => (
-                <tr key={resource}>
-                  <td style={{ padding: '4px 8px' }}>{resource}</td>
-                  {ACTIONS.map((action) => {
-                    const checked = (permissions[resource] || []).includes(action);
-                    return (
-                      <td key={action} style={{ textAlign: 'center', padding: '4px 8px' }}>
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() => toggleAction(resource, action)}
-                        />
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <p style={{ fontWeight: 600, marginBottom: 8, color: '#0f172a' }}>权限配置</p>
+          <Table
+            columns={permColumns}
+            dataSource={permData}
+            pagination={false}
+            size="small"
+            bordered
+          />
         </div>
       </Modal>
-    </div>
+    </>
   );
 }

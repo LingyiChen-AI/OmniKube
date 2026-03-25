@@ -1,9 +1,8 @@
 'use client';
 
-import { Table, Tag, Typography } from 'antd';
+import { Table, Tag } from 'antd';
 import { useRequest } from 'ahooks';
-
-const { Title } = Typography;
+import PageContainer from '@/components/page-container';
 
 const statusColors: Record<string, string> = {
   applied: 'green',
@@ -55,9 +54,8 @@ export default function ReleasesPage() {
   ];
 
   return (
-    <div>
-      <Title level={4}>发布记录</Title>
-      <Table columns={columns} dataSource={releases} rowKey="id" loading={loading} />
-    </div>
+    <PageContainer title="发布记录" description="查看应用发布历史">
+      <Table columns={columns} dataSource={releases} rowKey="id" loading={loading} size="middle" />
+    </PageContainer>
   );
 }

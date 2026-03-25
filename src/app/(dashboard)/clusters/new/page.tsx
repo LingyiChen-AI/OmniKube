@@ -3,6 +3,7 @@
 import { Form, Input, Select, Button, Card, message, Switch, Divider, Typography } from 'antd';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { gradientBtnStyle } from '@/lib/styles';
 
 const { TextArea } = Input;
 const { Text } = Typography;
@@ -87,7 +88,7 @@ export default function NewClusterPage() {
         )}
 
         <Form.Item style={{ marginTop: 24 }}>
-          <Button type="primary" htmlType="submit" loading={loading}>添加</Button>
+          <Button type="primary" htmlType="submit" loading={loading} style={gradientBtnStyle}>添加</Button>
           <Button style={{ marginLeft: 8 }} onClick={() => router.back()}>取消</Button>
         </Form.Item>
       </Form>

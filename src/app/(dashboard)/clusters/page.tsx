@@ -1,15 +1,15 @@
 'use client';
 
 import { useState } from 'react';
-import { Button, Table, Tag, Space, Popconfirm, message, Card, Typography } from 'antd';
+import { Button, Table, Tag, Space, Popconfirm, message } from 'antd';
 import {
   PlusOutlined, DeleteOutlined, ApiOutlined, EditOutlined,
   CheckCircleOutlined, CloseCircleOutlined, MinusCircleOutlined, LoadingOutlined,
 } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
 import { useRequest } from 'ahooks';
-
-const { Title } = Typography;
+import PageContainer from '@/components/page-container';
+import { gradientBtnStyle } from '@/lib/styles';
 
 const statusMap: Record<string, { color: string; label: string; icon: React.ReactNode }> = {
   connected: { color: 'success', label: '已连接', icon: <CheckCircleOutlined /> },
@@ -125,13 +125,15 @@ export default function ClustersPage() {
   ];
 
   return (
-    <div>
-      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Title level={4} style={{ margin: 0 }}>集群管理</Title>
-        <Button type="primary" icon={<PlusOutlined />} onClick={() => router.push('/clusters/new')}>
+    <PageContainer
+      title="集群管理"
+      description="管理和监控 Kubernetes 集群连接"
+      extra={
+        <Button type="primary" icon={<PlusOutlined />} onClick={() => router.push('/clusters/new')} style={gradientBtnStyle}>
           添加集群
         </Button>
-      </div>
+      }
+    >
       <Table
         columns={columns}
         dataSource={clusters}
@@ -141,6 +143,6 @@ export default function ClustersPage() {
         pagination={false}
         scroll={{ x: 'max-content' }}
       />
-    </div>
+    </PageContainer>
   );
 }

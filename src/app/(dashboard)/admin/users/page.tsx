@@ -6,6 +6,8 @@ import {
 } from 'antd';
 import { PlusOutlined, DeleteOutlined, EditOutlined } from '@ant-design/icons';
 import { useRequest } from 'ahooks';
+import PageContainer from '@/components/page-container';
+import { gradientBtnStyle } from '@/lib/styles';
 
 export default function UsersPage() {
   const [addOpen, setAddOpen] = useState(false);
@@ -119,14 +121,18 @@ export default function UsersPage() {
   ];
 
   return (
-    <div>
-      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between' }}>
-        <h2>用户管理</h2>
-        <Button type="primary" icon={<PlusOutlined />} onClick={() => setAddOpen(true)}>
-          添加用户
-        </Button>
-      </div>
-      <Table columns={columns} dataSource={users} rowKey="id" loading={loading} size="small" />
+    <>
+      <PageContainer
+        title="用户管理"
+        description="管理系统用户和权限分配"
+        extra={
+          <Button type="primary" icon={<PlusOutlined />} onClick={() => setAddOpen(true)} style={gradientBtnStyle}>
+            添加用户
+          </Button>
+        }
+      >
+        <Table columns={columns} dataSource={users} rowKey="id" loading={loading} size="middle" />
+      </PageContainer>
 
       {/* Add User Modal */}
       <Modal
@@ -173,6 +179,6 @@ export default function UsersPage() {
           </Form.Item>
         </Form>
       </Modal>
-    </div>
+    </>
   );
 }

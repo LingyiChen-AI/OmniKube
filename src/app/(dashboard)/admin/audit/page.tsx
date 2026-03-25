@@ -1,8 +1,9 @@
 'use client';
 
-import { Table, Select, Space, Tag } from 'antd';
+import { Table, Select, Tag } from 'antd';
 import { useRequest } from 'ahooks';
 import { useState } from 'react';
+import PageContainer from '@/components/page-container';
 
 export default function AuditPage() {
   const [filters, setFilters] = useState<Record<string, string>>({});
@@ -40,36 +41,40 @@ export default function AuditPage() {
   ];
 
   return (
-    <div>
-      <h2>审计日志</h2>
-      <Space style={{ marginBottom: 16 }}>
-        <Select
-          placeholder="操作类型"
-          allowClear
-          style={{ width: 150 }}
-          onChange={(v) => { setFilters((f) => ({ ...f, ...(v ? { action: v } : { action: '' }) })); setPage(1); }}
-          options={[
-            { value: 'create', label: '创建' },
-            { value: 'update', label: '更新' },
-            { value: 'delete', label: '删除' },
-            { value: 'login', label: '登录' },
-            { value: 'logout', label: '登出' },
-          ]}
-        />
-        <Select
-          placeholder="资源类型"
-          allowClear
-          style={{ width: 150 }}
-          onChange={(v) => { setFilters((f) => ({ ...f, ...(v ? { resourceType: v } : { resourceType: '' }) })); setPage(1); }}
-          options={[
-            { value: 'user', label: '用户' },
-            { value: 'cluster', label: '集群' },
-            { value: 'deployment', label: 'Deployment' },
-            { value: 'service', label: 'Service' },
-            { value: 'role', label: '角色' },
-          ]}
-        />
-      </Space>
+    <PageContainer
+      title="审计日志"
+      description="查看系统操作记录"
+      filters={
+        <>
+          <Select
+            placeholder="操作类型"
+            allowClear
+            style={{ width: 150 }}
+            onChange={(v) => { setFilters((f) => ({ ...f, ...(v ? { action: v } : { action: '' }) })); setPage(1); }}
+            options={[
+              { value: 'create', label: '创建' },
+              { value: 'update', label: '更新' },
+              { value: 'delete', label: '删除' },
+              { value: 'login', label: '登录' },
+              { value: 'logout', label: '登出' },
+            ]}
+          />
+          <Select
+            placeholder="资源类型"
+            allowClear
+            style={{ width: 150 }}
+            onChange={(v) => { setFilters((f) => ({ ...f, ...(v ? { resourceType: v } : { resourceType: '' }) })); setPage(1); }}
+            options={[
+              { value: 'user', label: '用户' },
+              { value: 'cluster', label: '集群' },
+              { value: 'deployment', label: 'Deployment' },
+              { value: 'service', label: 'Service' },
+              { value: 'role', label: '角色' },
+            ]}
+          />
+        </>
+      }
+    >
       <Table
         columns={columns}
         dataSource={logs}
@@ -80,8 +85,8 @@ export default function AuditPage() {
           onChange: setPage,
           pageSize: 20,
         }}
-        size="small"
+        size="middle"
       />
-    </div>
+    </PageContainer>
   );
 }
