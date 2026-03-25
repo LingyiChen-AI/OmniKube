@@ -92,11 +92,19 @@ export default function PodTerminal({ open, onClose, clusterId, namespace, podNa
     // Fetch WS token
     let wsToken: string;
     try {
-      const tokenRes = await fetch('/api/auth/me');
+      const tokenRes = await fetch('/api/auth/me', { credentials: 'include' });
+      if (!tokenRes.ok) {
+        setError('认证失败，请重新登录');
+        return;
+      }
       const tokenData = await tokenRes.json();
       wsToken = tokenData.wsToken;
-    } catch {
-      setError('无法获取认证令牌');
+      if (!wsToken) {
+        setError('无法获取 WebSocket 令牌');
+        return;
+      }
+    } catch (e: any) {
+      setError('获取认证令牌失败: ' + (e.message || '网络错误'));
       return;
     }
 
