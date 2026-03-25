@@ -23,7 +23,7 @@ export default function ResourceTable({ data, loading, columns }: Props) {
       dataSource={data}
       rowKey={(record) => record.metadata?.uid || record.metadata?.name}
       loading={loading}
-      size="small"
+      size="middle"
       pagination={{ pageSize: 20 }}
     />
   );

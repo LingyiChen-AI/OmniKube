@@ -18,7 +18,7 @@ export default function NamespaceSelector({ value, onChange }: Props) {
       placeholder="所有命名空间"
       allowClear
       loading={loading}
-      style={{ width: 200, marginBottom: 16 }}
+      style={{ width: 200 }}
       options={namespaces.map((ns: any) => ({
         value: ns.metadata?.name,
         label: ns.metadata?.name,
