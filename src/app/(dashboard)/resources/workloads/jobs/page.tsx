@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Tag, Typography, Button, Space, message } from 'antd';
+import { Tag, Button, Space, message } from 'antd';
 import ResourceTable from '@/components/resource-table';
 import NamespaceSelector from '@/components/namespace-selector';
 import ResourceDrawer from '@/components/resource-drawer';
@@ -9,8 +9,8 @@ import DeleteConfirm from '@/components/delete-confirm';
 import { useK8sResource } from '@/hooks/use-k8s-resource';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useClusterStore } from '@/hooks/use-cluster';
-
-const { Title } = Typography;
+import PageContainer from '@/components/page-container';
+import { gradientBtnStyle } from '@/lib/styles';
 
 export default function JobsPage() {
   const [namespace, setNamespace] = useState<string | undefined>();
@@ -78,15 +78,18 @@ export default function JobsPage() {
   ];
 
   return (
-    <div>
-      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Title level={4} style={{ margin: 0 }}>Jobs / CronJobs</Title>
-        {permissions.canCreate && (
-          <Button type="primary" onClick={() => setDrawerState({ open: true, mode: 'create' })}>+ 创建</Button>
-        )}
-      </div>
-      <NamespaceSelector value={namespace} onChange={handleNsChange} />
-      <ResourceTable data={data} loading={loading} columns={columns} />
+    <>
+      <PageContainer
+        title="Jobs / CronJobs"
+        extra={permissions.canCreate ? (
+          <Button type="primary" onClick={() => setDrawerState({ open: true, mode: 'create' })} style={gradientBtnStyle}>
+            + 创建
+          </Button>
+        ) : undefined}
+        filters={<NamespaceSelector value={namespace} onChange={handleNsChange} />}
+      >
+        <ResourceTable data={data} loading={loading} columns={columns} />
+      </PageContainer>
       <ResourceDrawer
         open={drawerState.open}
         mode={drawerState.mode}
@@ -98,6 +101,6 @@ export default function JobsPage() {
         onClose={() => setDrawerState({ open: false, mode: 'view' })}
         onSuccess={() => { setDrawerState({ open: false, mode: 'view' }); refresh(); }}
       />
-    </div>
+    </>
   );
 }

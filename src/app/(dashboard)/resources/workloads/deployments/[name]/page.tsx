@@ -308,7 +308,7 @@ export default function DeploymentDetailPage() {
           rowKey={(r) => r.metadata?.uid || r.metadata?.name}
           loading={loadingPods}
           pagination={false}
-          size="small"
+          size="middle"
         />
       </Card>
 

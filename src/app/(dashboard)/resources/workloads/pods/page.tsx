@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Tag, Typography, Space, message } from 'antd';
+import { Tag, Space, message } from 'antd';
 import ResourceTable from '@/components/resource-table';
 import NamespaceSelector from '@/components/namespace-selector';
 import ResourceDrawer from '@/components/resource-drawer';
@@ -9,8 +9,7 @@ import DeleteConfirm from '@/components/delete-confirm';
 import { useK8sResource } from '@/hooks/use-k8s-resource';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useClusterStore } from '@/hooks/use-cluster';
-
-const { Title } = Typography;
+import PageContainer from '@/components/page-container';
 
 const phaseColors: Record<string, string> = {
   Running: 'green',
@@ -97,12 +96,13 @@ export default function PodsPage() {
   ];
 
   return (
-    <div>
-      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Title level={4} style={{ margin: 0 }}>Pods</Title>
-      </div>
-      <NamespaceSelector value={namespace} onChange={handleNsChange} />
-      <ResourceTable data={data} loading={loading} columns={columns} />
+    <>
+      <PageContainer
+        title="Pods"
+        filters={<NamespaceSelector value={namespace} onChange={handleNsChange} />}
+      >
+        <ResourceTable data={data} loading={loading} columns={columns} />
+      </PageContainer>
       <ResourceDrawer
         open={drawerState.open}
         mode={drawerState.mode}
@@ -114,6 +114,6 @@ export default function PodsPage() {
         onClose={() => setDrawerState({ open: false, mode: 'view' })}
         onSuccess={() => { setDrawerState({ open: false, mode: 'view' }); refresh(); }}
       />
-    </div>
+    </>
   );
 }

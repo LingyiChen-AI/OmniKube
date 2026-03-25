@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Tag, Typography, Button, Space, message } from 'antd';
+import { Tag, Button, Space, message } from 'antd';
 import { useRouter } from 'next/navigation';
 import ResourceTable from '@/components/resource-table';
 import NamespaceSelector from '@/components/namespace-selector';
@@ -10,8 +10,8 @@ import DeleteConfirm from '@/components/delete-confirm';
 import { useK8sResource } from '@/hooks/use-k8s-resource';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useClusterStore } from '@/hooks/use-cluster';
-
-const { Title } = Typography;
+import PageContainer from '@/components/page-container';
+import { gradientBtnStyle } from '@/lib/styles';
 
 export default function DeploymentsPage() {
   const [namespace, setNamespace] = useState<string | undefined>();
@@ -84,15 +84,18 @@ export default function DeploymentsPage() {
   ];
 
   return (
-    <div>
-      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Title level={4} style={{ margin: 0 }}>Deployments</Title>
-        {permissions.canCreate && (
-          <Button type="primary" onClick={() => setDrawerState({ open: true, mode: 'create' })}>+ 创建</Button>
-        )}
-      </div>
-      <NamespaceSelector value={namespace} onChange={handleNsChange} />
-      <ResourceTable data={data} loading={loading} columns={columns} />
+    <>
+      <PageContainer
+        title="Deployments"
+        extra={permissions.canCreate ? (
+          <Button type="primary" onClick={() => setDrawerState({ open: true, mode: 'create' })} style={gradientBtnStyle}>
+            + 创建
+          </Button>
+        ) : undefined}
+        filters={<NamespaceSelector value={namespace} onChange={handleNsChange} />}
+      >
+        <ResourceTable data={data} loading={loading} columns={columns} />
+      </PageContainer>
       <ResourceDrawer
         open={drawerState.open}
         mode={drawerState.mode}
@@ -104,6 +107,6 @@ export default function DeploymentsPage() {
         onClose={() => setDrawerState({ open: false, mode: 'view' })}
         onSuccess={() => { setDrawerState({ open: false, mode: 'view' }); refresh(); }}
       />
-    </div>
+    </>
   );
 }
