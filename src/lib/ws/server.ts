@@ -54,71 +54,71 @@ async function handleExec(ws: AuthenticatedSocket, msg: any) {
 
   try {
     const clients = await getK8sClient(clusterId);
-    const kc = clients.kc;
+    const exec = new k8s.Exec(clients.kc);
 
-    // Build the exec WebSocket URL directly
-    const cluster = kc.getCurrentCluster();
-    const user = kc.getCurrentUser();
-    if (!cluster || !user) throw new Error('No cluster/user configured');
+    const shellCmd = `TERM=xterm-256color; export TERM; export PS1='\\033[01;32mroot@${podName}\\033[00m:\\033[01;34m\\w\\033[00m\\$ '; [ -x /bin/bash ] && exec /bin/bash --norc || exec /bin/sh`;
 
-    const cmd = encodeURIComponent('/bin/sh');
-    const cmdArgs = ['-c', `TERM=xterm-256color; export TERM; export PS1='\\033[01;32mroot@${podName}\\033[00m:\\033[01;34m\\w\\033[00m\\$ '; [ -x /bin/bash ] && exec /bin/bash --norc || exec /bin/sh`];
-    const cmdQuery = cmdArgs.map(a => `command=${encodeURIComponent(a)}`).join('&');
-    const containerParam = container ? `&container=${encodeURIComponent(container)}` : '';
+    // Use k8s.Exec with WebSocket status callback to know when connection is ready
+    const execConn = await exec.exec(
+      namespace,
+      podName,
+      container || '',
+      ['/bin/sh', '-c', shellCmd],
+      process.stdout, // dummy, we override via websocket
+      process.stderr, // dummy
+      null,           // no stdin stream — we send directly via websocket
+      true,           // tty
+      (status: k8s.V1Status) => {
+        console.log('Exec status:', JSON.stringify(status));
+      },
+    );
 
-    const serverUrl = cluster.server.replace(/\/$/, '');
-    const execPath = `/api/v1/namespaces/${namespace}/pods/${podName}/exec?command=${cmd}&${cmdQuery}${containerParam}&stdin=true&stdout=true&stderr=true&tty=true`;
+    // execConn is a WebSocket — talk K8s exec protocol directly
+    const k8sWs = execConn as any;
 
-    // Convert to WebSocket URL
-    const wsUrl = serverUrl.replace(/^http/, 'ws') + execPath;
-
-    // Get auth options
-    const opts: any = {};
-    await kc.applyToHTTPSOptions(opts);
-
-    // Connect directly to K8s API WebSocket
-    const k8sWsOpts: any = {
-      headers: {} as Record<string, string>,
-      rejectUnauthorized: false, // TODO: use CA cert
-      protocol: 'v4.channel.k8s.io',
+    // Override: intercept stdout/stderr from the K8s websocket
+    const origOnMessage = k8sWs.onmessage;
+    k8sWs.onmessage = (event: any) => {
+      try {
+        const data = typeof event.data === 'string' ? Buffer.from(event.data) : Buffer.from(event.data);
+        if (data.length === 0) return;
+        const channel = data[0];
+        const content = data.slice(1).toString('utf8');
+        if ((channel === 1 || channel === 2) && content && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'exec-output', data: content }));
+        } else if (channel === 3) {
+          // Status channel
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'exec-output', data: `\r\n\x1b[33m[${content}]\x1b[0m\r\n` }));
+          }
+        }
+      } catch (err) {
+        console.error('Exec message parse error:', err);
+      }
     };
 
-    // Apply auth (token or client cert)
-    if (user.token) {
-      k8sWsOpts.headers['Authorization'] = `Bearer ${user.token}`;
-    }
-    if (opts.cert) k8sWsOpts.cert = opts.cert;
-    if (opts.key) k8sWsOpts.key = opts.key;
-    if (opts.ca) { k8sWsOpts.ca = opts.ca; k8sWsOpts.rejectUnauthorized = true; }
+    // Forward client input → K8s exec stdin (channel 0)
+    const messageHandler = (rawData: any) => {
+      try {
+        const parsed = JSON.parse(rawData.toString());
+        if (parsed.type === 'exec-input' && k8sWs.readyState === WebSocket.OPEN) {
+          const inputBuf = Buffer.from(parsed.data, 'utf8');
+          const frame = Buffer.alloc(inputBuf.length + 1);
+          frame.writeUInt8(0, 0); // channel 0 = stdin
+          inputBuf.copy(frame, 1);
+          k8sWs.send(frame);
+        } else if (parsed.type === 'exec-resize' && k8sWs.readyState === WebSocket.OPEN) {
+          const resizeMsg = JSON.stringify({ Width: parsed.cols, Height: parsed.rows });
+          const resizeBuf = Buffer.from(resizeMsg, 'utf8');
+          const frame = Buffer.alloc(resizeBuf.length + 1);
+          frame.writeUInt8(4, 0); // channel 4 = resize
+          resizeBuf.copy(frame, 1);
+          k8sWs.send(frame);
+        }
+      } catch {}
+    };
 
-    const K8sWs = (await import('ws')).default;
-    const k8sWs = new K8sWs(wsUrl, ['v4.channel.k8s.io'], k8sWsOpts);
-
-    k8sWs.on('open', () => {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: 'exec-ready' }));
-      }
-    });
-
-    k8sWs.on('message', (data: Buffer) => {
-      if (ws.readyState !== WebSocket.OPEN) return;
-      // K8s exec protocol: first byte is channel number
-      // 0 = stdin, 1 = stdout, 2 = stderr, 3 = status
-      const channel = data[0];
-      const content = data.slice(1).toString();
-      if (channel === 1 || channel === 2) {
-        ws.send(JSON.stringify({ type: 'exec-output', data: content }));
-      } else if (channel === 3) {
-        // Status/error channel
-        ws.send(JSON.stringify({ type: 'exec-output', data: `\r\n\x1b[33m${content}\x1b[0m\r\n` }));
-      }
-    });
-
-    k8sWs.on('error', (err: Error) => {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: 'error', message: `K8s exec 错误: ${err.message}` }));
-      }
-    });
+    ws.on('message', messageHandler);
 
     k8sWs.on('close', () => {
       if (ws.readyState === WebSocket.OPEN) {
@@ -126,37 +126,20 @@ async function handleExec(ws: AuthenticatedSocket, msg: any) {
       }
     });
 
-    // Forward client input → K8s exec stdin (channel 0)
-    const messageHandler = (rawData: any) => {
-      try {
-        const parsed = JSON.parse(rawData.toString());
-        if (parsed.type === 'exec-input' && k8sWs.readyState === K8sWs.OPEN) {
-          const inputBuf = Buffer.from(parsed.data);
-          const msg = Buffer.alloc(inputBuf.length + 1);
-          msg.writeUInt8(0, 0); // channel 0 = stdin
-          inputBuf.copy(msg, 1);
-          k8sWs.send(msg);
-        } else if (parsed.type === 'exec-resize' && k8sWs.readyState === K8sWs.OPEN) {
-          const resizeMsg = JSON.stringify({ Width: parsed.cols, Height: parsed.rows });
-          const resizeBuf = Buffer.from(resizeMsg);
-          const msg = Buffer.alloc(resizeBuf.length + 1);
-          msg.writeUInt8(4, 0); // channel 4 = resize
-          resizeBuf.copy(msg, 1);
-          k8sWs.send(msg);
-        }
-      } catch {
-        // Ignore parse errors
+    k8sWs.on('error', (err: Error) => {
+      console.error('K8s exec ws error:', err.message);
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'error', message: `Exec 错误: ${err.message}` }));
       }
-    };
-
-    ws.on('message', messageHandler);
+    });
 
     ws.on('close', () => {
       ws.removeListener('message', messageHandler);
-      if (k8sWs.readyState === K8sWs.OPEN) k8sWs.close();
+      try { k8sWs.close(); } catch {}
     });
 
   } catch (err: any) {
+    console.error('handleExec error:', err);
     if (ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify({ type: 'error', message: `Exec 失败: ${err.message}` }));
     }
@@ -244,15 +227,17 @@ async function runHealthChecks() {
   }
 }
 
-export function startWsServer() {
+export function startWsServer(httpServer?: import('http').Server) {
   if (started) return;
   started = true;
 
-  const port = parseInt(process.env.WS_PORT || '3001');
-  const wss = new WebSocketServer({ port });
+  // Attach to existing HTTP server or create standalone on WS_PORT
+  const wss = httpServer
+    ? new WebSocketServer({ server: httpServer, path: '/ws' })
+    : new WebSocketServer({ port: parseInt(process.env.WS_PORT || '3001') });
 
   wss.on('connection', async (ws: AuthenticatedSocket, req) => {
-    const url = new URL(req.url || '', `http://localhost:${port}`);
+    const url = new URL(req.url || '', `http://localhost:3000`);
     const token = url.searchParams.get('token');
 
     if (!token) {
@@ -296,5 +281,5 @@ export function startWsServer() {
     } catch {}
   }, 60 * 60 * 1000);
 
-  console.log(`WebSocket server running on port ${port}`);
+  console.log(`WebSocket server started${httpServer ? ' (attached to HTTP server at /ws)' : ''}`);
 }
