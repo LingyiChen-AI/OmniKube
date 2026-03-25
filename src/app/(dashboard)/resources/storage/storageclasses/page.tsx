@@ -1,14 +1,37 @@
 'use client';
 
-import { Tag } from 'antd';
+import { useState } from 'react';
+import { Tag, Typography, Button, Space, message } from 'antd';
 import ResourceTable from '@/components/resource-table';
+import ResourceDrawer from '@/components/resource-drawer';
+import DeleteConfirm from '@/components/delete-confirm';
 import { useK8sResource } from '@/hooks/use-k8s-resource';
+import { usePermissions } from '@/hooks/use-permissions';
+import { useClusterStore } from '@/hooks/use-cluster';
+
+const { Title } = Typography;
 
 export default function StorageClassesPage() {
-  const { data = [], loading } = useK8sResource('storageclasses');
+  const { data = [], loading, refresh } = useK8sResource('storageclasses');
+  const permissions = usePermissions('storageclasses');
+  const { clusterId } = useClusterStore();
+  const [drawerState, setDrawerState] = useState<{ open: boolean; mode: 'view' | 'edit' | 'create'; record?: any }>({ open: false, mode: 'view' });
+
+  const handleDelete = async (record: any) => {
+    const name = record.metadata?.name;
+    if (!clusterId || !name) return;
+    const res = await fetch(`/api/k8s/${clusterId}/storageclasses/${name}`, { method: 'DELETE' });
+    if (res.ok) { message.success(`StorageClass ${name} 已删除`); refresh(); }
+    else { const d = await res.json().catch(() => ({})); message.error(d.error || '删除失败'); }
+  };
 
   const columns = [
-    { title: '名称', dataIndex: ['metadata', 'name'], key: 'name' },
+    {
+      title: '名称', dataIndex: ['metadata', 'name'], key: 'name',
+      render: (text: string, record: any) => (
+        <a onClick={() => setDrawerState({ open: true, mode: 'view', record })}>{text}</a>
+      ),
+    },
     {
       title: 'Provisioner',
       dataIndex: 'provisioner',
@@ -37,12 +60,40 @@ export default function StorageClassesPage() {
       key: 'created',
       render: (t: string) => new Date(t).toLocaleString(),
     },
+    {
+      title: '操作', key: 'actions', width: 150,
+      render: (_: any, record: any) => (
+        <Space>
+          {permissions.canUpdate && (
+            <Button size="small" type="link" onClick={() => setDrawerState({ open: true, mode: 'edit', record })}>编辑</Button>
+          )}
+          {permissions.canDelete && (
+            <DeleteConfirm name={record.metadata?.name} kindLabel="StorageClass" onConfirm={() => handleDelete(record)} />
+          )}
+        </Space>
+      ),
+    },
   ];
 
   return (
     <div>
-      <h2>StorageClasses</h2>
+      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Title level={4} style={{ margin: 0 }}>StorageClasses</Title>
+        {permissions.canCreate && (
+          <Button type="primary" onClick={() => setDrawerState({ open: true, mode: 'create' })}>+ 创建</Button>
+        )}
+      </div>
       <ResourceTable data={data} loading={loading} columns={columns} />
+      <ResourceDrawer
+        open={drawerState.open}
+        mode={drawerState.mode}
+        kind="storageclasses"
+        kindLabel="StorageClass"
+        record={drawerState.record}
+        permissions={permissions}
+        onClose={() => setDrawerState({ open: false, mode: 'view' })}
+        onSuccess={() => { setDrawerState({ open: false, mode: 'view' }); refresh(); }}
+      />
     </div>
   );
 }
