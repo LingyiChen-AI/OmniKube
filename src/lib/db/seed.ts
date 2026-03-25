@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { db } from './index';
 import { users, roles, rolePermissions, userRoleBindings } from './schema';
 import { hashPassword } from '@/lib/auth/password';

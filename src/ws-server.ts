@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { WebSocketServer, WebSocket } from 'ws';
 import { PassThrough } from 'stream';
 import { db } from './lib/db';
