@@ -1,8 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { ProLayout } from '@ant-design/pro-layout';
+import dynamic from 'next/dynamic';
 import { ConfigProvider, Dropdown, Avatar, App } from 'antd';
+
+const ProLayout = dynamic(() => import('@ant-design/pro-layout').then(m => m.ProLayout), { ssr: false });
 import {
   DashboardOutlined, ClusterOutlined, CloudServerOutlined,
   SettingOutlined, FileTextOutlined,
