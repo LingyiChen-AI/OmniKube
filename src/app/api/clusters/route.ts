@@ -4,25 +4,30 @@ import { clusters } from '@/lib/db/schema';
 import { validateSession } from '@/lib/auth/session';
 import { encrypt } from '@/lib/crypto';
 import { writeAuditLog } from '@/lib/audit/logger';
-import { desc } from 'drizzle-orm';
+import { desc, inArray } from 'drizzle-orm';
+import { getUserAccessibleClusterIds } from '@/lib/rbac/check';
 
 export async function GET() {
   const auth = await validateSession();
   if (!auth) return NextResponse.json({ error: '未登录' }, { status: 401 });
 
-  const list = await db.select({
-    id: clusters.id,
-    name: clusters.name,
-    displayName: clusters.displayName,
-    apiServerUrl: clusters.apiServerUrl,
-    authType: clusters.authType,
-    status: clusters.status,
-    lastHealthCheckAt: clusters.lastHealthCheckAt,
-    description: clusters.description,
-    webhookUrl: clusters.webhookUrl,
-    notifyEnabled: clusters.notifyEnabled,
-    createdAt: clusters.createdAt,
-  }).from(clusters).orderBy(desc(clusters.createdAt));
+  const accessibleIds = await getUserAccessibleClusterIds(auth.user.id);
+
+  if (accessibleIds !== null && accessibleIds.length === 0) {
+    return NextResponse.json([]);
+  }
+
+  const query = db.select({
+    id: clusters.id, name: clusters.name, displayName: clusters.displayName,
+    apiServerUrl: clusters.apiServerUrl, authType: clusters.authType,
+    status: clusters.status, lastHealthCheckAt: clusters.lastHealthCheckAt,
+    description: clusters.description, webhookUrl: clusters.webhookUrl,
+    notifyEnabled: clusters.notifyEnabled, createdAt: clusters.createdAt,
+  }).from(clusters);
+
+  const list = accessibleIds === null
+    ? await query.orderBy(desc(clusters.createdAt))
+    : await query.where(inArray(clusters.id, accessibleIds)).orderBy(desc(clusters.createdAt));
 
   return NextResponse.json(list);
 }

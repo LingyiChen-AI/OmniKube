@@ -90,17 +90,26 @@ export const rolePermissions = pgTable('role_permissions', {
   uniqueIndex('role_permissions_role_resource_idx').on(table.roleId, table.resource),
 ]);
 
-// User role bindings
+// Role cluster bindings - defines which clusters a role can access
+export const roleClusterBindings = pgTable('role_cluster_bindings', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  roleId: uuid('role_id').notNull().references(() => roles.id, { onDelete: 'cascade' }),
+  clusterId: uuid('cluster_id').references(() => clusters.id, { onDelete: 'cascade' }),
+  namespaces: text('namespaces').array(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex('role_cluster_bindings_role_cluster_idx').on(table.roleId, table.clusterId),
+]);
+
+// User role bindings - links users to roles (scope is defined at role level)
 export const userRoleBindings = pgTable('user_role_bindings', {
   id: uuid('id').defaultRandom().primaryKey(),
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   roleId: uuid('role_id').notNull().references(() => roles.id, { onDelete: 'cascade' }),
-  clusterId: uuid('cluster_id').references(() => clusters.id, { onDelete: 'cascade' }),
-  namespace: varchar('namespace', { length: 255 }),
   createdBy: uuid('created_by').references(() => users.id),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 }, (table) => [
-  uniqueIndex('user_role_bindings_unique_idx').on(table.userId, table.roleId, table.clusterId, table.namespace),
+  uniqueIndex('user_role_bindings_unique_idx').on(table.userId, table.roleId),
 ]);
 
 // App templates

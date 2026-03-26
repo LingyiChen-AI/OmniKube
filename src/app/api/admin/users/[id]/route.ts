@@ -4,6 +4,7 @@ import { users, userRoleBindings } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { validateSession } from '@/lib/auth/session';
 import { writeAuditLog } from '@/lib/audit/logger';
+import { isSuperAdmin } from '@/lib/auth/admin-check';
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await validateSession();
@@ -31,6 +32,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await validateSession();
   if (!auth) return NextResponse.json({ error: '未登录' }, { status: 401 });
+  if (!await isSuperAdmin(auth.user.id)) return NextResponse.json({ error: '需要管理员权限' }, { status: 403 });
 
   const { id } = await params;
   const body = await req.json();
@@ -40,6 +42,18 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     isActive: body.isActive,
     updatedAt: new Date(),
   }).where(eq(users.id, id));
+
+  // Update role binding
+  if (body.roleId !== undefined) {
+    await db.delete(userRoleBindings).where(eq(userRoleBindings.userId, id));
+    if (body.roleId) {
+      await db.insert(userRoleBindings).values({
+        userId: id,
+        roleId: body.roleId,
+        createdBy: auth.user.id,
+      });
+    }
+  }
 
   await writeAuditLog({
     userId: auth.user.id,
@@ -57,6 +71,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await validateSession();
   if (!auth) return NextResponse.json({ error: '未登录' }, { status: 401 });
+  if (!await isSuperAdmin(auth.user.id)) return NextResponse.json({ error: '需要管理员权限' }, { status: 403 });
 
   const { id } = await params;
 

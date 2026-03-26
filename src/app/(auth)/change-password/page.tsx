@@ -4,6 +4,7 @@ import { Form, Input, Button, message, Alert } from 'antd';
 import { LockOutlined } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
 import AuthBrand from '@/components/auth-brand';
+import { gradientBtnStyle } from '@/lib/styles';
 
 export default function ChangePasswordPage() {
   const router = useRouter();
@@ -45,7 +46,7 @@ export default function ChangePasswordPage() {
               <Form.Item name="confirmPassword" dependencies={['newPassword']} rules={[{ required: true, message: '请确认新密码' }, ({ getFieldValue }) => ({ validator(_, value) { if (!value || getFieldValue('newPassword') === value) return Promise.resolve(); return Promise.reject(new Error('两次输入的密码不一致')); } })]}>
                 <Input.Password prefix={<LockOutlined />} placeholder="确认新密码" />
               </Form.Item>
-              <Form.Item><Button type="primary" htmlType="submit" loading={loading} block>确认修改</Button></Form.Item>
+              <Form.Item><Button type="primary" htmlType="submit" loading={loading} block style={gradientBtnStyle}>确认修改</Button></Form.Item>
             </Form>
           </div>
         </div>

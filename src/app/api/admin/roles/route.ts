@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { roles, rolePermissions } from '@/lib/db/schema';
+import { roles, rolePermissions, roleClusterBindings } from '@/lib/db/schema';
 import { validateSession } from '@/lib/auth/session';
 import { writeAuditLog } from '@/lib/audit/logger';
+import { isSuperAdmin } from '@/lib/auth/admin-check';
 import { desc } from 'drizzle-orm';
 
 export async function GET() {
@@ -16,8 +17,9 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const auth = await validateSession();
   if (!auth) return NextResponse.json({ error: '未登录' }, { status: 401 });
+  if (!await isSuperAdmin(auth.user.id)) return NextResponse.json({ error: '需要管理员权限' }, { status: 403 });
 
-  const { name, displayName, description, permissions } = await req.json();
+  const { name, displayName, description, permissions, clusterBindings } = await req.json();
 
   const [role] = await db.insert(roles).values({
     name,
@@ -32,6 +34,17 @@ export async function POST(req: NextRequest) {
         roleId: role.id,
         resource: perm.resource,
         actions: perm.actions,
+      });
+    }
+  }
+
+  // Insert cluster bindings
+  if (clusterBindings && Array.isArray(clusterBindings)) {
+    for (const cb of clusterBindings) {
+      await db.insert(roleClusterBindings).values({
+        roleId: role.id,
+        clusterId: cb.clusterId || null,
+        namespaces: cb.namespaces && cb.namespaces.length > 0 ? cb.namespaces : null,
       });
     }
   }

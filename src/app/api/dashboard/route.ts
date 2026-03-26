@@ -1,21 +1,27 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { clusters, appReleases } from '@/lib/db/schema';
-import { eq, gte, and, sql } from 'drizzle-orm';
+import { eq, gte, and, sql, inArray } from 'drizzle-orm';
 import { validateSession } from '@/lib/auth/session';
 import { getK8sClient } from '@/lib/k8s/client-manager';
+import { getUserAccessibleClusterIds } from '@/lib/rbac/check';
 
 export async function GET() {
   const auth = await validateSession();
   if (!auth) return NextResponse.json({ error: '未登录' }, { status: 401 });
 
-  // Get all clusters
-  const allClusters = await db.select({
-    id: clusters.id,
-    name: clusters.name,
-    displayName: clusters.displayName,
-    status: clusters.status,
+  const accessibleIds = await getUserAccessibleClusterIds(auth.user.id);
+
+  // Get clusters filtered by user permissions
+  const clusterQuery = db.select({
+    id: clusters.id, name: clusters.name, displayName: clusters.displayName, status: clusters.status,
   }).from(clusters);
+
+  const allClusters = accessibleIds === null
+    ? await clusterQuery
+    : accessibleIds.length === 0
+    ? []
+    : await clusterQuery.where(inArray(clusters.id, accessibleIds));
 
   // Today's releases count
   const today = new Date();

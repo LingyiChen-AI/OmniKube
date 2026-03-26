@@ -3,7 +3,7 @@ import { db } from '@/lib/db';
 import { clusters } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { validateSession } from '@/lib/auth/session';
-import { getUserBindings, checkPermission } from '@/lib/rbac/check';
+import { getUserBindings, checkPermission, getUserAccessibleNamespaces } from '@/lib/rbac/check';
 import { writeAuditLog } from '@/lib/audit/logger';
 import { sendFeishuNotification } from '@/lib/notify/feishu';
 import { listResources, getResource, createResource, updateResource, deleteResource, type ResourceKind } from '@/lib/k8s/resources';
@@ -99,7 +99,22 @@ async function handleRequest(req: NextRequest, params: Promise<Params>) {
   try {
     if (req.method === 'GET' && !name) {
       // List resources
-      const items = await listResources(clusterId, kind, namespace);
+      let items = await listResources(clusterId, kind, namespace);
+
+      // Filter by accessible namespaces
+      const accessibleNs = await getUserAccessibleNamespaces(auth.user.id, clusterId);
+      if (accessibleNs !== null) {
+        if (kind === 'namespaces') {
+          // Filter namespace list itself
+          items = items.filter((item: any) => accessibleNs.includes(item.metadata?.name));
+        } else if (kind !== 'nodes' && kind !== 'storageclasses') {
+          // Filter namespaced resources
+          if (!namespace) {
+            items = items.filter((item: any) => accessibleNs.includes(item.metadata?.namespace));
+          }
+        }
+      }
+
       await writeAuditLog({
         userId: auth.user.id,
         action: 'list',
@@ -137,7 +152,8 @@ async function handleRequest(req: NextRequest, params: Promise<Params>) {
     }
 
     if (req.method === 'PUT' && name) {
-      const changeMessage = req.headers.get('X-Change-Message') || undefined;
+      const rawMsg = req.headers.get('X-Change-Message');
+      const changeMessage = rawMsg ? decodeURIComponent(rawMsg) : undefined;
       const body = await req.json();
       const updated = await updateResource(clusterId, kind, name, body, namespace);
       await writeAuditLog({

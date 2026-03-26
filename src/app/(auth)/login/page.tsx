@@ -4,6 +4,7 @@ import { Form, Input, Button, Tabs, message } from 'antd';
 import { UserOutlined, LockOutlined, MailOutlined } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
 import AuthBrand from '@/components/auth-brand';
+import { gradientBtnStyle } from '@/lib/styles';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -62,7 +63,7 @@ export default function LoginPage() {
                 <Form onFinish={handlePasswordLogin} size="large">
                   <Form.Item name="username" rules={[{ required: true, message: '请输入用户名' }]}><Input prefix={<UserOutlined />} placeholder="用户名" /></Form.Item>
                   <Form.Item name="password" rules={[{ required: true, message: '请输入密码' }]}><Input.Password prefix={<LockOutlined />} placeholder="密码" /></Form.Item>
-                  <Form.Item><Button type="primary" htmlType="submit" loading={loading} block>登录</Button></Form.Item>
+                  <Form.Item><Button type="primary" htmlType="submit" loading={loading} block style={gradientBtnStyle}>登录</Button></Form.Item>
                 </Form>
               )},
               { key: 'email', label: '邮箱验证码', children: (
@@ -78,7 +79,7 @@ export default function LoginPage() {
                     } />
                   </Form.Item>
                   <Form.Item name="code" rules={[{ required: true, message: '请输入验证码' }]}><Input prefix={<LockOutlined />} placeholder="6位验证码" maxLength={6} /></Form.Item>
-                  <Form.Item><Button type="primary" htmlType="submit" loading={loading} block>登录</Button></Form.Item>
+                  <Form.Item><Button type="primary" htmlType="submit" loading={loading} block style={gradientBtnStyle}>登录</Button></Form.Item>
                 </Form>
               )},
             ]} />

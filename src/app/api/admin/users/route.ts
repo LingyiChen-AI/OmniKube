@@ -4,11 +4,13 @@ import { users, userRoleBindings } from '@/lib/db/schema';
 import { validateSession } from '@/lib/auth/session';
 import { hashPassword } from '@/lib/auth/password';
 import { writeAuditLog } from '@/lib/audit/logger';
+import { isSuperAdmin } from '@/lib/auth/admin-check';
 import { desc } from 'drizzle-orm';
 
 export async function GET() {
   const auth = await validateSession();
   if (!auth) return NextResponse.json({ error: '未登录' }, { status: 401 });
+  if (!await isSuperAdmin(auth.user.id)) return NextResponse.json({ error: '需要管理员权限' }, { status: 403 });
 
   const list = await db.select({
     id: users.id,
@@ -20,12 +22,20 @@ export async function GET() {
     createdAt: users.createdAt,
   }).from(users).orderBy(desc(users.createdAt));
 
-  return NextResponse.json(list);
+  // Attach role bindings to each user
+  const allBindings = await db.select().from(userRoleBindings);
+  const result = list.map((u) => ({
+    ...u,
+    roleBindings: allBindings.filter((b) => b.userId === u.id),
+  }));
+
+  return NextResponse.json(result);
 }
 
 export async function POST(req: NextRequest) {
   const auth = await validateSession();
   if (!auth) return NextResponse.json({ error: '未登录' }, { status: 401 });
+  if (!await isSuperAdmin(auth.user.id)) return NextResponse.json({ error: '需要管理员权限' }, { status: 403 });
 
   const { username, email, password, roleBindings } = await req.json();
   const passwordHash = await hashPassword(password);
@@ -43,8 +53,6 @@ export async function POST(req: NextRequest) {
       await db.insert(userRoleBindings).values({
         userId: user.id,
         roleId: binding.roleId,
-        clusterId: binding.clusterId || null,
-        namespace: binding.namespace || null,
         createdBy: auth.user.id,
       });
     }

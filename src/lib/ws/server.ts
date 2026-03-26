@@ -1,10 +1,11 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import { PassThrough } from 'stream';
 import { db } from '@/lib/db';
-import { sessions, users, userRoleBindings, rolePermissions, clusters as clustersTable } from '@/lib/db/schema';
+import { sessions, users, clusters as clustersTable } from '@/lib/db/schema';
 import { eq, and, gt, lt } from 'drizzle-orm';
-import { checkPermission, type RoleBinding } from '@/lib/rbac/check';
+import { checkPermission, getUserBindings, type RoleBinding } from '@/lib/rbac/check';
 import { getK8sClient, invalidateClient } from '@/lib/k8s/client-manager';
+import { connectExec } from '@/lib/k8s/exec';
 import * as k8s from '@kubernetes/client-node';
 
 let started = false;
@@ -26,103 +27,59 @@ async function authenticate(token: string) {
 }
 
 async function loadUserBindings(userId: string): Promise<RoleBinding[]> {
-  const rows = await db
-    .select({
-      roleId: userRoleBindings.roleId,
-      clusterId: userRoleBindings.clusterId,
-      namespace: userRoleBindings.namespace,
-      resource: rolePermissions.resource,
-      actions: rolePermissions.actions,
-    })
-    .from(userRoleBindings)
-    .innerJoin(rolePermissions, eq(userRoleBindings.roleId, rolePermissions.roleId))
-    .where(eq(userRoleBindings.userId, userId));
-
-  const bindingMap = new Map<string, RoleBinding>();
-  for (const row of rows) {
-    const key = `${row.roleId}:${row.clusterId}:${row.namespace}`;
-    if (!bindingMap.has(key)) {
-      bindingMap.set(key, { roleId: row.roleId, clusterId: row.clusterId, namespace: row.namespace, permissions: [] });
-    }
-    bindingMap.get(key)!.permissions.push({ resource: row.resource, actions: row.actions as string[] });
-  }
-  return Array.from(bindingMap.values());
+  return getUserBindings(userId);
 }
 
 async function handleExec(ws: AuthenticatedSocket, msg: any) {
   const { clusterId, namespace, podName, container } = msg;
 
   try {
-    const clients = await getK8sClient(clusterId);
-    const exec = new k8s.Exec(clients.kc);
-    const { Writable } = await import('stream');
-
     const shellCmd = `TERM=xterm-256color; export TERM; export PS1='\\033[01;32mroot@${podName}\\033[00m:\\033[01;34m\\w\\033[00m\\$ '; [ -x /bin/bash ] && exec /bin/bash --norc || exec /bin/sh`;
 
-    // Stdout/Stderr → forward to browser WebSocket
-    const stdout = new Writable({
-      write(chunk, _enc, cb) {
-        if (ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({ type: 'exec-output', data: chunk.toString() }));
-        }
-        cb();
-      },
-    });
-
-    const stderr = new Writable({
-      write(chunk, _enc, cb) {
-        if (ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({ type: 'exec-output', data: chunk.toString() }));
-        }
-        cb();
-      },
-    });
-
-    // Stdin ← receives data from browser, passed to K8s exec
-    const stdin = new PassThrough();
-
-    const execConn = await exec.exec(
+    const conn = await connectExec({
+      clusterId,
       namespace,
       podName,
-      container || '',
-      ['/bin/sh', '-c', shellCmd],
-      stdout,
-      stderr,
-      stdin,
-      true, // tty
-      (status: k8s.V1Status) => {
+      container: container || '',
+      command: ['/bin/sh', '-c', shellCmd],
+      onStdout(data) {
         if (ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({ type: 'exec-output', data: `\r\n\x1b[33m[Exit: ${status.status}]\x1b[0m\r\n` }));
+          ws.send(JSON.stringify({ type: 'exec-output', data }));
         }
       },
-    );
+      onStderr(data) {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'exec-output', data }));
+        }
+      },
+      onClose() {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'exec-output', data: '\r\n\x1b[33m[会话已结束]\x1b[0m\r\n' }));
+        }
+      },
+      onError(err) {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'error', message: `Exec 错误: ${err}` }));
+        }
+      },
+    });
 
-    // Forward browser keyboard input → stdin stream → K8s exec
+    // Forward browser input → K8s stdin
     const messageHandler = (rawData: any) => {
       try {
         const parsed = JSON.parse(rawData.toString());
         if (parsed.type === 'exec-input') {
-          stdin.write(parsed.data);
+          conn.sendStdin(parsed.data);
+        } else if (parsed.type === 'exec-resize') {
+          conn.sendResize(parsed.cols, parsed.rows);
         }
       } catch {}
     };
 
     ws.on('message', messageHandler);
-
-    if (execConn && typeof (execConn as any).on === 'function') {
-      (execConn as any).on('close', () => {
-        if (ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({ type: 'exec-output', data: '\r\n\x1b[33m[会话已结束]\x1b[0m\r\n' }));
-        }
-      });
-    }
-
     ws.on('close', () => {
       ws.removeListener('message', messageHandler);
-      stdin.end();
-      stdout.destroy();
-      stderr.destroy();
-      try { if (execConn && typeof (execConn as any).close === 'function') (execConn as any).close(); } catch {}
+      conn.close();
     });
 
   } catch (err: any) {
