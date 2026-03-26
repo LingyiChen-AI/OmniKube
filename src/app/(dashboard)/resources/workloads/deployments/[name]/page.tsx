@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import {
   Card, Descriptions, Table, Tag, Button, Space, Typography, Breadcrumb,
-  Spin, Alert, Popconfirm, message, Dropdown,
+  Spin, Alert, Popconfirm, Dropdown, App,
 } from 'antd';
 import {
   ArrowLeftOutlined, EditOutlined, ReloadOutlined, RollbackOutlined,
@@ -34,6 +34,7 @@ function getAge(timestamp: string): string {
 }
 
 export default function DeploymentDetailPage() {
+  const { message } = App.useApp();
   const params = useParams();
   const searchParams = useSearchParams();
   const router = useRouter();

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import {
-  Table, Button, Tag, Space, Popconfirm, message, Modal, Form, Input, Select,
+  Table, Button, Tag, Space, Popconfirm, Modal, Form, Input, Select, App,
 } from 'antd';
 import { PlusOutlined, DeleteOutlined, EditOutlined } from '@ant-design/icons';
 import { useRequest } from 'ahooks';
@@ -11,6 +11,7 @@ import { gradientBtnStyle } from '@/lib/styles';
 import { request } from '@/lib/request';
 
 export default function UsersPage() {
+  const { message } = App.useApp();
   const [addOpen, setAddOpen] = useState(false);
   const [editUser, setEditUser] = useState<any>(null);
   const [addForm] = Form.useForm();
