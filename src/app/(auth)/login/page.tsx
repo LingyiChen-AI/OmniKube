@@ -16,8 +16,8 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const res = await fetch('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(values) });
+      if (!res.ok) { const data = await res.json().catch(() => null); message.error(data?.error || '登录失败，请稍后再试'); return; }
       const data = await res.json();
-      if (!res.ok) { message.error(data.error); return; }
       if (data.mustChangePassword) { window.location.href = '/change-password'; } else { window.location.href = '/'; }
     } finally { setLoading(false); }
   };
@@ -35,8 +35,8 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const res = await fetch('/api/auth/verify-code', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(values) });
+      if (!res.ok) { const data = await res.json().catch(() => null); message.error(data?.error || '登录失败，请稍后再试'); return; }
       const data = await res.json();
-      if (!res.ok) { message.error(data.error); return; }
       if (data.mustChangePassword) { window.location.href = '/change-password'; } else { window.location.href = '/'; }
     } finally { setLoading(false); }
   };

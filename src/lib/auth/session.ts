@@ -14,7 +14,7 @@ export async function createSession(userId: string, ipAddress?: string, userAgen
   const cookieStore = await cookies();
   cookieStore.set(SESSION_COOKIE, token, {
     httpOnly: true, sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
+    secure: process.env.COOKIE_SECURE === 'true',
     path: '/', expires: expiresAt,
   });
   return token;
