@@ -1,36 +1,89 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# K8s Admin
 
-## Getting Started
+Multi-cluster Kubernetes management platform with RBAC, application deployment, and real-time monitoring.
 
-First, run the development server:
+## Features
+
+- **Multi-Cluster Management** - Connect and manage multiple Kubernetes clusters via Token or Kubeconfig
+- **RBAC** - Role-based access control with cluster and namespace level permissions
+- **Resource Management** - View and edit Deployments, StatefulSets, DaemonSets, Services, Ingresses, ConfigMaps, Secrets, PVCs, etc.
+- **Application Deployment** - Template-based app deployment with revision tracking and rollback
+- **Real-time Terminal** - WebSocket-based Pod exec terminal
+- **Dashboard** - Cluster status, Pod/Deployment counts, recent events, filtered by user permissions
+- **Audit Logging** - Track all user operations
+- **Notifications** - Feishu webhook notifications on deploy/rollback
+
+## Tech Stack
+
+- **Frontend**: Next.js 16, React 19, Ant Design 5, Zustand
+- **Backend**: Next.js API Routes, Custom Server (WebSocket), Drizzle ORM
+- **Database**: PostgreSQL
+- **Auth**: JWT
+- **K8s**: @kubernetes/client-node
+
+## Quick Start
+
+### Prerequisites
+
+- Node.js 20+
+- PostgreSQL
+
+### Development
 
 ```bash
+# Install dependencies
+npm install
+
+# Configure environment
+cp .env.example .env
+# Edit .env with your DATABASE_URL and other settings
+
+# Start dev server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open http://localhost:3000. On first startup, the database is auto-created, migrated, and seeded with an admin account (check console output for credentials).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Docker
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+# Build
+docker build -t twwch/k8s-admin .
 
-## Learn More
+# Run
+./docker_run.sh
+```
 
-To learn more about Next.js, take a look at the following resources:
+The `docker_run.sh` script mounts `~/.aws` (read-only) and `.env` into the container.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Environment Variables
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+| Variable | Description | Default |
+|---|---|---|
+| `DATABASE_URL` | PostgreSQL connection string | required |
+| `ENCRYPTION_KEY` | 32-byte hex key for encrypting cluster credentials | required |
+| `SESSION_EXPIRY_HOURS` | JWT session expiry | `24` |
+| `SMTP_HOST` | SMTP server for email verification | - |
+| `SMTP_PORT` | SMTP port | `587` |
+| `SMTP_USER` | SMTP username | - |
+| `SMTP_PASS` | SMTP password | - |
+| `SMTP_FROM` | Sender email address | `noreply@k8sadmin.local` |
 
-## Deploy on Vercel
+## Auto-Initialization
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+On startup, the server automatically:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. **Creates the database** if it doesn't exist
+2. **Runs migrations** from `drizzle/` (skips if tables already exist)
+3. **Seeds initial data** - built-in roles (super-admin, cluster-admin, developer, viewer) and an admin user with a random password printed to console
+
+## CI/CD
+
+GitHub Actions workflow (`.github/workflows/docker-publish.yml`):
+
+- Push to `main` - builds and pushes `twwch/k8s-admin:latest`
+- Push `v*` tag - builds versioned image and creates GitHub Release
+
+## License
+
+Licensed under the [Apache License 2.0](LICENSE).
