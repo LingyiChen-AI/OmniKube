@@ -16,7 +16,12 @@ export async function GET(req: NextRequest) {
   // Build filters based on user permissions
   const accessibleClusterIds = await getUserAccessibleClusterIds(auth.user.id);
 
+  const clusterId = searchParams.get('clusterId');
+
   const conditions = [];
+  if (clusterId) {
+    conditions.push(eq(appReleases.clusterId, clusterId));
+  }
   if (accessibleClusterIds !== null) {
     if (accessibleClusterIds.length === 0) return NextResponse.json([]);
     conditions.push(inArray(appReleases.clusterId, accessibleClusterIds));

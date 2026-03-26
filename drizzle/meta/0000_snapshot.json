@@ -1,5 +1,5 @@
 {
-  "id": "b418b98f-f1a0-4070-b46d-f0fcf811c661",
+  "id": "91b3baa6-0ff0-436a-8893-3ec993ac8e13",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -19,7 +19,7 @@
           "name": "app_template_id",
           "type": "uuid",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "cluster_id": {
           "name": "cluster_id",
@@ -31,7 +31,7 @@
           "name": "namespace",
           "type": "varchar(255)",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "name": {
           "name": "name",
@@ -65,6 +65,12 @@
           "primaryKey": false,
           "notNull": true,
           "default": 1
+        },
+        "message": {
+          "name": "message",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "released_by": {
           "name": "released_by",
@@ -488,6 +494,19 @@
           "primaryKey": false,
           "notNull": false
         },
+        "webhook_url": {
+          "name": "webhook_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "notify_enabled": {
+          "name": "notify_enabled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
         "created_by": {
           "name": "created_by",
           "type": "uuid",
@@ -627,6 +646,100 @@
         }
       },
       "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.role_cluster_bindings": {
+      "name": "role_cluster_bindings",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "role_id": {
+          "name": "role_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "cluster_id": {
+          "name": "cluster_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "namespaces": {
+          "name": "namespaces",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "role_cluster_bindings_role_cluster_idx": {
+          "name": "role_cluster_bindings_role_cluster_idx",
+          "columns": [
+            {
+              "expression": "role_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "cluster_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "role_cluster_bindings_role_id_roles_id_fk": {
+          "name": "role_cluster_bindings_role_id_roles_id_fk",
+          "tableFrom": "role_cluster_bindings",
+          "tableTo": "roles",
+          "columnsFrom": [
+            "role_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "role_cluster_bindings_cluster_id_clusters_id_fk": {
+          "name": "role_cluster_bindings_cluster_id_clusters_id_fk",
+          "tableFrom": "role_cluster_bindings",
+          "tableTo": "clusters",
+          "columnsFrom": [
+            "cluster_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
@@ -899,18 +1012,6 @@
           "primaryKey": false,
           "notNull": true
         },
-        "cluster_id": {
-          "name": "cluster_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "namespace": {
-          "name": "namespace",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": false
-        },
         "created_by": {
           "name": "created_by",
           "type": "uuid",
@@ -937,18 +1038,6 @@
             },
             {
               "expression": "role_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "cluster_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "namespace",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -980,19 +1069,6 @@
           "tableTo": "roles",
           "columnsFrom": [
             "role_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "user_role_bindings_cluster_id_clusters_id_fk": {
-          "name": "user_role_bindings_cluster_id_clusters_id_fk",
-          "tableFrom": "user_role_bindings",
-          "tableTo": "clusters",
-          "columnsFrom": [
-            "cluster_id"
           ],
           "columnsTo": [
             "id"

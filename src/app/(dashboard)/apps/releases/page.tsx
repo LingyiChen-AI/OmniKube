@@ -4,6 +4,7 @@ import { Table, Tag } from 'antd';
 import { useRequest } from 'ahooks';
 import PageContainer from '@/components/page-container';
 import { request } from '@/lib/request';
+import { useClusterStore } from '@/hooks/use-cluster';
 
 const statusColors: Record<string, string> = {
   applied: 'green',
@@ -13,10 +14,13 @@ const statusColors: Record<string, string> = {
 };
 
 export default function ReleasesPage() {
+  const clusterId = useClusterStore((s) => s.clusterId);
+
   const { data: releases = [], loading } = useRequest(async () => {
-    const res = await request('/api/apps/releases');
+    const params = clusterId ? `?clusterId=${clusterId}` : '';
+    const res = await request(`/api/apps/releases${params}`);
     return res.json();
-  });
+  }, { refreshDeps: [clusterId] });
 
   const columns = [
     { title: '名称', dataIndex: 'name', key: 'name' },
