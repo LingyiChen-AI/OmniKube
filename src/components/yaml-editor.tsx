@@ -101,7 +101,7 @@ export default function YamlEditor({ value = '', onChange, height = 400, readOnl
       }}>
         YAML
       </div>
-      <div style={{ height: '100%', overflow: 'auto', position: 'relative' }}>
+      <div style={{ height: '100%', overflow: 'auto', position: 'relative', overflowX: 'auto' }}>
         {/* Diff 整行背景层 */}
         {diffLines && (
           <div style={{
@@ -152,8 +152,9 @@ export default function YamlEditor({ value = '', onChange, height = 400, readOnl
         />
       </div>
       <style>{`
-        .yaml-editor-textarea { outline: none !important; }
+        .yaml-editor-textarea { outline: none !important; white-space: pre !important; overflow-wrap: normal !important; word-wrap: normal !important; }
         .yaml-editor-textarea::placeholder { color: #484f58 !important; }
+        .yaml-editor-textarea + pre { white-space: pre !important; overflow-wrap: normal !important; word-wrap: normal !important; }
         .token.key, .token.atrule { color: #7ee787 !important; }
         .token.string { color: #a5d6ff !important; }
         .token.number { color: #79c0ff !important; }
