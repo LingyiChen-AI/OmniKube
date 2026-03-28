@@ -21,8 +21,13 @@ import { request } from '@/lib/request';
 const { Title, Text } = Typography;
 
 const phaseColors: Record<string, string> = {
-  Running: 'green', Pending: 'gold', Succeeded: 'blue', Failed: 'red', Unknown: 'default',
+  Running: 'green', Pending: 'gold', Succeeded: 'blue', Failed: 'red', Unknown: 'default', Terminating: 'orange',
 };
+
+function getPodStatus(pod: any): string {
+  if (pod.metadata?.deletionTimestamp) return 'Terminating';
+  return pod.status?.phase || 'Unknown';
+}
 
 function getAge(timestamp: string): string {
   const diff = Date.now() - new Date(timestamp).getTime();
@@ -205,8 +210,8 @@ export default function DeploymentDetailPage() {
     {
       title: '状态', key: 'phase',
       render: (_: any, r: any) => {
-        const phase = r.status?.phase || 'Unknown';
-        return <Tag color={phaseColors[phase] || 'default'}>{phase}</Tag>;
+        const status = getPodStatus(r);
+        return <Tag color={phaseColors[status] || 'default'}>{status}</Tag>;
       },
     },
     {
@@ -234,11 +239,11 @@ export default function DeploymentDetailPage() {
     },
   ];
 
-  if (loadingDeployment) {
+  if (loadingDeployment && !deployment) {
     return <div style={{ textAlign: 'center', padding: 64 }}><Spin size="large" /></div>;
   }
 
-  if (error) {
+  if (error && !deployment) {
     return <Alert type="error" message={error} action={<Button size="small" onClick={() => router.back()}>返回</Button>} />;
   }
 

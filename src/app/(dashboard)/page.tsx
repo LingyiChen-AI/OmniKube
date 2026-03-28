@@ -8,7 +8,6 @@ import {
 import { useRequest } from 'ahooks';
 import StatCard from '@/components/stat-card';
 import { request } from '@/lib/request';
-import { useClusterStore } from '@/hooks/use-cluster';
 
 const { Text } = Typography;
 
@@ -24,14 +23,11 @@ const eventTypeColor: Record<string, string> = {
 };
 
 export default function DashboardPage() {
-  const clusterId = useClusterStore((s) => s.clusterId);
-
   const { data, loading } = useRequest(async () => {
-    const params = clusterId ? `?clusterId=${clusterId}` : '';
-    const res = await request(`/api/dashboard${params}`);
+    const res = await request('/api/dashboard');
     if (!res.ok) return null;
     return res.json();
-  }, { pollingInterval: 30000, refreshDeps: [clusterId] });
+  }, { pollingInterval: 30000 });
 
   return (
     <Spin spinning={loading && !data}>

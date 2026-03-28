@@ -137,6 +137,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         collapsed={collapsed}
         onCollapse={setCollapsed}
         location={{ pathname }}
+        selectedKeys={[pathname]}
         route={{ routes: user?.isSuperAdmin ? [...baseMenu, adminMenu] : baseMenu }}
         token={{
           header: {

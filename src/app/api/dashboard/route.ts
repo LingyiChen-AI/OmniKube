@@ -80,55 +80,65 @@ export async function GET(req: NextRequest) {
           }
           const results: T[] = [];
           for (const ns of accessibleNs) {
-            const res = await listNs(ns);
-            results.push(...(res.items || []));
+            try {
+              const res = await listNs(ns);
+              results.push(...(res.items || []));
+            } catch { /* skip inaccessible namespace */ }
           }
           return results;
         };
 
         // Count pods
-        const podItems = await listByNs(
-          () => clients.core.listPodForAllNamespaces(),
-          (ns) => clients.core.listNamespacedPod({ namespace: ns }),
-        );
-        totalPods += podItems.length;
-        stat.pods = podItems.length;
+        try {
+          const podItems = await listByNs(
+            () => clients.core.listPodForAllNamespaces(),
+            (ns) => clients.core.listNamespacedPod({ namespace: ns }),
+          );
+          totalPods += podItems.length;
+          stat.pods = podItems.length;
+        } catch { /* ignore */ }
 
         // Count nodes (cluster-level, not namespace-scoped)
-        const nodes = await clients.core.listNode();
-        stat.nodes = nodes.items?.length || 0;
+        try {
+          const nodes = await clients.core.listNode();
+          stat.nodes = nodes.items?.length || 0;
+        } catch { /* may lack cluster-level permission */ }
 
         // Count deployments
-        const depItems = await listByNs(
-          () => clients.apps.listDeploymentForAllNamespaces(),
-          (ns) => clients.apps.listNamespacedDeployment({ namespace: ns }),
-        );
-        totalDeployments += depItems.length;
+        try {
+          const depItems = await listByNs(
+            () => clients.apps.listDeploymentForAllNamespaces(),
+            (ns) => clients.apps.listNamespacedDeployment({ namespace: ns }),
+          );
+          totalDeployments += depItems.length;
+        } catch { /* ignore */ }
 
         // Get recent events
-        const eventItems = await listByNs(
-          () => clients.core.listEventForAllNamespaces(),
-          (ns) => clients.core.listNamespacedEvent({ namespace: ns }),
-        );
-        const sorted = eventItems
-          .sort((a: any, b: any) => {
-            const ta = a.lastTimestamp || a.metadata?.creationTimestamp;
-            const tb = b.lastTimestamp || b.metadata?.creationTimestamp;
-            return new Date(tb || 0).getTime() - new Date(ta || 0).getTime();
-          })
-          .slice(0, 5);
+        try {
+          const eventItems = await listByNs(
+            () => clients.core.listEventForAllNamespaces(),
+            (ns) => clients.core.listNamespacedEvent({ namespace: ns }),
+          );
+          const sorted = eventItems
+            .sort((a: any, b: any) => {
+              const ta = a.lastTimestamp || a.metadata?.creationTimestamp;
+              const tb = b.lastTimestamp || b.metadata?.creationTimestamp;
+              return new Date(tb || 0).getTime() - new Date(ta || 0).getTime();
+            })
+            .slice(0, 5);
 
-        for (const evt of sorted as any[]) {
-          recentEvents.push({
-            cluster: cluster.displayName || cluster.name,
-            type: evt.type,
-            reason: evt.reason,
-            message: evt.message,
-            namespace: evt.metadata?.namespace,
-            object: evt.involvedObject?.name,
-            time: evt.lastTimestamp || evt.metadata?.creationTimestamp,
-          });
-        }
+          for (const evt of sorted as any[]) {
+            recentEvents.push({
+              cluster: cluster.displayName || cluster.name,
+              type: evt.type,
+              reason: evt.reason,
+              message: evt.message,
+              namespace: evt.metadata?.namespace,
+              object: evt.involvedObject?.name,
+              time: evt.lastTimestamp || evt.metadata?.creationTimestamp,
+            });
+          }
+        } catch { /* ignore */ }
       } catch {
         stat.status = 'error';
       }

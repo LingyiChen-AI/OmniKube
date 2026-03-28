@@ -19,7 +19,13 @@ const phaseColors: Record<string, string> = {
   Succeeded: 'blue',
   Failed: 'red',
   Unknown: 'default',
+  Terminating: 'orange',
 };
+
+function getPodStatus(pod: any): string {
+  if (pod.metadata?.deletionTimestamp) return 'Terminating';
+  return pod.status?.phase || 'Unknown';
+}
 
 export default function PodsPage() {
   const { message } = App.useApp();
@@ -55,8 +61,8 @@ export default function PodsPage() {
       title: '状态',
       key: 'phase',
       render: (_: any, r: any) => {
-        const phase = r.status?.phase || 'Unknown';
-        return <Tag color={phaseColors[phase] || 'default'}>{phase}</Tag>;
+        const status = getPodStatus(r);
+        return <Tag color={phaseColors[status] || 'default'}>{status}</Tag>;
       },
     },
     {
