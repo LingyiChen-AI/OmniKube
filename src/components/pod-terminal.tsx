@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { Modal, Select, Space, Alert, Tag } from 'antd';
 import { request } from '@/lib/request';
 
@@ -21,8 +21,10 @@ export default function PodTerminal({ open, onClose, clusterId, namespace, podNa
   const xtermRef = useRef<any>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const fitAddonRef = useRef<any>(null);
+  const initIdRef = useRef(0); // Track init calls to handle strict mode
 
-  const cleanup = () => {
+  const cleanup = useCallback(() => {
+    initIdRef.current++; // Invalidate any pending init
     if (wsRef.current) {
       wsRef.current.close();
       wsRef.current = null;
@@ -33,17 +35,31 @@ export default function PodTerminal({ open, onClose, clusterId, namespace, podNa
     }
     fitAddonRef.current = null;
     setConnected(false);
-  };
+  }, []);
 
-  const initTerminal = async (c: string) => {
+  const initTerminal = useCallback(async (c: string) => {
+    const currentInitId = ++initIdRef.current;
+
     if (!termRef.current) return;
     setError(null);
+
+    // Close existing connections first
+    if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
+    }
+    if (xtermRef.current) {
+      xtermRef.current.dispose();
+      xtermRef.current = null;
+    }
 
     const { Terminal } = await import('@xterm/xterm');
     const { FitAddon } = await import('@xterm/addon-fit');
     await import('@xterm/xterm/css/xterm.css');
 
-    if (xtermRef.current) xtermRef.current.dispose();
+    // Check if this init was cancelled (strict mode cleanup)
+    if (currentInitId !== initIdRef.current) return;
+    if (!termRef.current) return;
 
     const term = new Terminal({
       theme: {
@@ -82,9 +98,9 @@ export default function PodTerminal({ open, onClose, clusterId, namespace, podNa
     term.loadAddon(fitAddon);
     term.open(termRef.current);
 
-    // Delay fit to ensure DOM is ready
     requestAnimationFrame(() => {
       fitAddon.fit();
+      term.focus();
     });
 
     xtermRef.current = term;
@@ -94,6 +110,7 @@ export default function PodTerminal({ open, onClose, clusterId, namespace, podNa
     let wsToken: string;
     try {
       const tokenRes = await request('/api/auth/me', { credentials: 'include' });
+      if (currentInitId !== initIdRef.current) return;
       if (!tokenRes.ok) {
         setError('认证失败，请重新登录');
         return;
@@ -105,9 +122,12 @@ export default function PodTerminal({ open, onClose, clusterId, namespace, podNa
         return;
       }
     } catch (e: any) {
+      if (currentInitId !== initIdRef.current) return;
       setError('获取认证令牌失败: ' + (e.message || '网络错误'));
       return;
     }
+
+    if (currentInitId !== initIdRef.current) return;
 
     const wsUrl = process.env.NEXT_PUBLIC_WS_URL;
     if (!wsUrl) {
@@ -133,7 +153,12 @@ export default function PodTerminal({ open, onClose, clusterId, namespace, podNa
 
     ws.onopen = () => {
       clearTimeout(connectTimeout);
+      if (currentInitId !== initIdRef.current) {
+        ws.close();
+        return;
+      }
       setConnected(true);
+      term.write('\x1b[33m正在连接到容器...\x1b[0m\r\n');
       ws.send(JSON.stringify({
         type: 'subscribe-exec',
         clusterId,
@@ -142,7 +167,6 @@ export default function PodTerminal({ open, onClose, clusterId, namespace, podNa
         container: c,
       }));
 
-      // Send initial resize
       requestAnimationFrame(() => {
         if (fitAddonRef.current) {
           fitAddonRef.current.fit();
@@ -152,6 +176,7 @@ export default function PodTerminal({ open, onClose, clusterId, namespace, podNa
             rows: term.rows,
           }));
         }
+        term.focus();
       });
     };
 
@@ -192,25 +217,26 @@ export default function PodTerminal({ open, onClose, clusterId, namespace, podNa
       }
     });
 
-    // Handle window resize
     const handleResize = () => {
       if (fitAddonRef.current) fitAddonRef.current.fit();
     };
     window.addEventListener('resize', handleResize);
-    // Cleanup on dispose
     const origDispose = term.dispose.bind(term);
     term.dispose = () => {
       window.removeEventListener('resize', handleResize);
       origDispose();
     };
-  };
+  }, [clusterId, namespace, podName]);
 
   useEffect(() => {
     if (open) {
       const c = containers[0] || '';
       setContainer(c);
-      // Small delay to ensure modal is rendered
-      setTimeout(() => initTerminal(c), 100);
+      const timer = setTimeout(() => initTerminal(c), 100);
+      return () => {
+        clearTimeout(timer);
+        cleanup();
+      };
     } else {
       cleanup();
     }

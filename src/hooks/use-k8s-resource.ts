@@ -2,6 +2,7 @@
 
 import { useRequest } from 'ahooks';
 import { useClusterStore } from './use-cluster';
+import { useResourceWatch } from './use-resource-watch';
 import { request } from '@/lib/request';
 
 export function useK8sResource(kind: string, namespace?: string) {
@@ -11,7 +12,7 @@ export function useK8sResource(kind: string, namespace?: string) {
     ? `/api/k8s/${clusterId}/namespaces/${namespace}/${kind}`
     : `/api/k8s/${clusterId}/${kind}`;
 
-  return useRequest(
+  const { data, loading, refresh, mutate } = useRequest(
     async () => {
       if (!clusterId) return [];
       const res = await request(path);
@@ -23,4 +24,9 @@ export function useK8sResource(kind: string, namespace?: string) {
       ready: !!clusterId,
     },
   );
+
+  // Watch for real-time changes via K8s Watch API
+  useResourceWatch(clusterId, kind, namespace, refresh);
+
+  return { data, loading, refresh, mutate };
 }

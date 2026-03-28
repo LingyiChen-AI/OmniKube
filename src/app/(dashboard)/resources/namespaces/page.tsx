@@ -50,7 +50,7 @@ export default function NamespacesPage() {
       render: (t: string) => new Date(t).toLocaleString(),
     },
     {
-      title: '操作', key: 'actions', width: 80,
+      title: '操作', key: 'actions', width: 80, fixed: 'right' as const,
       render: (_: any, record: any) => {
         const system = isSystemResource(record);
         return (

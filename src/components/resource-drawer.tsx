@@ -194,10 +194,9 @@ export default function ResourceDrawer({
       <Button type="primary" loading={loading} onClick={handleSave} disabled={!hasChanges} style={gradientBtnStyle}>保存</Button>
     </div>
   ) : currentMode === 'create' ? (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-      <div style={{ flex: 1 }} />
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
       <Button onClick={onClose}>取消</Button>
-      <Button type="primary" loading={loading} onClick={handleCreate} style={gradientBtnStyle}>创建</Button>
+      <Button type="primary" loading={loading} onClick={handleCreate} disabled={!yamlText.trim()} style={gradientBtnStyle}>创建</Button>
     </div>
   ) : null;
 
@@ -211,31 +210,59 @@ export default function ResourceDrawer({
       width={drawerWidth}
       footer={footer}
       destroyOnHidden
-      styles={{ body: { padding: 0, display: 'flex', flexDirection: 'column' } }}
+      styles={{ body: { padding: 0, display: 'flex', flexDirection: 'column', background: '#0d1117' } }}
     >
       {/* 模板选择 */}
       {currentMode === 'create' && templates.length > 0 && (
-        <div style={{ padding: '12px 16px', borderBottom: '1px solid #f0f0f0' }}>
-          <Space wrap size={[6, 6]}>
-            <span style={{ color: '#94a3b8', fontSize: 12 }}>模板:</span>
-            {templates.map((t) => (
-              <Tag
-                key={t.label}
-                style={{ cursor: 'pointer', padding: '2px 10px', borderRadius: 12, fontSize: 12 }}
-                color={yamlText === t.yaml ? 'blue' : undefined}
-                onClick={() => setYamlText(t.yaml)}
-              >
-                {t.label}
-              </Tag>
-            ))}
-            <Tag
-              style={{ cursor: 'pointer', padding: '2px 10px', borderRadius: 12, fontSize: 12 }}
-              color={yamlText === '' ? 'blue' : undefined}
+        <div style={{
+          padding: '10px 16px',
+          background: '#161b22',
+          borderBottom: '1px solid #21262d',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+        }}>
+          <span style={{ color: '#8b949e', fontSize: 12, flexShrink: 0 }}>模板</span>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {templates.map((t) => {
+              const active = yamlText === t.yaml;
+              return (
+                <button
+                  key={t.label}
+                  onClick={() => setYamlText(t.yaml)}
+                  style={{
+                    padding: '4px 12px',
+                    borderRadius: 6,
+                    fontSize: 12,
+                    border: active ? '1px solid #58a6ff' : '1px solid #30363d',
+                    background: active ? 'rgba(88,166,255,0.15)' : '#21262d',
+                    color: active ? '#58a6ff' : '#c9d1d9',
+                    cursor: 'pointer',
+                    fontWeight: 500,
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  {t.label}
+                </button>
+              );
+            })}
+            <button
               onClick={() => setYamlText('')}
+              style={{
+                padding: '4px 12px',
+                borderRadius: 6,
+                fontSize: 12,
+                border: yamlText === '' ? '1px solid #58a6ff' : '1px solid #30363d',
+                background: yamlText === '' ? 'rgba(88,166,255,0.15)' : '#21262d',
+                color: yamlText === '' ? '#58a6ff' : '#c9d1d9',
+                cursor: 'pointer',
+                fontWeight: 500,
+                transition: 'all 0.15s',
+              }}
             >
               空白
-            </Tag>
-          </Space>
+            </button>
+          </div>
         </div>
       )}
 
@@ -281,7 +308,7 @@ export default function ResourceDrawer({
         </div>
       ) : (
         /* 查看/创建模式：单编辑器 */
-        <div style={{ flex: 1, overflow: 'auto' }}>
+        <div style={{ flex: 1, overflow: 'auto', background: '#0d1117' }}>
           <YamlEditor
             value={yamlText}
             onChange={currentMode === 'create' ? setYamlText : undefined}

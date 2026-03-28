@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { Modal, Select, Space, Spin, Typography, Button } from 'antd';
-import { ReloadOutlined } from '@ant-design/icons';
+import { useEffect, useRef, useState, useCallback } from 'react';
+import { Modal, Select, Space, Button, Tag, Switch } from 'antd';
+import { ReloadOutlined, PauseCircleOutlined, PlayCircleOutlined } from '@ant-design/icons';
 import { request } from '@/lib/request';
 
 interface Props {
@@ -18,47 +18,118 @@ export default function PodLogViewer({ open, onClose, clusterId, namespace, podN
   const [container, setContainer] = useState(containers[0] || '');
   const [logs, setLogs] = useState<string>('');
   const [loading, setLoading] = useState(false);
+  const [streaming, setStreaming] = useState(false);
+  const [autoScroll, setAutoScroll] = useState(true);
   const logRef = useRef<HTMLPreElement>(null);
+  const wsRef = useRef<WebSocket | null>(null);
+  const logsRef = useRef('');
 
-  const fetchLogs = async (c: string) => {
-    if (!clusterId || !namespace || !podName) return;
+  const scrollToBottom = useCallback(() => {
+    if (autoScroll && logRef.current) {
+      logRef.current.scrollTop = logRef.current.scrollHeight;
+    }
+  }, [autoScroll]);
+
+  const cleanupWs = useCallback(() => {
+    if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
+    }
+    setStreaming(false);
+  }, []);
+
+  const startStreaming = useCallback(async (c: string) => {
+    cleanupWs();
     setLoading(true);
     setLogs('');
+    logsRef.current = '';
+
+    // Fetch initial logs via REST first
     try {
-      const params = new URLSearchParams({ tailLines: '500' });
+      const params = new URLSearchParams({ tailLines: '200' });
       if (c) params.set('container', c);
       const res = await request(`/api/k8s/${clusterId}/logs/${namespace}/${podName}?${params.toString()}`);
       if (res.ok) {
         const text = await res.text();
+        logsRef.current = text;
         setLogs(text);
-      } else {
-        const d = await res.json().catch(() => ({}));
-        setLogs(`Error: ${d.error || res.statusText}`);
       }
-    } catch (err: any) {
-      setLogs(`Error: ${err.message}`);
-    } finally {
-      setLoading(false);
+    } catch {}
+    setLoading(false);
+
+    // Then connect WebSocket for live tail
+    let wsToken: string;
+    try {
+      const tokenRes = await request('/api/auth/me', { credentials: 'include' });
+      if (!tokenRes.ok) return;
+      const tokenData = await tokenRes.json();
+      wsToken = tokenData.wsToken;
+      if (!wsToken) return;
+    } catch {
+      return;
     }
-  };
+
+    const wsUrl = process.env.NEXT_PUBLIC_WS_URL;
+    if (!wsUrl) return;
+
+    try {
+      const ws = new WebSocket(`${wsUrl}?token=${wsToken}`);
+      wsRef.current = ws;
+
+      ws.onopen = () => {
+        setStreaming(true);
+        ws.send(JSON.stringify({
+          type: 'subscribe-logs',
+          clusterId,
+          namespace,
+          podName,
+          container: c,
+        }));
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+          if (msg.type === 'log') {
+            logsRef.current += msg.data;
+            // Limit buffer to avoid memory issues
+            if (logsRef.current.length > 500000) {
+              logsRef.current = logsRef.current.slice(-400000);
+            }
+            setLogs(logsRef.current);
+          } else if (msg.type === 'error') {
+            logsRef.current += `\n[Error] ${msg.message}\n`;
+            setLogs(logsRef.current);
+          }
+        } catch {}
+      };
+
+      ws.onclose = () => {
+        setStreaming(false);
+      };
+
+      ws.onerror = () => {
+        setStreaming(false);
+      };
+    } catch {}
+  }, [clusterId, namespace, podName, cleanupWs]);
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [logs, scrollToBottom]);
 
   useEffect(() => {
     if (open && containers.length > 0) {
       const c = containers[0];
       setContainer(c);
-      fetchLogs(c);
+      startStreaming(c);
     }
+    return cleanupWs;
   }, [open, podName, namespace, clusterId]);
-
-  useEffect(() => {
-    if (logRef.current) {
-      logRef.current.scrollTop = logRef.current.scrollHeight;
-    }
-  }, [logs]);
 
   const handleContainerChange = (c: string) => {
     setContainer(c);
-    fetchLogs(c);
+    startStreaming(c);
   };
 
   return (
@@ -78,13 +149,23 @@ export default function PodLogViewer({ open, onClose, clusterId, namespace, podN
               ))}
             </Select>
           )}
+          <Tag color={streaming ? 'green' : 'default'}>
+            {streaming ? '实时' : '已断开'}
+          </Tag>
+          <Switch
+            checkedChildren="自动滚动"
+            unCheckedChildren="自动滚动"
+            checked={autoScroll}
+            onChange={setAutoScroll}
+            size="small"
+          />
           <Button
             icon={<ReloadOutlined />}
             size="small"
-            onClick={() => fetchLogs(container)}
+            onClick={() => startStreaming(container)}
             loading={loading}
           >
-            刷新
+            重连
           </Button>
         </Space>
       }
@@ -95,26 +176,24 @@ export default function PodLogViewer({ open, onClose, clusterId, namespace, podN
       destroyOnHidden
       styles={{ body: { padding: 0 } }}
     >
-      <Spin spinning={loading}>
-        <pre
-          ref={logRef}
-          style={{
-            background: '#1e1e1e',
-            color: '#d4d4d4',
-            padding: 16,
-            margin: 0,
-            borderRadius: '0 0 8px 8px',
-            height: 520,
-            overflow: 'auto',
-            fontSize: 12,
-            fontFamily: 'monospace',
-            whiteSpace: 'pre-wrap',
-            wordBreak: 'break-all',
-          }}
-        >
-          {logs || (loading ? '' : '(无日志)')}
-        </pre>
-      </Spin>
+      <pre
+        ref={logRef}
+        style={{
+          background: '#1e1e1e',
+          color: '#d4d4d4',
+          padding: 16,
+          margin: 0,
+          borderRadius: '0 0 8px 8px',
+          height: 520,
+          overflow: 'auto',
+          fontSize: 12,
+          fontFamily: 'monospace',
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-all',
+        }}
+      >
+        {logs || (loading ? '加载中...' : '(无日志)')}
+      </pre>
     </Modal>
   );
 }

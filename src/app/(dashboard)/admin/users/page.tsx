@@ -97,7 +97,7 @@ export default function UsersPage() {
       render: (t: string) => new Date(t).toLocaleString(),
     },
     {
-      title: '操作', key: 'actions',
+      title: '操作', key: 'actions', fixed: 'right' as const,
       render: (_: any, record: any) => (
         <Space>
           <Button size="small" icon={<EditOutlined />}
@@ -131,7 +131,7 @@ export default function UsersPage() {
           </Button>
         }
       >
-        <Table columns={columns} dataSource={users} rowKey="id" loading={loading} size="middle" />
+        <Table columns={columns} dataSource={users} rowKey="id" loading={loading} size="middle" scroll={{ x: 'max-content' }} />
       </PageContainer>
 
       <Modal title="添加用户" open={addOpen}

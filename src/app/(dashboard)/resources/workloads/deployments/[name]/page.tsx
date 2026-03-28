@@ -12,6 +12,7 @@ import {
 } from '@ant-design/icons';
 import { useClusterStore } from '@/hooks/use-cluster';
 import { usePermissions } from '@/hooks/use-permissions';
+import { useResourceWatch } from '@/hooks/use-resource-watch';
 import ResourceDrawer from '@/components/resource-drawer';
 import PodLogViewer from '@/components/pod-log-viewer';
 import PodTerminal from '@/components/pod-terminal';
@@ -56,9 +57,9 @@ export default function DeploymentDetailPage() {
   const [logState, setLogState] = useState<{ open: boolean; pod?: any }>({ open: false });
   const [termState, setTermState] = useState<{ open: boolean; pod?: any }>({ open: false });
 
-  const fetchDeployment = async () => {
+  const fetchDeployment = async (silent = false) => {
     if (!clusterId) return;
-    setLoadingDeployment(true);
+    if (!silent) setLoadingDeployment(true);
     setError(null);
     try {
       const res = await request(`/api/k8s/${clusterId}/namespaces/${namespace}/deployments/${name}`);
@@ -69,17 +70,17 @@ export default function DeploymentDetailPage() {
       }
       const data = await res.json();
       setDeployment(data);
-      await fetchPods(data);
+      await fetchPods(data, silent);
     } catch (err: any) {
       setError(err.message);
     } finally {
-      setLoadingDeployment(false);
+      if (!silent) setLoadingDeployment(false);
     }
   };
 
-  const fetchPods = async (dep: any) => {
+  const fetchPods = async (dep: any, silent = false) => {
     if (!clusterId) return;
-    setLoadingPods(true);
+    if (!silent) setLoadingPods(true);
     try {
       const res = await request(`/api/k8s/${clusterId}/namespaces/${namespace}/pods`);
       if (!res.ok) return;
@@ -93,13 +94,17 @@ export default function DeploymentDetailPage() {
     } catch {
       // ignore
     } finally {
-      setLoadingPods(false);
+      if (!silent) setLoadingPods(false);
     }
   };
 
   useEffect(() => {
     fetchDeployment();
   }, [clusterId, name, namespace]);
+
+  // Watch for real-time changes
+  useResourceWatch(clusterId, 'deployments', namespace, () => fetchDeployment(true));
+  useResourceWatch(clusterId, 'pods', namespace, () => { if (deployment) fetchPods(deployment, true); });
 
   // Restart deployment (kubectl rollout restart)
   const handleRestart = async () => {
@@ -215,7 +220,7 @@ export default function DeploymentDetailPage() {
       render: (_: any, r: any) => r.metadata?.creationTimestamp ? getAge(r.metadata.creationTimestamp) : '-',
     },
     {
-      title: '操作', key: 'actions', width: 140,
+      title: '操作', key: 'actions', width: 140, fixed: 'right' as const,
       render: (_: any, record: any) => (
         <Space>
           <Button size="small" type="link" icon={<FileTextOutlined />} onClick={() => setLogState({ open: true, pod: record })}>
@@ -311,6 +316,7 @@ export default function DeploymentDetailPage() {
           loading={loadingPods}
           pagination={false}
           size="middle"
+          scroll={{ x: 'max-content' }}
         />
       </Card>
 

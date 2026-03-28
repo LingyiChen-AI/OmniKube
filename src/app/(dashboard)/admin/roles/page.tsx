@@ -44,7 +44,7 @@ export default function RolesPage() {
       render: (t: string) => new Date(t).toLocaleString(),
     },
     {
-      title: '操作', key: 'actions',
+      title: '操作', key: 'actions', fixed: 'right' as const,
       render: (_: any, record: any) => (
         <Space>
           {!record.isSystem && (
@@ -71,7 +71,7 @@ export default function RolesPage() {
         </Button>
       }
     >
-      <Table columns={columns} dataSource={roles} rowKey="id" loading={loading} size="middle" />
+      <Table columns={columns} dataSource={roles} rowKey="id" loading={loading} size="middle" scroll={{ x: 'max-content' }} />
     </PageContainer>
   );
 }

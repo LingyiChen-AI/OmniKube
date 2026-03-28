@@ -70,7 +70,7 @@ export default function StatefulSetsPage() {
       render: (t: string) => new Date(t).toLocaleString(),
     },
     {
-      title: '操作', key: 'actions', width: 150,
+      title: '操作', key: 'actions', width: 150, fixed: 'right' as const,
       render: (_: any, record: any) => {
         const system = isSystemResource(record);
         return (

@@ -4,6 +4,7 @@ import { Dropdown } from 'antd';
 import { DownOutlined } from '@ant-design/icons';
 import { useClusterStore } from '@/hooks/use-cluster';
 import { useRequest } from 'ahooks';
+import { usePathname, useRouter } from 'next/navigation';
 import { request } from '@/lib/request';
 
 const statusColors: Record<string, string> = {
@@ -14,6 +15,8 @@ const statusColors: Record<string, string> = {
 
 export default function ClusterSelector() {
   const { clusterId, clusterName, setCluster, version } = useClusterStore();
+  const pathname = usePathname();
+  const router = useRouter();
 
   const { data: clusters = [] } = useRequest(async () => {
     const res = await request('/api/clusters');
@@ -23,6 +26,17 @@ export default function ClusterSelector() {
 
   const currentCluster = clusters.find((c: any) => c.id === clusterId);
   const statusColor = statusColors[currentCluster?.status] || statusColors.disconnected;
+
+  const handleClusterChange = (id: string, name: string) => {
+    setCluster(id, name);
+    // If on a resource detail page, navigate back to the list page
+    // Detail pages have a dynamic segment after the resource type,
+    // e.g. /resources/workloads/deployments/my-deploy → /resources/workloads/deployments
+    const resourceDetailMatch = pathname.match(/^(\/resources\/(?:workloads|networking|config|storage)\/[^/]+)\/[^/]+/);
+    if (resourceDetailMatch) {
+      router.push(resourceDetailMatch[1]);
+    }
+  };
 
   const items = clusters.map((c: any) => ({
     key: c.id,
@@ -36,7 +50,7 @@ export default function ClusterSelector() {
         <span>{c.displayName || c.name}</span>
       </div>
     ),
-    onClick: () => setCluster(c.id, c.displayName || c.name),
+    onClick: () => handleClusterChange(c.id, c.displayName || c.name),
   }));
 
   return (

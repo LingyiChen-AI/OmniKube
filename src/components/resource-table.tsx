@@ -25,6 +25,7 @@ export default function ResourceTable({ data, loading, columns }: Props) {
       loading={loading}
       size="middle"
       pagination={{ pageSize: 20 }}
+      scroll={{ x: 'max-content' }}
     />
   );
 }

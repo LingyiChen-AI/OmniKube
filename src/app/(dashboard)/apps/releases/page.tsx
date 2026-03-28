@@ -60,7 +60,7 @@ export default function ReleasesPage() {
 
   return (
     <PageContainer title="发布记录" description="查看应用发布历史">
-      <Table columns={columns} dataSource={releases} rowKey="id" loading={loading} size="middle" />
+      <Table columns={columns} dataSource={releases} rowKey="id" loading={loading} size="middle" scroll={{ x: 'max-content' }} />
     </PageContainer>
   );
 }

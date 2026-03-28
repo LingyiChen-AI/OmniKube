@@ -87,6 +87,7 @@ export default function AuditPage() {
           pageSize: 20,
         }}
         size="middle"
+        scroll={{ x: 'max-content' }}
       />
     </PageContainer>
   );
