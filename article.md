@@ -19,7 +19,7 @@ K8s Admin 是一个开源的多集群 Kubernetes 管理平台，基于 Next.js 1
 
 GitHub 地址：[https://github.com/twwch/k8s-admin](https://github.com/twwch/k8s-admin)
 
-![Dashboard 总览](https://github.com/twwch/next-k8s-admin/blob/main/images/dashborad.png)
+![Dashboard 总览](https://gitee.com/chtw/images/raw/master/images/2026/03/dashborad.png)
 
 ## 核心功能
 
@@ -27,7 +27,7 @@ GitHub 地址：[https://github.com/twwch/k8s-admin](https://github.com/twwch/k8
 
 支持通过 Kubeconfig、ServiceAccount Token、EKS Token 三种方式接入集群，一个界面管理所有集群。
 
-![集群管理](https://github.com/twwch/next-k8s-admin/blob/main/images/集群管理.png)
+![集群管理](https://gitee.com/chtw/images/raw/master/images/2026/03/集群管理.png)
 
 ### 2. 完整的资源管理
 
@@ -37,8 +37,8 @@ GitHub 地址：[https://github.com/twwch/k8s-admin](https://github.com/twwch/k8
 
 <table>
   <tr>
-    <td><img src="https://github.com/twwch/next-k8s-admin/blob/main/images/deployments.png" alt="Deployments" /></td>
-    <td><img src="https://github.com/twwch/next-k8s-admin/blob/main/images/services.png" alt="Services" /></td>
+    <td><img src="https://gitee.com/chtw/images/raw/master/images/2026/03/deployments.png" alt="Deployments" /></td>
+    <td><img src="https://gitee.com/chtw/images/raw/master/images/2026/03/services.png" alt="Services" /></td>
   </tr>
   <tr>
     <td align="center">Deployments</td>
@@ -46,7 +46,7 @@ GitHub 地址：[https://github.com/twwch/k8s-admin](https://github.com/twwch/k8
   </tr>
 </table>
 
-![资源 YAML 编辑](https://github.com/twwch/next-k8s-admin/blob/main/images/资源编辑.png)
+![资源 YAML 编辑](https://gitee.com/chtw/images/raw/master/images/2026/03/资源编辑.png)
 
 ### 3. Pod 终端 & 实时日志
 
@@ -54,8 +54,8 @@ GitHub 地址：[https://github.com/twwch/k8s-admin](https://github.com/twwch/k8
 
 <table>
   <tr>
-    <td><img src="https://github.com/twwch/next-k8s-admin/blob/main/images/终端链接.png" alt="Pod 终端" /></td>
-    <td><img src="https://github.com/twwch/next-k8s-admin/blob/main/images/终端实时日志.png" alt="实时日志" /></td>
+    <td><img src="https://gitee.com/chtw/images/raw/master/images/2026/03/终端链接.png" alt="Pod 终端" /></td>
+    <td><img src="https://gitee.com/chtw/images/raw/master/images/2026/03/终端实时日志.png" alt="实时日志" /></td>
   </tr>
   <tr>
     <td align="center">Pod 终端</td>
@@ -69,8 +69,8 @@ GitHub 地址：[https://github.com/twwch/k8s-admin](https://github.com/twwch/k8
 
 <table>
   <tr>
-    <td><img src="https://github.com/twwch/next-k8s-admin/blob/main/images/用户管理.png" alt="用户管理" /></td>
-    <td><img src="https://github.com/twwch/next-k8s-admin/blob/main/images/角色创建.png" alt="角色创建" /></td>
+    <td><img src="https://gitee.com/chtw/images/raw/master/images/2026/03/用户管理.png" alt="用户管理" /></td>
+    <td><img src="https://gitee.com/chtw/images/raw/master/images/2026/03/角色创建.png" alt="角色创建" /></td>
   </tr>
   <tr>
     <td align="center">用户管理</td>
@@ -84,8 +84,8 @@ GitHub 地址：[https://github.com/twwch/k8s-admin](https://github.com/twwch/k8
 
 <table>
   <tr>
-    <td><img src="https://github.com/twwch/next-k8s-admin/blob/main/images/发布记录.png" alt="发布记录" /></td>
-    <td><img src="https://github.com/twwch/next-k8s-admin/blob/main/images/飞书通知卡片.png" alt="飞书通知" /></td>
+    <td><img src="https://gitee.com/chtw/images/raw/master/images/2026/03/发布记录.png" alt="发布记录" /></td>
+    <td><img src="https://gitee.com/chtw/images/raw/master/images/2026/03/飞书通知卡片.png" alt="飞书通知" /></td>
   </tr>
   <tr>
     <td align="center">发布记录</td>
@@ -97,7 +97,7 @@ GitHub 地址：[https://github.com/twwch/k8s-admin](https://github.com/twwch/k8
 
 所有操作留痕，记录操作人、IP、时间、动作，满足安全审计需求。
 
-![审计日志](https://github.com/twwch/next-k8s-admin/blob/main/images/审计日志.png)
+![审计日志](https://gitee.com/chtw/images/raw/master/images/2026/03/审计日志.png)
 
 ## 技术栈
 
