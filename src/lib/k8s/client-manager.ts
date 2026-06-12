@@ -5,6 +5,7 @@ import { db } from '@/lib/db';
 import { clusters } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { decrypt } from '@/lib/crypto';
+import { applyTlsFallback } from './tls';
 import yaml from 'yaml';
 
 interface K8sClients {
@@ -126,6 +127,7 @@ async function buildKubeConfig(clusterId: string): Promise<{ kc: k8s.KubeConfig;
     throw new Error(`Invalid auth configuration for cluster ${cluster.name}`);
   }
 
+  applyTlsFallback(kc);
   return { kc, isEks };
 }
 
