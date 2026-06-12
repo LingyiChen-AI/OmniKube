@@ -201,6 +201,35 @@ docker compose up -d
 
 `docker_run.sh` 会挂载 `~/.aws`（只读）和 `.env` 到容器中。
 
+### 反向代理子路径部署（nginx）
+
+需要把服务挂在子路径下（如 `https://example.com/ops/`）时，必须在**构建时**指定 `NEXT_PUBLIC_BASE_PATH`（Next.js 的 basePath 会内联进前端产物，运行时无法更改）：
+
+```bash
+# 构建带子路径的镜像
+docker build --build-arg NEXT_PUBLIC_BASE_PATH=/ops -t twwch/k8s-admin:ops .
+
+# 或源码构建
+NEXT_PUBLIC_BASE_PATH=/ops npm run build
+```
+
+nginx 配置注意 `proxy_pass` **不要带末尾斜杠**（不能剥掉 `/ops` 前缀，应用自身已带前缀），并保留 WebSocket 升级头：
+
+```nginx
+location /ops/ {
+    proxy_pass http://10.0.0.1:3000;   # 没有末尾斜杠，/ops/xxx 原样转发
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+}
+```
+
+部署在域名根路径时无需任何配置（`NEXT_PUBLIC_BASE_PATH` 默认为空）。
+
 ### 环境变量
 
 | 变量 | 说明 | 默认值 |
@@ -214,6 +243,8 @@ docker compose up -d
 | `SMTP_PASS` | SMTP 密码 | - |
 | `SMTP_FROM` | 发件人邮箱 | `noreply@k8sadmin.local` |
 | `NEXT_PUBLIC_WS_URL` | WebSocket 地址 | `ws://localhost:3000/ws` |
+| `NEXT_PUBLIC_BASE_PATH` | 子路径部署前缀（构建时指定，如 `/ops`） | - |
+| `K8S_SKIP_TLS_VERIFY` | 设为 `true` 时跳过所有集群的 TLS 证书校验（自签名证书） | - |
 
 ## 自动初始化
 

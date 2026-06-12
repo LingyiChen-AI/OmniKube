@@ -9,7 +9,11 @@ export function proxy(req: NextRequest) {
   const token = req.cookies.get('k8s_session')?.value;
   if (!token) {
     if (pathname.startsWith('/api/')) return NextResponse.json({ error: '未登录' }, { status: 401 });
-    return NextResponse.redirect(new URL('/login', req.url));
+    // nextUrl.clone() 保留 basePath，new URL('/login', req.url) 会丢失
+    const loginUrl = req.nextUrl.clone();
+    loginUrl.pathname = '/login';
+    loginUrl.search = '';
+    return NextResponse.redirect(loginUrl);
   }
   return NextResponse.next();
 }

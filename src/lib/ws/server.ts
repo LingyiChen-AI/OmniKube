@@ -243,10 +243,12 @@ export function startWsServer(httpServer?: import('http').Server) {
   // Use noServer mode to manually handle upgrade, avoiding Next.js HMR conflicts
   const wss = new WebSocketServer({ noServer: true });
 
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
+
   if (httpServer) {
     httpServer.on('upgrade', (req, socket, head) => {
       const { pathname } = new URL(req.url || '', `http://localhost:3000`);
-      if (pathname === '/ws') {
+      if (pathname === '/ws' || (basePath && pathname === `${basePath}/ws`)) {
         wss.handleUpgrade(req, socket, head, (ws) => {
           wss.emit('connection', ws, req);
         });

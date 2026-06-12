@@ -5,6 +5,7 @@ import { LockOutlined } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
 import AuthBrand from '@/components/auth-brand';
 import { gradientBtnStyle } from '@/lib/styles';
+import { request, withBasePath } from '@/lib/request';
 
 export default function ChangePasswordPage() {
   const router = useRouter();
@@ -14,11 +15,11 @@ export default function ChangePasswordPage() {
   const handleSubmit = async (values: { currentPassword: string; newPassword: string }) => {
     setLoading(true);
     try {
-      const res = await fetch('/api/auth/change-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(values) });
+      const res = await request('/api/auth/change-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(values) });
       const data = await res.json();
       if (!res.ok) { message.error(data.error); return; }
       message.success('密码修改成功');
-      window.location.href = '/';
+      window.location.href = withBasePath('/');
     } finally { setLoading(false); }
   };
 
