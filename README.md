@@ -6,9 +6,7 @@
 
 企业级多集群 · 多租户 Kubernetes 管理平台 —— 细粒度权限、可视化运维、实时观测、全量审计,一个控制台搞定。
 
-🎬 **产品演示视频:[`video/omnikube-demo.mp4`](video/omnikube-demo.mp4)**(1080p · 中文配音 + 字幕 · 71s)
-
-![Dashboard](images/02-dashboard.png)
+![Dashboard](images/01-dashboard.png)
 
 </div>
 
@@ -113,7 +111,7 @@ npm run dev            # :5173,已配代理 /api + ws → :8080
 backend/    Go 后端(cmd/server 入口;internal: handler / rbac / cluster / notify / captcha / audit / middleware / ws ...)
 frontend/   React 前端(src: pages / components / api / store / i18n)
 docs/       设计文档(docs/superpowers/specs)、功能查漏 feature-gaps.md
-images/     E2E 截图 + 测试报告
+images/     界面截图
 video/      产品演示视频(成片 + 可复现源码)
 PRD/        产品需求文档
 ```
@@ -130,12 +128,32 @@ cd backend && go test ./...
 cd frontend && npm run lint && npm test && npm run build
 ```
 
-端到端功能测试(Playwright 自动截图)见 [`images/TEST-REPORT.md`](images/TEST-REPORT.md)。
-
 ---
 
-## 📸 更多截图
+## 📸 界面截图
 
-| 审计日志 | 工作负载详情 | 权限矩阵 |
+### 工作负载
+
+| 部署列表 | 部署详情 | 容器组 |
 |---|---|---|
-| ![audit](images/29-audit-filters.png) | ![detail](images/21-deployment-detail.png) | ![rbac](images/25-role-detail-matrix.png) |
+| ![deployments](images/02-deployments.png) | ![deployment-detail](images/03-deployment-detail.png) | ![pods](images/06-pods.png) |
+
+| 有状态副本集 | 守护进程集 | 定时任务 |
+|---|---|---|
+| ![statefulsets](images/04-statefulsets.png) | ![daemonsets](images/05-daemonsets.png) | ![cronjobs](images/08-cronjobs.png) |
+
+### 网络 · 存储 · 节点
+
+| 服务 | ConfigMap | 节点 |
+|---|---|---|
+| ![services](images/09-services.png) | ![configmaps](images/11-configmaps.png) | ![nodes](images/14-nodes.png) |
+
+### 系统管理
+
+| 用户 | 角色 | 审计日志 |
+|---|---|---|
+| ![users](images/16-users.png) | ![roles](images/17-roles.png) | ![audit](images/18-audit.png) |
+
+| 集群管理 | 发布记录 |
+|---|---|
+| ![clusters](images/19-clusters.png) | ![releases](images/15-releases.png) |
