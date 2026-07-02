@@ -1,0 +1,15 @@
+# backend (Go)
+/backend/server
+/backend/.env
+/backend/config.yaml
+*.test
+
+# frontend (React)
+/frontend/node_modules
+/frontend/dist
+/frontend/.env
+
+/tmp/
+.DS_Store
+
+video
