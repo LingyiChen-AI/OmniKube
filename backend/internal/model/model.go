@@ -159,7 +159,8 @@ type AIMessage struct {
 	ConversationID uint      `gorm:"index;not null" json:"conversation_id"`
 	Role           string    `gorm:"size:20;not null" json:"role"` // user/assistant/tool
 	Content        string    `gorm:"type:text" json:"content"`
-	ToolCalls      string    `gorm:"type:text" json:"tool_calls"` // JSON，可空
+	ToolCalls      string    `gorm:"type:text" json:"tool_calls"`      // JSON，可空
+	PendingAction  string    `gorm:"type:text" json:"pending_action"`  // JSON: 待用户确认的暂存写操作([]StagedAction)，确认/取消后清空
 	CreatedAt      time.Time `gorm:"index" json:"created_at"`
 }
 

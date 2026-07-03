@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"strconv"
 	"strings"
@@ -27,12 +28,14 @@ var ErrConversationNotFound = errors.New("会话不存在或无权访问")
 //   - tool_result：工具返回结果（Result=JSON 结果）。
 //   - done：本轮回答结束（Text=完整回答文本，便于上层一次性落库/展示）。
 //   - error：运行出错（Text=错误信息）。
+// confirm_required：本轮暂存了写操作，需用户确认（Actions=暂存动作预览，Text=助手正文）。
 type Event struct {
-	Type   string `json:"type"`
-	Text   string `json:"text,omitempty"`
-	Tool   string `json:"tool,omitempty"`
-	Args   string `json:"args,omitempty"`
-	Result string `json:"result,omitempty"`
+	Type    string         `json:"type"`
+	Text    string         `json:"text,omitempty"`
+	Tool    string         `json:"tool,omitempty"`
+	Args    string         `json:"args,omitempty"`
+	Result  string         `json:"result,omitempty"`
+	Actions []StagedAction `json:"actions,omitempty"`
 }
 
 // streamFn 抽象「给定输入消息，返回流式消息读取器」；*react.Agent 的 Stream 天然契合。
@@ -53,25 +56,33 @@ func defaultAgentBuilder(ctx context.Context, cm einomodel.ToolCallingChatModel,
 	}, nil
 }
 
+// executorIface 抽象「应用一个已确认的写操作」，便于单测注入 fake executor。
+type executorIface interface {
+	Apply(ctx context.Context, userID uint, username, clusterID string, a StagedAction) error
+}
+
 // Runner 串起「加载历史 → 装配 model/tools/agent → 流式跑 → 回传事件 → 落库」的整条链路。
 type Runner struct {
 	store *Store
 	convs *ConvStore
 	pool  *cluster.ClusterPool
 	guard *Guard
+	exec  executorIface
 
 	// 以下两处为测试接缝：默认走真实实现，单测可覆盖以摆脱网络依赖。
 	buildModel func(ctx context.Context, cfg Config) (einomodel.ToolCallingChatModel, error)
 	newAgent   agentBuilder
 }
 
-// NewRunner 装配 Runner，接缝默认指向真实的 BuildChatModel / defaultAgentBuilder。
+// NewRunner 装配 Runner，接缝默认指向真实的 BuildChatModel / defaultAgentBuilder；
+// exec 默认走真实 Executor（复用 convs 的 db 落审计）。
 func NewRunner(store *Store, convs *ConvStore, pool *cluster.ClusterPool, guard *Guard) *Runner {
 	return &Runner{
 		store:      store,
 		convs:      convs,
 		pool:       pool,
 		guard:      guard,
+		exec:       NewExecutor(pool, guard, convs.db),
 		buildModel: BuildChatModel,
 		newAgent:   defaultAgentBuilder,
 	}
@@ -122,7 +133,10 @@ func (r *Runner) Stream(ctx context.Context, userID uint, clusterID, convID stri
 	if err != nil {
 		return err
 	}
-	tools := ReadTools(r.pool, clusterID, r.guard, userID)
+	// 读工具 + 写工具（写工具共享本轮新建的 stager：只暂存不执行）。
+	stager := &Stager{}
+	tools := append(ReadTools(r.pool, clusterID, r.guard, userID),
+		WriteTools(r.pool, clusterID, r.guard, userID, stager)...)
 	run, err := r.newAgent(ctx, cm, tools, cfg.SystemPrompt, cfg.MaxSteps)
 	if err != nil {
 		return err
@@ -176,10 +190,73 @@ func (r *Runner) Stream(ctx context.Context, userID uint, clusterID, convID stri
 		}
 	}
 
-	// 5. done + 助手消息落库（含工具调用轨迹 JSON，便于前端还原 tool-step trace）。
+	// 5. 收尾。若本轮暂存了写操作 → 不执行、不发 done，而是发 confirm_required 并把
+	//    暂存动作以 pending_action 落到助手消息上，等待用户经 Confirm 确认后再执行。
 	answer := full.String()
+	staged := stager.Actions()
+	if len(staged) > 0 {
+		pending := marshalActions(staged)
+		emit(Event{Type: "confirm_required", Text: answer, Actions: staged})
+		return r.convs.AppendAssistant(uint(cid), answer, marshalToolCalls(toolCalls), pending)
+	}
+
+	// 无暂存写操作 → 与 Phase 2 一致：done + 助手消息落库（含工具调用轨迹 JSON）。
 	emit(Event{Type: "done", Text: answer})
 	return r.convs.AppendMessage(uint(cid), "assistant", answer, marshalToolCalls(toolCalls))
+}
+
+// Confirm 处理用户对上一轮暂存写操作的确认/取消：
+//  0. 归属校验（会话须存在且属于 userID，否则 ErrConversationNotFound）；
+//  1. 载入该会话最近一条待确认动作（LatestPending）；无则回一帧 error（无副作用）；
+//  2. approved：逐个经 Executor.Apply（会再次过闸门）执行，每个动作发一帧 tool_result
+//     （成功/失败），最后 done；rejected：不执行，发一帧 done 携「已取消」文案；
+//  3. 无论确认还是取消，处理后清空 pending_action，防止二次确认重复执行。
+func (r *Runner) Confirm(ctx context.Context, userID uint, username, convID string, approved bool, emit func(Event)) error {
+	cid, err := strconv.ParseUint(strings.TrimSpace(convID), 10, 64)
+	if err != nil || cid == 0 {
+		return errors.New("无效的 conversation_id")
+	}
+	// 0. 归属校验（与 Stream 同口径）。
+	conv, err := r.convs.Get(uint(cid))
+	if err != nil || conv.UserID != userID {
+		return ErrConversationNotFound
+	}
+
+	// 1. 取最近一条待确认动作。
+	msgID, actions, ok := r.convs.LatestPending(uint(cid))
+	if !ok {
+		emit(Event{Type: "error", Text: "没有待确认的操作"})
+		return nil
+	}
+
+	// 2. 取消：不执行任何变更，清空后返回。
+	if !approved {
+		emit(Event{Type: "done", Text: "已取消，未执行任何变更。"})
+		return r.convs.ClearPending(msgID)
+	}
+
+	// 2. 确认：逐个执行（clusterID 取自会话），每个动作回一帧结果。
+	for _, a := range actions {
+		if err := r.exec.Apply(ctx, userID, username, conv.ClusterID, a); err != nil {
+			emit(Event{Type: "tool_result", Tool: a.Action + "_resource", Result: fmt.Sprintf("失败：%v", err)})
+		} else {
+			emit(Event{Type: "tool_result", Tool: a.Action + "_resource", Result: fmt.Sprintf("已执行：%s %s/%s", a.Action, a.Resource, a.Name)})
+		}
+	}
+	emit(Event{Type: "done", Text: "已执行确认的操作。"})
+	// 3. 清空 pending，防止二次确认。
+	return r.convs.ClearPending(msgID)
+}
+
+// marshalActions 把暂存动作序列化为 JSON 字符串；空/失败返回空串。
+func marshalActions(actions []StagedAction) string {
+	if len(actions) == 0 {
+		return ""
+	}
+	if raw, err := json.Marshal(actions); err == nil {
+		return string(raw)
+	}
+	return ""
 }
 
 // marshalToolCalls 把工具调用轨迹序列化为 JSON 字符串；无调用或序列化失败时返回空串。

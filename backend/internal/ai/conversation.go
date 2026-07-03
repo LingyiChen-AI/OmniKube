@@ -1,6 +1,7 @@
 package ai
 
 import (
+	"encoding/json"
 	"time"
 
 	"gorm.io/gorm"
@@ -37,6 +38,44 @@ func (s *ConvStore) AppendMessage(convID uint, role, content, toolCalls string) 
 		return tx.Model(&model.AIConversation{}).Where("id = ?", convID).
 			Update("updated_at", time.Now()).Error
 	})
+}
+
+// AppendAssistant 追加一条助手消息，并携带待确认的暂存写操作（pendingAction 为
+// []StagedAction 的 JSON，空串表示无待确认动作）。除 pending_action 外与 AppendMessage
+// 等价（顺带刷新会话 updated_at）。
+func (s *ConvStore) AppendAssistant(convID uint, content, toolCalls, pendingAction string) error {
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		msg := model.AIMessage{
+			ConversationID: convID, Role: "assistant",
+			Content: content, ToolCalls: toolCalls, PendingAction: pendingAction,
+		}
+		if err := tx.Create(&msg).Error; err != nil {
+			return err
+		}
+		return tx.Model(&model.AIConversation{}).Where("id = ?", convID).
+			Update("updated_at", time.Now()).Error
+	})
+}
+
+// LatestPending 返回会话内「最近一条仍带待确认写操作」的消息 id 与解析后的动作列表。
+// ok==false 表示无待确认动作（或解析失败——按无处理，避免误执行残缺动作）。
+func (s *ConvStore) LatestPending(convID uint) (msgID uint, actions []StagedAction, ok bool) {
+	var msg model.AIMessage
+	err := s.db.Where("conversation_id = ? AND pending_action != ''", convID).
+		Order("id desc").First(&msg).Error
+	if err != nil {
+		return 0, nil, false
+	}
+	if err := json.Unmarshal([]byte(msg.PendingAction), &actions); err != nil || len(actions) == 0 {
+		return 0, nil, false
+	}
+	return msg.ID, actions, true
+}
+
+// ClearPending 清空某条消息的待确认写操作（确认执行或取消后调用，防止二次确认）。
+func (s *ConvStore) ClearPending(msgID uint) error {
+	return s.db.Model(&model.AIMessage{}).Where("id = ?", msgID).
+		Update("pending_action", "").Error
 }
 
 // Messages 返回会话内的消息，按 id 升序（即时间顺序）。
