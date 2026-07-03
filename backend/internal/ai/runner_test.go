@@ -137,6 +137,56 @@ func TestRunnerConfirmApproves(t *testing.T) {
 	}
 }
 
+// TestRunnerConfirmClaimPreventsDoubleExecute 并发双确认防护（TOCTOU）：对同一会话
+// 连续两次 Confirm(approved=true)，只有第一次能原子认领 pending 并执行，第二次认领失败
+// （pending 已被清空）→ 不执行任何变更、回一帧「没有待确认的操作」。
+// 断言 executor 恰好被调用 1 次（模拟 WS+REST 或两次 REST 竞态下的重复下发被封堵）。
+func TestRunnerConfirmClaimPreventsDoubleExecute(t *testing.T) {
+	db, cipher := testDB(t), testCipher(t)
+	store := NewStore(db, cipher)
+	convs := NewConvStore(db)
+	pool := fakeToolsCluster(t)
+	guard := writeGuardDB(t, db, true)
+	r := NewRunner(store, convs, pool, guard)
+	fexec := &fakeExecutor{}
+	r.exec = fexec
+
+	convID, _ := convs.Create(1, "c1", "对话")
+	acts := []StagedAction{{Action: "create", Resource: "deployments", Namespace: "dev", Name: "nginx"}}
+	if err := convs.AppendAssistant(convID, "请确认", "", marshalActions(acts)); err != nil {
+		t.Fatal(err)
+	}
+
+	idStr := strconv.FormatUint(uint64(convID), 10)
+	// 第一次确认：应认领成功并执行。
+	if err := r.Confirm(context.Background(), 1, "alice", idStr, true, func(Event) {}); err != nil {
+		t.Fatalf("first Confirm: %v", err)
+	}
+	// 第二次确认（模拟并发/重复）：pending 已被认领清空 → 不再执行。
+	var events2 []Event
+	if err := r.Confirm(context.Background(), 1, "alice", idStr, true, func(e Event) { events2 = append(events2, e) }); err != nil {
+		t.Fatalf("second Confirm: %v", err)
+	}
+
+	// executor 只应被调用一次。
+	if len(fexec.calls) != 1 {
+		t.Fatalf("expected exactly 1 apply call across two confirms, got %d", len(fexec.calls))
+	}
+	// 第二次应回「没有待确认的操作」的 error 帧，且无 tool_result（未执行）。
+	sawNoPending := false
+	for _, e := range events2 {
+		if e.Type == "tool_result" {
+			t.Fatalf("second confirm must NOT execute, got tool_result %+v", e)
+		}
+		if e.Type == "error" {
+			sawNoPending = true
+		}
+	}
+	if !sawNoPending {
+		t.Fatalf("second confirm should emit a 'no pending action' error frame, got %+v", events2)
+	}
+}
+
 // TestRunnerConfirmRejects 取消：不执行任何写，发 done（含取消文案），清空 pending。
 func TestRunnerConfirmRejects(t *testing.T) {
 	db, cipher := testDB(t), testCipher(t)

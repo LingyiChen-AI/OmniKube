@@ -45,6 +45,15 @@ func (s *ConvStore) AppendMessage(convID uint, role, content, toolCalls string) 
 // 等价（顺带刷新会话 updated_at）。
 func (s *ConvStore) AppendAssistant(convID uint, content, toolCalls, pendingAction string) error {
 	return s.db.Transaction(func(tx *gorm.DB) error {
+		// 若本条带来新的待确认动作，先作废该会话内所有旧的未确认 pending_action：
+		// 用户不能再去确认一个已被新提案取代的旧操作（避免执行陈旧/被覆盖的暂存动作）。
+		if pendingAction != "" {
+			if err := tx.Model(&model.AIMessage{}).
+				Where("conversation_id = ? AND pending_action != ''", convID).
+				Update("pending_action", "").Error; err != nil {
+				return err
+			}
+		}
 		msg := model.AIMessage{
 			ConversationID: convID, Role: "assistant",
 			Content: content, ToolCalls: toolCalls, PendingAction: pendingAction,
@@ -67,6 +76,35 @@ func (s *ConvStore) LatestPending(convID uint) (msgID uint, actions []StagedActi
 		return 0, nil, false
 	}
 	if err := json.Unmarshal([]byte(msg.PendingAction), &actions); err != nil || len(actions) == 0 {
+		return 0, nil, false
+	}
+	return msg.ID, actions, true
+}
+
+// ClaimPending 原子地「认领」会话内最近一条待确认写操作，用于确认执行前抢占：
+//  1. 读出最近一条 pending 消息及其动作 JSON（在清空前捕获，否则动作会随清空丢失）；
+//  2. 以条件 UPDATE（... AND pending_action != ''）抢占清空 pending_action，
+//     仅当恰好影响 1 行时才算认领成功（ok==true）。
+//
+// 由此并发的两次确认（WS+REST 或两次 REST）中只有一个能认领成功——另一个的
+// RowsAffected==0 → ok==false，得到「无待确认动作」而不执行任何变更，从根本上封堵
+// 「LatestPending→Apply→ClearPending 非原子」导致的 TOCTOU 双执行竞态。
+func (s *ConvStore) ClaimPending(convID uint) (msgID uint, actions []StagedAction, ok bool) {
+	var msg model.AIMessage
+	err := s.db.Where("conversation_id = ? AND pending_action != ''", convID).
+		Order("id desc").First(&msg).Error
+	if err != nil {
+		return 0, nil, false
+	}
+	// 先捕获动作 JSON（抢占清空后就读不到了）。
+	if err := json.Unmarshal([]byte(msg.PendingAction), &actions); err != nil || len(actions) == 0 {
+		return 0, nil, false
+	}
+	// 原子抢占：仅当该行仍未被清空时才认领成功。
+	res := s.db.Model(&model.AIMessage{}).
+		Where("id = ? AND pending_action != ''", msg.ID).
+		Update("pending_action", "")
+	if res.Error != nil || res.RowsAffected != 1 {
 		return 0, nil, false
 	}
 	return msg.ID, actions, true

@@ -206,11 +206,13 @@ func (r *Runner) Stream(ctx context.Context, userID uint, clusterID, convID stri
 }
 
 // Confirm 处理用户对上一轮暂存写操作的确认/取消：
-//  0. 归属校验（会话须存在且属于 userID，否则 ErrConversationNotFound）；
-//  1. 载入该会话最近一条待确认动作（LatestPending）；无则回一帧 error（无副作用）；
+//  0. 归属校验（会话须存在且属于 userID，否则 ErrConversationNotFound）——必须先于认领；
+//  1. 原子认领（ClaimPending）该会话最近一条待确认动作：读出动作后条件 UPDATE 抢占清空，
+//     仅当恰好清空 1 行才算认领成功；认领失败（无 pending 或被并发确认抢先）→ 回一帧 error
+//     且不执行任何变更。这一步同时完成「取动作」与「清空 pending」，杜绝并发双确认重复下发；
 //  2. approved：逐个经 Executor.Apply（会再次过闸门）执行，每个动作发一帧 tool_result
-//     （成功/失败），最后 done；rejected：不执行，发一帧 done 携「已取消」文案；
-//  3. 无论确认还是取消，处理后清空 pending_action，防止二次确认重复执行。
+//     （成功/失败），最后 done；rejected：不执行，发一帧 done 携「已取消」文案。
+//     两种情形下 pending 均已在第 1 步被认领清空，无需再单独清空。
 func (r *Runner) Confirm(ctx context.Context, userID uint, username, convID string, approved bool, emit func(Event)) error {
 	cid, err := strconv.ParseUint(strings.TrimSpace(convID), 10, 64)
 	if err != nil || cid == 0 {
@@ -222,17 +224,18 @@ func (r *Runner) Confirm(ctx context.Context, userID uint, username, convID stri
 		return ErrConversationNotFound
 	}
 
-	// 1. 取最近一条待确认动作。
-	msgID, actions, ok := r.convs.LatestPending(uint(cid))
+	// 1. 原子认领最近一条待确认动作（同时抢占清空 pending，杜绝并发双确认）。
+	//    认领失败 = 无 pending 或被并发确认抢先 → 回一帧 error 且不执行任何变更。
+	_, actions, ok := r.convs.ClaimPending(uint(cid))
 	if !ok {
 		emit(Event{Type: "error", Text: "没有待确认的操作"})
 		return nil
 	}
 
-	// 2. 取消：不执行任何变更，清空后返回。
+	// 2. 取消：pending 已在认领步清空，不执行任何变更，直接返回。
 	if !approved {
 		emit(Event{Type: "done", Text: "已取消，未执行任何变更。"})
-		return r.convs.ClearPending(msgID)
+		return nil
 	}
 
 	// 2. 确认：逐个执行（clusterID 取自会话），每个动作回一帧结果。
@@ -244,8 +247,7 @@ func (r *Runner) Confirm(ctx context.Context, userID uint, username, convID stri
 		}
 	}
 	emit(Event{Type: "done", Text: "已执行确认的操作。"})
-	// 3. 清空 pending，防止二次确认。
-	return r.convs.ClearPending(msgID)
+	return nil
 }
 
 // marshalActions 把暂存动作序列化为 JSON 字符串；空/失败返回空串。
