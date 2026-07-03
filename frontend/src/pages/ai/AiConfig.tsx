@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { App as AntApp, Button, Card, Form, Input, InputNumber, Select, Switch } from 'antd';
+import { App as AntApp, Button, Card, Col, Form, Input, InputNumber, Row, Select, Switch } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { aiApi } from '../../api/ai';
 import { useClusterStore } from '../../store/clusters';
@@ -75,21 +75,33 @@ export default function AiConfig() {
           <Form.Item label={t('ai.enabled')} name="enabled" valuePropName="checked">
             <Switch />
           </Form.Item>
-          <Form.Item label={t('ai.baseUrl')} name="base_url">
-            <Input placeholder="https://api.openai.com/v1" />
-          </Form.Item>
+          <Row gutter={16}>
+            <Col xs={24} sm={12}>
+              <Form.Item label={t('ai.baseUrl')} name="base_url">
+                <Input placeholder="https://api.openai.com/v1" />
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={12}>
+              <Form.Item label={t('ai.model')} name="model_id">
+                <Input placeholder="gpt-4o-mini" />
+              </Form.Item>
+            </Col>
+          </Row>
           <Form.Item label={t('ai.apiKey')} name="api_key">
             <Input.Password placeholder={hasKey ? t('ai.apiKeySet') : ''} autoComplete="off" />
           </Form.Item>
-          <Form.Item label={t('ai.model')} name="model_id">
-            <Input placeholder="gpt-4o-mini" />
-          </Form.Item>
-          <Form.Item label={t('ai.temperature')} name="temperature">
-            <InputNumber min={0} max={2} step={0.1} />
-          </Form.Item>
-          <Form.Item label={t('ai.maxSteps')} name="max_steps">
-            <InputNumber min={1} max={50} />
-          </Form.Item>
+          <Row gutter={16}>
+            <Col xs={12} sm={6}>
+              <Form.Item label={t('ai.temperature')} name="temperature">
+                <InputNumber min={0} max={2} step={0.1} style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+            <Col xs={12} sm={6}>
+              <Form.Item label={t('ai.maxSteps')} name="max_steps">
+                <InputNumber min={1} max={50} style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+          </Row>
           <Form.Item label={t('ai.systemPrompt')} name="system_prompt">
             <Input.TextArea rows={3} />
           </Form.Item>

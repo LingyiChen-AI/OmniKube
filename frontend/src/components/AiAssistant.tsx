@@ -35,19 +35,22 @@ export default function AiAssistant() {
 
   return (
     <>
-      <Tooltip title="OmniKube">
-        <Badge count={ready ? 0 : <WarningOutlined style={{ color: '#F59E0B' }} />} offset={[-4, 4]}>
-          <Button
-            aria-label="OmniKube assistant"
-            type="primary"
-            shape="circle"
-            size="large"
-            icon={<RobotOutlined />}
-            onClick={onClick}
-            style={{ position: 'fixed', right: 24, bottom: 24, zIndex: 1000 }}
-          />
-        </Badge>
-      </Tooltip>
+      {/* Fixed wrapper so nothing (Badge/Tooltip spans) leaks into normal flow
+          and adds page height — that caused a white strip under the layout. */}
+      <div style={{ position: 'fixed', right: 24, bottom: 24, zIndex: 1000 }}>
+        <Tooltip title="OmniKube" placement="left">
+          <Badge count={ready ? 0 : <WarningOutlined style={{ color: '#F59E0B' }} />} offset={[-4, 4]}>
+            <Button
+              aria-label="OmniKube assistant"
+              type="primary"
+              shape="circle"
+              size="large"
+              icon={<RobotOutlined />}
+              onClick={onClick}
+            />
+          </Badge>
+        </Tooltip>
+      </div>
       <Drawer open={open} onClose={() => setOpen(false)} width="min(480px, 92vw)" title="OmniKube">
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: 12 }}>
           <div style={{ flex: 1, overflow: 'auto' }}>
