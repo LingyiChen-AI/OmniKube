@@ -710,6 +710,11 @@ const es: Resources = {
     emptyChat: 'Pregunta por los recursos de tu clúster para empezar.',
     error: 'Algo salió mal',
     disconnected: 'Conexión perdida',
+    confirmTitle: 'Acciones pendientes',
+    confirmRun: 'Confirmar',
+    cancel: 'Cancelar',
+    willExecute: 'Se ejecutará',
+    confirmManifest: 'Vista previa del manifiesto',
   },
   common: {
     cancel: 'Cancelar',

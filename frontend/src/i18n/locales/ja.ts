@@ -710,6 +710,11 @@ const ja: Resources = {
     emptyChat: 'クラスターのリソースについて質問して始めましょう。',
     error: 'エラーが発生しました',
     disconnected: '接続が切断されました',
+    confirmTitle: '確認待ちの操作',
+    confirmRun: '実行を確認',
+    cancel: 'キャンセル',
+    willExecute: '実行予定',
+    confirmManifest: 'マニフェストのプレビュー',
   },
   common: {
     cancel: 'キャンセル',

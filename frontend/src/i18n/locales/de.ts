@@ -710,6 +710,11 @@ const de: Resources = {
     emptyChat: 'Fragen Sie nach Ihren Cluster-Ressourcen, um zu beginnen.',
     error: 'Etwas ist schiefgelaufen',
     disconnected: 'Verbindung getrennt',
+    confirmTitle: 'Ausstehende Aktionen',
+    confirmRun: 'Bestätigen',
+    cancel: 'Abbrechen',
+    willExecute: 'Wird ausgeführt',
+    confirmManifest: 'Manifest-Vorschau',
   },
   common: {
     cancel: 'Abbrechen',

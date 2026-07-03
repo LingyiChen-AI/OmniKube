@@ -710,6 +710,11 @@ const ko: Resources = {
     emptyChat: '클러스터 리소스에 대해 질문하며 시작하세요.',
     error: '문제가 발생했습니다',
     disconnected: '연결이 끊어졌습니다',
+    confirmTitle: '확인 대기 중인 작업',
+    confirmRun: '실행 확인',
+    cancel: '취소',
+    willExecute: '실행 예정',
+    confirmManifest: '매니페스트 미리보기',
   },
   common: {
     cancel: '취소',

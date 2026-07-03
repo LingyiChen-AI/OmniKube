@@ -1,5 +1,6 @@
 import client from './client';
 import type { Operations } from './role';
+import type { AiChatEvent } from './aiChat';
 
 export interface AiStatus {
   enabled: boolean;
@@ -69,4 +70,10 @@ export const aiApi = {
     client
       .get<{ conversation: AiConversation; messages: AiMessage[] }>(`/ai/conversations/${id}`)
       .then((r) => r.data),
+  // REST fallback for confirming staged writes when the WS is not open; the backend
+  // replays the confirm result as a batch of Events (`POST /ai/conversations/:id/confirm`).
+  confirmConversation: (id: number, approved: boolean) =>
+    client
+      .post<{ events: AiChatEvent[] }>(`/ai/conversations/${id}/confirm`, { approved })
+      .then((r) => r.data.events ?? []),
 };

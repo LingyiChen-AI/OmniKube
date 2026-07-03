@@ -17,7 +17,7 @@ import {
 import { PlusOutlined, RobotOutlined, SendOutlined, WarningOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { aiApi, type AiConversation, type AiMessage } from '../api/ai';
-import { aiChatUrl, type AiChatEvent } from '../api/aiChat';
+import { aiChatUrl, type AiChatEvent, type StagedAction } from '../api/aiChat';
 import { useCtxStore } from '../store/ctx';
 
 interface ToolStep {
@@ -26,10 +26,17 @@ interface ToolStep {
   result?: string;
 }
 
+/** Pending write actions awaiting the user's confirmation, attached to an assistant bubble. */
+interface PendingConfirm {
+  actions: StagedAction[];
+  resolved: boolean; // true once the user clicked confirm/cancel (disables the buttons)
+}
+
 interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
   tools: ToolStep[];
+  confirm?: PendingConfirm;
 }
 
 /** Parse the persisted eino tool-call trace (JSON `[]schema.ToolCall`) into UI steps. */
@@ -206,6 +213,16 @@ export default function AiAssistant() {
             return { ...m, tools: [...tools, { tool: frame.tool ?? '', result: frame.result }] };
           });
           break;
+        case 'confirm_required':
+          // Staged write actions need confirmation: attach a card to the current
+          // bubble but keep `streaming` true so the composer stays disabled until
+          // the user resolves it (confirm/cancel then drives the follow-up frames).
+          updateLastAssistant((m) => ({
+            ...m,
+            content: m.content || (frame.text ?? ''),
+            confirm: { actions: frame.actions ?? [], resolved: false },
+          }));
+          break;
         case 'error':
           updateLastAssistant((m) => ({
             ...m,
@@ -317,6 +334,32 @@ export default function AiAssistant() {
     }
   };
 
+  // Resolve the pending confirmation card: mark it resolved (disables its buttons),
+  // then send `{type:"confirm", ...}` over the socket, falling back to the REST
+  // endpoint (whose replayed Events we feed through the same frame handler) when the
+  // socket is not open. Subsequent tool_result/done frames re-enable the composer.
+  const resolveConfirm = useCallback(
+    async (approved: boolean) => {
+      if (!activeConv) return;
+      updateLastAssistant((m) => (m.confirm ? { ...m, confirm: { ...m.confirm, resolved: true } } : m));
+      const ws = socketRef.current;
+      const payload = { type: 'confirm' as const, conversation_id: activeConv, approved };
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify(payload));
+        return;
+      }
+      // Socket dropped — replay via REST and render the returned Events locally.
+      try {
+        const events = await aiApi.confirmConversation(activeConv, approved);
+        events.forEach((e) => handleFrame(JSON.stringify(e)));
+      } catch {
+        setStreaming(false);
+        message.error(t('ai.error'));
+      }
+    },
+    [activeConv, updateLastAssistant, handleFrame, message, t],
+  );
+
   const composerDisabled = !currentCluster || streaming;
 
   return (
@@ -359,7 +402,12 @@ export default function AiAssistant() {
             ) : (
               <Space direction="vertical" size={12} style={{ width: '100%' }}>
                 {messages.map((m, i) => (
-                  <MessageBubble key={i} msg={m} streaming={streaming && i === messages.length - 1} />
+                  <MessageBubble
+                    key={i}
+                    msg={m}
+                    streaming={streaming && i === messages.length - 1}
+                    onConfirm={(approved) => void resolveConfirm(approved)}
+                  />
                 ))}
                 <div ref={listEndRef} />
               </Space>
@@ -398,10 +446,18 @@ export default function AiAssistant() {
   );
 }
 
-function MessageBubble({ msg, streaming }: { msg: ChatMessage; streaming: boolean }) {
+function MessageBubble({
+  msg,
+  streaming,
+  onConfirm,
+}: {
+  msg: ChatMessage;
+  streaming: boolean;
+  onConfirm?: (approved: boolean) => void;
+}) {
   const { t } = useTranslation();
   const isUser = msg.role === 'user';
-  const showThinking = !isUser && streaming && !msg.content && msg.tools.length === 0;
+  const showThinking = !isUser && streaming && !msg.content && msg.tools.length === 0 && !msg.confirm;
 
   return (
     <div style={{ display: 'flex', justifyContent: isUser ? 'flex-end' : 'flex-start' }}>
@@ -453,7 +509,57 @@ function MessageBubble({ msg, streaming }: { msg: ChatMessage; streaming: boolea
         ) : (
           <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{msg.content}</div>
         )}
+        {msg.confirm && <ConfirmCard confirm={msg.confirm} onConfirm={onConfirm} />}
       </div>
+    </div>
+  );
+}
+
+/** Inline card listing the staged write actions with confirm/cancel buttons. */
+function ConfirmCard({ confirm, onConfirm }: { confirm: PendingConfirm; onConfirm?: (approved: boolean) => void }) {
+  const { t } = useTranslation();
+  return (
+    <div
+      style={{
+        marginTop: 8,
+        padding: '8px 10px',
+        borderRadius: 6,
+        background: '#fff',
+        border: '1px solid #FDE68A',
+      }}
+    >
+      <Typography.Text strong>{t('ai.confirmTitle')}</Typography.Text>
+      <Space direction="vertical" size={6} style={{ width: '100%', marginTop: 6 }}>
+        {confirm.actions.map((a, i) => (
+          <div key={i}>
+            <Typography.Text>
+              {t('ai.willExecute')} <Typography.Text code>{a.action}</Typography.Text> {a.resource}
+              {(a.namespace || a.name) && ` ${a.namespace ? `${a.namespace}/` : ''}${a.name ?? ''}`}
+            </Typography.Text>
+            {a.manifest && (
+              <Collapse
+                size="small"
+                style={{ marginTop: 4, background: 'transparent' }}
+                items={[
+                  {
+                    key: 'manifest',
+                    label: t('ai.confirmManifest'),
+                    children: <pre style={manifestPreStyle}>{JSON.stringify(a.manifest, null, 2)}</pre>,
+                  },
+                ]}
+              />
+            )}
+          </div>
+        ))}
+      </Space>
+      <Space style={{ marginTop: 8 }}>
+        <Button type="primary" size="small" disabled={confirm.resolved} onClick={() => onConfirm?.(true)}>
+          {t('ai.confirmRun')}
+        </Button>
+        <Button size="small" disabled={confirm.resolved} onClick={() => onConfirm?.(false)}>
+          {t('ai.cancel')}
+        </Button>
+      </Space>
     </div>
   );
 }
@@ -466,4 +572,11 @@ const preStyle: React.CSSProperties = {
   fontSize: 12,
   whiteSpace: 'pre-wrap',
   wordBreak: 'break-word',
+};
+
+// Manifest preview: compact and scrollable so a large object can't blow out the card.
+const manifestPreStyle: React.CSSProperties = {
+  ...preStyle,
+  maxHeight: 160,
+  overflow: 'auto',
 };

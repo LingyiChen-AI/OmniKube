@@ -710,6 +710,11 @@ const fr: Resources = {
     emptyChat: 'Posez une question sur les ressources de votre cluster pour commencer.',
     error: 'Une erreur est survenue',
     disconnected: 'Connexion perdue',
+    confirmTitle: 'Actions en attente',
+    confirmRun: 'Confirmer',
+    cancel: 'Annuler',
+    willExecute: 'Va exécuter',
+    confirmManifest: 'Aperçu du manifeste',
   },
   common: {
     cancel: 'Annuler',

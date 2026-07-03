@@ -710,6 +710,11 @@ const zh: Resources = {
     emptyChat: '试着询问集群资源，开始对话吧。',
     error: '出错了',
     disconnected: '连接已断开',
+    confirmTitle: '待确认的操作',
+    confirmRun: '确认执行',
+    cancel: '取消',
+    willExecute: '将执行',
+    confirmManifest: '清单预览',
   },
   common: {
     cancel: '取消',

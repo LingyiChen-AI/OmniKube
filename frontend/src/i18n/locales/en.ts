@@ -708,6 +708,11 @@ const en = {
     emptyChat: 'Ask about your cluster resources to get started.',
     error: 'Something went wrong',
     disconnected: 'Connection lost',
+    confirmTitle: 'Pending actions',
+    confirmRun: 'Confirm',
+    cancel: 'Cancel',
+    willExecute: 'Will execute',
+    confirmManifest: 'Manifest preview',
   },
   common: {
     cancel: 'Cancel',
