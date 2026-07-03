@@ -234,3 +234,11 @@ cd frontend && npm run lint && npm test && npm run build
 | 集群管理 | 发布记录 |
 |---|---|
 | ![clusters](images/19-clusters.png) | ![releases](images/15-releases.png) |
+
+### AI 助手
+
+用自然语言创建 / 更新 / 删除资源:ReAct 实时展示工具调用,写操作**两阶段确认**后才执行。下图完整演示「在 default 部署 nginx + 建 Service → 按命名规范(`nginx-deploy` / `nginx-service`)重建 → 升级镜像到 1.28」,每步确认卡片内直接输出执行结果。
+
+<p align="center"><img src="images/20-ai.png" width="360" alt="AI 助手"></p>
+
+> 系统架构图见上方 [🏛️ 架构](#-架构) 一节(`images/00-architecture.png`)。
