@@ -114,3 +114,29 @@ type ReleaseRecord struct {
 }
 
 func (ReleaseRecord) TableName() string { return "ok_release_records" }
+
+// AIConfig 是全局唯一的 AI 助手模型配置（单行，id 恒为 1）。
+type AIConfig struct {
+	ID           uint      `gorm:"primaryKey" json:"id"`
+	Enabled      bool      `json:"enabled"`
+	BaseURL      string    `gorm:"type:text" json:"base_url"`
+	APIKeyEnc    string    `gorm:"type:text" json:"-"` // crypto.Cipher 加密后的 api_key
+	ModelID      string    `gorm:"size:200" json:"model_id"`
+	Temperature  float64   `json:"temperature"`
+	SystemPrompt string    `gorm:"type:text" json:"system_prompt"`
+	MaxSteps     int       `json:"max_steps"`
+	UpdatedAt    time.Time `json:"updated_at"`
+}
+
+func (AIConfig) TableName() string { return "ok_ai_config" }
+
+// AIGrant 是某集群下 AI 助手被授予的「资源 × 操作」范围（每集群一行）。
+// Operations 与 RoleRule.Operations 同格式：JSON map[resource][]action。
+type AIGrant struct {
+	ID         uint      `gorm:"primaryKey" json:"id"`
+	ClusterID  string    `gorm:"size:50;uniqueIndex;not null" json:"cluster_id"`
+	Operations string    `gorm:"type:text" json:"operations"`
+	UpdatedAt  time.Time `json:"updated_at"`
+}
+
+func (AIGrant) TableName() string { return "ok_ai_grants" }

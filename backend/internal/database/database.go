@@ -26,6 +26,8 @@ func Migrate(db *gorm.DB) error {
 		&model.RoleRule{},
 		&model.UserRole{},
 		&model.ReleaseRecord{},
+		&model.AIConfig{},
+		&model.AIGrant{},
 	)
 }
 

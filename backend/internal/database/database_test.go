@@ -51,3 +51,19 @@ func TestBootstrapAdmin_SkipsWhenUsersExist(t *testing.T) {
 		t.Fatalf("expected exactly 1 user, got %d", count)
 	}
 }
+
+func TestMigrateCreatesAITables(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := Migrate(db); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	if !db.Migrator().HasTable(&model.AIConfig{}) {
+		t.Error("ok_ai_config table missing")
+	}
+	if !db.Migrator().HasTable(&model.AIGrant{}) {
+		t.Error("ok_ai_grants table missing")
+	}
+}
