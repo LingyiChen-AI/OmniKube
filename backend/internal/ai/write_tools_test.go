@@ -16,14 +16,10 @@ func writeGuard(t *testing.T, allow bool) *Guard {
 	return writeGuardDB(t, testDB(t), allow)
 }
 
-// writeGuardDB 同 writeGuard，但把授予矩阵存进指定 db（供 executor 测试与审计共用一个库）。
-func writeGuardDB(t *testing.T, db *gorm.DB, allow bool) *Guard {
+// writeGuardDB 返回一个跟随注入 rbac 桩的 Guard（db 参数保留以兼容调用点）。
+func writeGuardDB(t *testing.T, _ *gorm.DB, allow bool) *Guard {
 	t.Helper()
-	store := NewStore(db, testCipher(t))
-	if err := store.SaveGrant("c1", map[string][]string{"deployments": {"view", "create", "edit", "delete"}}); err != nil {
-		t.Fatal(err)
-	}
-	return &Guard{store: store, rbac: stubAuthorizer{allow: allow}}
+	return NewGuard(stubAuthorizer{allow: allow})
 }
 
 // TestWriteTools_CreateStagesOnly 核心不变式：create_resource 只暂存一个动作，

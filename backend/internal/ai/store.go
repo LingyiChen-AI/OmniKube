@@ -1,9 +1,8 @@
-// Package ai holds the OmniKube AI assistant's configuration, permission
-// grants, and (later phases) the ReAct agent runtime.
+// Package ai holds the OmniKube AI assistant's configuration and the ReAct
+// agent runtime. Permissions follow the initiating user's own RBAC.
 package ai
 
 import (
-	"encoding/json"
 	"errors"
 
 	"gorm.io/gorm"
@@ -110,40 +109,5 @@ func (s *Store) SaveConfig(in ConfigInput) error {
 		}
 		row.APIKeyEnc = enc
 	}
-	return s.db.Save(&row).Error
-}
-
-// LoadGrant returns the AI operations matrix for a cluster (empty when unset).
-func (s *Store) LoadGrant(clusterID string) (map[string][]string, error) {
-	var row model.AIGrant
-	err := s.db.Where("cluster_id = ?", clusterID).First(&row).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return map[string][]string{}, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	out := map[string][]string{}
-	if row.Operations != "" {
-		if err := json.Unmarshal([]byte(row.Operations), &out); err != nil {
-			return nil, err
-		}
-	}
-	return out, nil
-}
-
-// SaveGrant upserts the AI operations matrix for a cluster.
-func (s *Store) SaveGrant(clusterID string, ops map[string][]string) error {
-	raw, err := json.Marshal(ops)
-	if err != nil {
-		return err
-	}
-	var row model.AIGrant
-	err = s.db.Where("cluster_id = ?", clusterID).First(&row).Error
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		return err
-	}
-	row.ClusterID = clusterID
-	row.Operations = string(raw)
 	return s.db.Save(&row).Error
 }

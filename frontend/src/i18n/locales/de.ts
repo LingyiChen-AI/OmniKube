@@ -685,6 +685,8 @@ const de: Resources = {
     subtitle: 'Sie haben keine Berechtigung, diese Seite anzuzeigen.',
   },
   ai: {
+    followsUserPermsTitle: 'KI folgt Benutzerrechten',
+    followsUserPerms: 'Der Assistent kann nur Vorgänge ausführen, für die der auslösende Benutzer selbst berechtigt ist — keine separate Rechtevergabe. Nach Aktivierung gilt das RBAC jedes Benutzers (Admins haben Vollzugriff).',
     noCluster: 'Kein Cluster',
     enterHint: 'Enter zum Senden · Umschalt+Enter neue Zeile',
     modelConfig: 'Modellkonfiguration',

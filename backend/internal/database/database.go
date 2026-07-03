@@ -17,7 +17,7 @@ func Connect(dsn string) (*gorm.DB, error) {
 }
 
 func Migrate(db *gorm.DB) error {
-	return db.AutoMigrate(
+	if err := db.AutoMigrate(
 		&model.User{},
 		&model.Cluster{},
 		&model.AuditLog{},
@@ -27,10 +27,18 @@ func Migrate(db *gorm.DB) error {
 		&model.UserRole{},
 		&model.ReleaseRecord{},
 		&model.AIConfig{},
-		&model.AIGrant{},
 		&model.AIConversation{},
 		&model.AIMessage{},
-	)
+	); err != nil {
+		return err
+	}
+	// AI 权限已改为「跟随用户 RBAC」，废弃每集群授予矩阵表；存在则清理（幂等）。
+	if db.Migrator().HasTable("ok_ai_grants") {
+		if err := db.Migrator().DropTable("ok_ai_grants"); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // BootstrapAdmin 在 ok_users 为空时创建一个随机密码的管理员，

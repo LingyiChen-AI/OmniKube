@@ -685,6 +685,8 @@ const zh: Resources = {
     subtitle: '您没有权限查看此页面。',
   },
   ai: {
+    followsUserPermsTitle: 'AI 权限跟随用户',
+    followsUserPerms: 'AI 助手只能执行发起用户本人有权限的操作,无需单独配置权限;开启后即按各用户自身的 RBAC 生效(管理员则拥有全部权限)。',
     noCluster: '未选择集群',
     enterHint: 'Enter 发送 · Shift+Enter 换行',
     modelConfig: '模型配置',

@@ -683,6 +683,8 @@ const en = {
     subtitle: "You don't have permission to view this page.",
   },
   ai: {
+    followsUserPermsTitle: 'AI follows user permissions',
+    followsUserPerms: 'The assistant can only perform operations the initiating user is themselves authorized for — no separate permission setup. Once enabled it honors each user’s own RBAC (admins have full access).',
     noCluster: 'No cluster',
     enterHint: 'Enter to send · Shift+Enter for newline',
     modelConfig: 'Model configuration',

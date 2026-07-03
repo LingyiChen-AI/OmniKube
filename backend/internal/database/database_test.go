@@ -63,7 +63,12 @@ func TestMigrateCreatesAITables(t *testing.T) {
 	if !db.Migrator().HasTable(&model.AIConfig{}) {
 		t.Error("ok_ai_config table missing")
 	}
-	if !db.Migrator().HasTable(&model.AIGrant{}) {
-		t.Error("ok_ai_grants table missing")
+	if !db.Migrator().HasTable(&model.AIConversation{}) {
+		t.Error("ok_ai_conversations table missing")
+	}
+	// The obsolete per-cluster grant table must NOT be created (permissions now
+	// follow user RBAC); Migrate also drops it if a legacy DB still has it.
+	if db.Migrator().HasTable("ok_ai_grants") {
+		t.Error("ok_ai_grants should not exist")
 	}
 }

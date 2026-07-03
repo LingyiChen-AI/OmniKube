@@ -44,12 +44,11 @@ func New(h *handler.Handler, jm *auth.JWTManager) *gin.Engine {
 			authed.GET("/audit-logs", middleware.RequireGlobalPerm(h.GlobalPermCheck, "audit", "view"), h.ListAuditLogs)
 			authed.GET("/audit-logs/export", middleware.RequireGlobalPerm(h.GlobalPermCheck, "audit", "view"), h.ExportAuditLogs)
 
-			// AI 助手：状态任意登录用户可读（驱动 ⚠️ 态）；配置/权限按 global-perm ai。
+			// AI 助手：状态任意登录用户可读（驱动 ⚠️ 态）；模型配置按 global-perm ai。
+			// 权限不再单独配置，一律跟随发起用户自身 RBAC（见 internal/ai/guard.go）。
 			authed.GET("/ai/status", h.GetAIStatus)
 			authed.GET("/ai/config", middleware.RequireGlobalPerm(h.GlobalPermCheck, "ai", "view"), h.GetAIConfig)
 			authed.PUT("/ai/config", middleware.RequireGlobalPerm(h.GlobalPermCheck, "ai", "edit"), h.PutAIConfig)
-			authed.GET("/ai/grants", middleware.RequireGlobalPerm(h.GlobalPermCheck, "ai", "view"), h.GetAIGrants)
-			authed.PUT("/ai/grants", middleware.RequireGlobalPerm(h.GlobalPermCheck, "ai", "edit"), h.PutAIGrants)
 
 			// AI 会话 REST：任意登录用户可用；GetConversation 在 handler 内强制归属校验。
 			authed.GET("/ai/conversations", h.ListConversations)

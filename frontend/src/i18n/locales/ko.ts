@@ -685,6 +685,8 @@ const ko: Resources = {
     subtitle: '이 페이지를 볼 수 있는 권한이 없습니다.',
   },
   ai: {
+    followsUserPermsTitle: 'AI 권한은 사용자 따름',
+    followsUserPerms: '어시스턴트는 요청 사용자 본인이 권한을 가진 작업만 수행합니다. 별도 권한 설정이 필요 없으며, 활성화되면 각 사용자의 RBAC를 따릅니다(관리자는 전체 권한).',
     noCluster: '클러스터 미선택',
     enterHint: 'Enter 전송 · Shift+Enter 줄바꿈',
     modelConfig: '모델 구성',

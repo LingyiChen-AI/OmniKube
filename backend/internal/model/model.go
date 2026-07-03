@@ -130,17 +130,6 @@ type AIConfig struct {
 
 func (AIConfig) TableName() string { return "ok_ai_config" }
 
-// AIGrant 是某集群下 AI 助手被授予的「资源 × 操作」范围（每集群一行）。
-// Operations 与 RoleRule.Operations 同格式：JSON map[resource][]action。
-type AIGrant struct {
-	ID         uint      `gorm:"primaryKey" json:"id"`
-	ClusterID  string    `gorm:"size:50;uniqueIndex;not null" json:"cluster_id"`
-	Operations string    `gorm:"type:text" json:"operations"`
-	UpdatedAt  time.Time `json:"updated_at"`
-}
-
-func (AIGrant) TableName() string { return "ok_ai_grants" }
-
 // AIConversation 是一次 AI 助手会话（隶属某用户、针对某集群）。
 type AIConversation struct {
 	ID        uint      `gorm:"primaryKey" json:"id"`

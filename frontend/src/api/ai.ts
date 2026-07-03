@@ -1,5 +1,4 @@
 import client from './client';
-import type { Operations } from './role';
 import type { AiChatEvent } from './aiChat';
 
 export interface AiStatus {
@@ -54,12 +53,6 @@ export const aiApi = {
   status: () => client.get<AiStatus>('/ai/status').then((r) => r.data),
   getConfig: () => client.get<AiConfig>('/ai/config').then((r) => r.data),
   putConfig: (body: AiConfigInput) => client.put('/ai/config', body).then((r) => r.data),
-  getGrants: (clusterId: string) =>
-    client
-      .get<{ cluster_id: string; operations: Operations }>('/ai/grants', { params: { cluster_id: clusterId } })
-      .then((r) => r.data.operations ?? {}),
-  putGrants: (clusterId: string, operations: Operations) =>
-    client.put('/ai/grants', { operations }, { params: { cluster_id: clusterId } }).then((r) => r.data),
 
   // ---- Conversations (current user; newest-first) ----
   listConversations: () =>

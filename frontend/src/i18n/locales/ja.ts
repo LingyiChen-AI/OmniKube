@@ -685,6 +685,8 @@ const ja: Resources = {
     subtitle: 'このページを表示する権限がありません。',
   },
   ai: {
+    followsUserPermsTitle: 'AI 権限はユーザーに追従',
+    followsUserPerms: 'アシスタントは実行ユーザー本人が権限を持つ操作のみ実行します。個別の権限設定は不要で、有効化後は各ユーザーの RBAC に従います(管理者は全権限)。',
     noCluster: 'クラスター未選択',
     enterHint: 'Enter で送信 · Shift+Enter で改行',
     modelConfig: 'モデル設定',

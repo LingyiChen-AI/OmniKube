@@ -70,44 +70,6 @@ func (h *Handler) PutAIConfig(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "已保存"})
 }
 
-// GetAIGrants GET /ai/grants?cluster_id= — RequireGlobalPerm("ai","view").
-func (h *Handler) GetAIGrants(c *gin.Context) {
-	clusterID := c.Query("cluster_id")
-	if clusterID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "缺少 cluster_id"})
-		return
-	}
-	ops, err := h.aiStore().LoadGrant(clusterID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "读取 AI 权限失败"})
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{"cluster_id": clusterID, "operations": ops})
-}
-
-type aiGrantReq struct {
-	Operations map[string][]string `json:"operations"`
-}
-
-// PutAIGrants PUT /ai/grants?cluster_id= — RequireGlobalPerm("ai","edit").
-func (h *Handler) PutAIGrants(c *gin.Context) {
-	clusterID := c.Query("cluster_id")
-	if clusterID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "缺少 cluster_id"})
-		return
-	}
-	var req aiGrantReq
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
-		return
-	}
-	if err := h.aiStore().SaveGrant(clusterID, req.Operations); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "保存 AI 权限失败"})
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "已保存"})
-}
-
 // ---- 会话 REST（任意登录用户；GetConversation 强制归属校验）----
 
 // ListConversations GET /ai/conversations — 返回当前用户自己的会话（最新在前）。
@@ -186,7 +148,7 @@ func (h *Handler) ConfirmConversation(c *gin.Context) {
 	}
 
 	store := h.aiStore()
-	runner := ai.NewRunner(store, h.aiConvStore(), h.Pool, ai.NewGuard(store, h.RBAC))
+	runner := ai.NewRunner(store, h.aiConvStore(), h.Pool, ai.NewGuard(h.RBAC))
 	var events []ai.Event
 	err := runner.Confirm(c.Request.Context(), userID, "", c.Param("id"), req.Approved, func(e ai.Event) {
 		events = append(events, e)

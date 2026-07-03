@@ -67,24 +67,3 @@ func TestSaveConfigBlankKeyKeepsExisting(t *testing.T) {
 		t.Fatalf("other fields should update, got %q", got.BaseURL)
 	}
 }
-
-func TestGrantsRoundTrip(t *testing.T) {
-	db, cipher := testDB(t), testCipher(t)
-	s := NewStore(db, cipher)
-	ops := map[string][]string{"deployments": {"view", "create"}}
-	if err := s.SaveGrant("c1", ops); err != nil {
-		t.Fatal(err)
-	}
-	got, err := s.LoadGrant("c1")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(got["deployments"]) != 2 {
-		t.Fatalf("grant not persisted: %+v", got)
-	}
-	// Unknown cluster → empty map, no error.
-	empty, err := s.LoadGrant("nope")
-	if err != nil || len(empty) != 0 {
-		t.Fatalf("unknown cluster should be empty, got %v err %v", empty, err)
-	}
-}

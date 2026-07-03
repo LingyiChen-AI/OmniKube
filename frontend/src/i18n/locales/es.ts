@@ -685,6 +685,8 @@ const es: Resources = {
     subtitle: 'No tienes permiso para ver esta página.',
   },
   ai: {
+    followsUserPermsTitle: 'La IA sigue los permisos del usuario',
+    followsUserPerms: 'El asistente solo puede realizar operaciones para las que el propio usuario está autorizado, sin configuración de permisos aparte. Una vez activado respeta el RBAC de cada usuario (los administradores tienen acceso total).',
     noCluster: 'Sin clúster',
     enterHint: 'Enter para enviar · Mayús+Enter salto de línea',
     modelConfig: 'Configuración del modelo',

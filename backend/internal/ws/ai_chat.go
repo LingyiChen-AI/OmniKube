@@ -67,7 +67,7 @@ func (h *Handler) AIChatHandler(c *gin.Context) {
 		return
 	}
 
-	runner := ai.NewRunner(store, ai.NewConvStore(h.DB), h.Pool, ai.NewGuard(store, h.RBAC))
+	runner := ai.NewRunner(store, ai.NewConvStore(h.DB), h.Pool, ai.NewGuard(h.RBAC))
 
 	// 连接级可取消上下文：客户端断开（下方读 goroutine 检测到 ReadMessage 出错）即 cancel，
 	// 令在飞的 Runner.Stream 感知取消、停止烧模型 token（用户关标签页 = 立即止损）。

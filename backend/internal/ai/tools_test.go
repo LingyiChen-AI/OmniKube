@@ -66,11 +66,7 @@ func findTool(t *testing.T, tools []tool.BaseTool, name string) tool.InvokableTo
 
 func allowGuard(t *testing.T, allow bool) *Guard {
 	t.Helper()
-	store := NewStore(testDB(t), testCipher(t))
-	if err := store.SaveGrant("c1", map[string][]string{"deployments": {"view"}}); err != nil {
-		t.Fatal(err)
-	}
-	return &Guard{store: store, rbac: stubAuthorizer{allow: allow}}
+	return NewGuard(stubAuthorizer{allow: allow})
 }
 
 func TestReadTools_ListReturnsNames(t *testing.T) {
@@ -142,11 +138,7 @@ func fakeClusterDevProd(t *testing.T) *cluster.ClusterPool {
 // restrictedGuard 返回一个 rbac 允许但可见 NS 仅限 visibleNS 的 Guard（模拟受控集群级只读）。
 func restrictedGuard(t *testing.T, visibleNS []string) *Guard {
 	t.Helper()
-	store := NewStore(testDB(t), testCipher(t))
-	if err := store.SaveGrant("c1", map[string][]string{"deployments": {"view"}}); err != nil {
-		t.Fatal(err)
-	}
-	return &Guard{store: store, rbac: stubAuthorizer{allow: true, visibleNS: visibleNS}}
+	return NewGuard(stubAuthorizer{allow: true, visibleNS: visibleNS})
 }
 
 // TestReadTools_ListRestrictedAggregatesOnlyVisibleNS 是核心安全回归：非受限（namespace=""）

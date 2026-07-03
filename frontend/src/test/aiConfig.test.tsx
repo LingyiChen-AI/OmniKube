@@ -10,12 +10,7 @@ vi.mock('../api/ai', () => ({
       enabled: false, base_url: '', model_id: '', temperature: 0, system_prompt: '', max_steps: 0, has_key: false,
     }),
     putConfig: vi.fn().mockResolvedValue({}),
-    getGrants: vi.fn().mockResolvedValue({}),
-    putGrants: vi.fn().mockResolvedValue({}),
   },
-}));
-vi.mock('../store/clusters', () => ({
-  useClusterStore: () => ({ clusters: [{ id: 'c1', name: 'C1' }], loaded: true, load: vi.fn() }),
 }));
 
 import AiConfig from '../pages/ai/AiConfig';
@@ -44,14 +39,9 @@ describe('AiConfig', () => {
     );
   });
 
-  it('loads grants when a cluster panel is expanded', async () => {
-    const user = userEvent.setup({ delay: null });
+  it('shows the "AI follows user permissions" notice (no per-cluster grant UI)', async () => {
     renderWithProviders(<AiConfig />);
     await waitFor(() => expect(screen.getByLabelText(/base ?url/i)).toBeInTheDocument());
-
-    // Each cluster has its own collapsible panel; expanding one loads its grants.
-    await user.click(screen.getByText('C1'));
-
-    await waitFor(() => expect(aiApi.getGrants).toHaveBeenCalledWith('c1'));
+    expect(screen.getByText(/follows user permissions|权限跟随用户/i)).toBeInTheDocument();
   });
 });

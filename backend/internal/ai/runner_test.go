@@ -252,7 +252,7 @@ func TestRunnerStreamEmitsTokensAndPersists(t *testing.T) {
 		t.Fatal(err)
 	}
 	convs := NewConvStore(db)
-	guard := NewGuard(store, nil) // 本路径不触发工具，guard 不会被调用。
+	guard := NewGuard(stubAuthorizer{allow: true}) // 本路径不触发工具，guard 不会被调用。
 
 	r := NewRunner(store, convs, nil, guard)
 	r.buildModel = func(ctx context.Context, cfg Config) (einomodel.ToolCallingChatModel, error) {
@@ -313,7 +313,7 @@ func TestRunnerStreamRejectsBadConvID(t *testing.T) {
 	db, cipher := testDB(t), testCipher(t)
 	store := NewStore(db, cipher)
 	convs := NewConvStore(db)
-	r := NewRunner(store, convs, nil, NewGuard(store, nil))
+	r := NewRunner(store, convs, nil, NewGuard(stubAuthorizer{allow: true}))
 
 	err := r.Stream(context.Background(), 1, "c1", "0", "hi", func(Event) {})
 	if err == nil {
@@ -328,7 +328,7 @@ func TestRunnerStreamRejectsCrossUserConv(t *testing.T) {
 	db, cipher := testDB(t), testCipher(t)
 	store := NewStore(db, cipher)
 	convs := NewConvStore(db)
-	guard := NewGuard(store, nil)
+	guard := NewGuard(stubAuthorizer{allow: true})
 
 	r := NewRunner(store, convs, nil, guard)
 	r.buildModel = func(ctx context.Context, cfg Config) (einomodel.ToolCallingChatModel, error) {
@@ -376,7 +376,7 @@ func TestRunnerStreamPersistsPartialOnMidStreamError(t *testing.T) {
 		t.Fatal(err)
 	}
 	convs := NewConvStore(db)
-	guard := NewGuard(store, nil)
+	guard := NewGuard(stubAuthorizer{allow: true})
 
 	r := NewRunner(store, convs, nil, guard)
 	r.buildModel = func(ctx context.Context, cfg Config) (einomodel.ToolCallingChatModel, error) {

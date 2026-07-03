@@ -9,6 +9,8 @@ import {
   WarningFilled,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { aiApi, type AiConversation, type AiMessage } from '../api/ai';
 import { aiChatUrl, type AiChatEvent, type StagedAction } from '../api/aiChat';
 import { useCtxStore } from '../store/ctx';
@@ -688,8 +690,20 @@ function MessageBubble({
             <span />
             <span />
           </span>
-        ) : (
+        ) : isUser ? (
           msg.content
+        ) : (
+          <div className="ok-ai-md">
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              components={{
+                // Open links in a new tab; never let the model navigate the app.
+                a: ({ node: _n, ...props }) => <a {...props} target="_blank" rel="noopener noreferrer" />,
+              }}
+            >
+              {msg.content}
+            </ReactMarkdown>
+          </div>
         )}
         {msg.confirm && <ConfirmCard confirm={msg.confirm} onConfirm={onConfirm} />}
       </div>

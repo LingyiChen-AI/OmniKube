@@ -53,8 +53,6 @@ func aiApp(t *testing.T) (*gin.Engine, *gorm.DB) {
 	api.GET("/ai/status", h.GetAIStatus)
 	api.GET("/ai/config", h.GetAIConfig)
 	api.PUT("/ai/config", h.PutAIConfig)
-	api.GET("/ai/grants", h.GetAIGrants)
-	api.PUT("/ai/grants", h.PutAIGrants)
 	api.GET("/ai/conversations", h.ListConversations)
 	api.POST("/ai/conversations", h.CreateConversation)
 	api.GET("/ai/conversations/:id", h.GetConversation)
@@ -154,12 +152,9 @@ func aiConfirmApp(t *testing.T, cc *cluster.ClusterClient) (*gin.Engine, *gorm.D
 }
 
 // seedPendingCreate 造一条 user1 拥有的 c1 会话，其助手消息带一个「create deployments/nginx@dev」
-// 的待确认动作，并配好双闸门（AI 授予矩阵含 create + 用户 NS-Editor@dev）。返回会话 id。
+// 的待确认动作，并配好用户权限（NS-Editor@dev，AI 跟随其 RBAC）。返回会话 id。
 func seedPendingCreate(t *testing.T, db *gorm.DB, h *Handler) uint {
 	t.Helper()
-	if err := ai.NewStore(db, nil).SaveGrant("c1", map[string][]string{"deployments": {"create"}}); err != nil {
-		t.Fatal(err)
-	}
 	if err := h.RBAC.AddGrant("1", rbac.RoleNSEditor, "c1:dev"); err != nil {
 		t.Fatal(err)
 	}
@@ -302,31 +297,3 @@ func TestAIConfigMaskAndStatus(t *testing.T) {
 	}
 }
 
-func TestAIGrantsRoundTrip(t *testing.T) {
-	app, _ := aiApp(t)
-
-	body := map[string]any{"operations": map[string][]string{"deployments": {"view", "create"}}}
-	if w := aiReq(app, "PUT", "/api/v1/ai/grants?cluster_id=c1", "1", true, body); w.Code != http.StatusOK {
-		t.Fatalf("put grants: %d %s", w.Code, w.Body.String())
-	}
-
-	w := aiReq(app, "GET", "/api/v1/ai/grants?cluster_id=c1", "1", true, nil)
-	if w.Code != http.StatusOK {
-		t.Fatalf("get grants: %d %s", w.Code, w.Body.String())
-	}
-	var resp struct {
-		Operations map[string][]string `json:"operations"`
-	}
-	_ = json.Unmarshal(w.Body.Bytes(), &resp)
-	if len(resp.Operations["deployments"]) != 2 {
-		t.Fatalf("expected 2 deployment ops, got %+v", resp.Operations)
-	}
-}
-
-func TestAIGrantsMissingCluster(t *testing.T) {
-	app, _ := aiApp(t)
-	w := aiReq(app, "GET", "/api/v1/ai/grants", "1", true, nil)
-	if w.Code != http.StatusBadRequest {
-		t.Fatalf("missing cluster_id should be 400, got %d %s", w.Code, w.Body.String())
-	}
-}

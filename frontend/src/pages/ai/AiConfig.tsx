@@ -1,11 +1,8 @@
 import { useEffect, useState } from 'react';
-import { App as AntApp, Button, Card, Col, Collapse, Empty, Form, Input, InputNumber, Row, Skeleton, Switch } from 'antd';
+import { Alert, App as AntApp, Button, Card, Col, Form, Input, InputNumber, Row, Switch } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { aiApi } from '../../api/ai';
-import { useClusterStore } from '../../store/clusters';
-import { ResourceOpsMatrix } from '../roles/Roles';
 import CodeBox from '../../components/editor/CodeBox';
-import { AI_EXTRA_RESOURCES, type Operations } from '../../api/role';
 
 /** Default OmniKube system prompt shown when none is configured yet. */
 const DEFAULT_SYSTEM_PROMPT = `你是 OmniKube,一个 Kubernetes 多集群运维助手。你在用户当前选中的集群里,按用户的自然语言帮助查询和操作资源(部署、Pod、服务、配置等)。
@@ -16,70 +13,13 @@ const DEFAULT_SYSTEM_PROMPT = `你是 OmniKube,一个 Kubernetes 多集群运维
 - 不确定现状时先查询再行动;优先用最小、安全的操作达成目标。
 - 回答简洁准确,使用中文;涉及资源时给出命名空间与名称。`;
 
-/** Per-cluster AI permission matrix: lazily loads that cluster's grants when the
- *  panel is expanded, edits locally, and saves independently. */
-function ClusterGrantPanel({ clusterId }: { clusterId: string }) {
-  const { t } = useTranslation();
-  const { message } = AntApp.useApp();
-  const [ops, setOps] = useState<Operations>({});
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    let active = true;
-    setLoading(true);
-    aiApi
-      .getGrants(clusterId)
-      .then((o) => {
-        if (active) {
-          setOps(o);
-          setLoading(false);
-        }
-      })
-      .catch(() => {
-        if (active) setLoading(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, [clusterId]);
-
-  const save = async () => {
-    setSaving(true);
-    try {
-      await aiApi.putGrants(clusterId, ops);
-      message.success(t('ai.saved'));
-    } catch {
-      /* interceptor toast */
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  if (loading) return <Skeleton active paragraph={{ rows: 4 }} />;
-  return (
-    <>
-      <ResourceOpsMatrix operations={ops} onChange={setOps} extraResources={AI_EXTRA_RESOURCES} />
-      <div style={{ marginTop: 12 }}>
-        <Button type="primary" loading={saving} onClick={save}>
-          {t('ai.save')}
-        </Button>
-      </div>
-    </>
-  );
-}
-
 export default function AiConfig() {
   const { t } = useTranslation();
   const { message } = AntApp.useApp();
   const [form] = Form.useForm();
   const [hasKey, setHasKey] = useState(false);
-  const { clusters, load: loadClusters } = useClusterStore();
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    loadClusters();
-  }, [loadClusters]);
   useEffect(() => {
     let active = true;
     aiApi.getConfig().then((c) => {
@@ -112,6 +52,7 @@ export default function AiConfig() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <Alert type="info" showIcon message={t('ai.followsUserPermsTitle')} description={t('ai.followsUserPerms')} />
       <Card title={t('ai.modelConfig')}>
         <Form form={form} layout="vertical">
           <Form.Item label={t('ai.enabled')} name="enabled" valuePropName="checked">
@@ -151,22 +92,6 @@ export default function AiConfig() {
             {t('ai.save')}
           </Button>
         </Form>
-      </Card>
-
-      <Card title={t('ai.permScope')}>
-        {clusters.length === 0 ? (
-          <Empty description={t('ai.noClusters')} />
-        ) : (
-          <Collapse
-            accordion
-            destroyInactivePanel
-            items={clusters.map((c) => ({
-              key: c.id,
-              label: c.name || c.id,
-              children: <ClusterGrantPanel clusterId={c.id} />,
-            }))}
-          />
-        )}
       </Card>
     </div>
   );
