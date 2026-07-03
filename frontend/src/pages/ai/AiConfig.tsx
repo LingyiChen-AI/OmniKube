@@ -4,7 +4,17 @@ import { useTranslation } from 'react-i18next';
 import { aiApi } from '../../api/ai';
 import { useClusterStore } from '../../store/clusters';
 import { ResourceOpsMatrix } from '../roles/Roles';
+import CodeBox from '../../components/editor/CodeBox';
 import type { Operations } from '../../api/role';
+
+/** Default OmniKube system prompt shown when none is configured yet. */
+const DEFAULT_SYSTEM_PROMPT = `你是 OmniKube,一个 Kubernetes 多集群运维助手。你在用户当前选中的集群里,按用户的自然语言帮助查询和操作资源(部署、Pod、服务、配置等)。
+
+规则:
+- 严格遵守权限:只执行被授权、且当前用户本人也有权限的操作;无权限时如实说明,绝不臆造或越权。
+- 写操作(创建/修改/删除)必须先清晰展示将要执行的动作,等用户确认后才执行。
+- 不确定现状时先查询再行动;优先用最小、安全的操作达成目标。
+- 回答简洁准确,使用中文;涉及资源时给出命名空间与名称。`;
 
 export default function AiConfig() {
   const { t } = useTranslation();
@@ -24,7 +34,11 @@ export default function AiConfig() {
     aiApi.getConfig().then((c) => {
       if (!active) return;
       setHasKey(c.has_key);
-      form.setFieldsValue({ ...c, api_key: '' });
+      form.setFieldsValue({
+        ...c,
+        api_key: '',
+        system_prompt: c.system_prompt || DEFAULT_SYSTEM_PROMPT,
+      });
     });
     return () => {
       active = false;
@@ -91,19 +105,19 @@ export default function AiConfig() {
             <Input.Password placeholder={hasKey ? t('ai.apiKeySet') : ''} autoComplete="off" />
           </Form.Item>
           <Row gutter={16}>
-            <Col xs={12} sm={6}>
+            <Col xs={12} sm={12}>
               <Form.Item label={t('ai.temperature')} name="temperature">
                 <InputNumber min={0} max={2} step={0.1} style={{ width: '100%' }} />
               </Form.Item>
             </Col>
-            <Col xs={12} sm={6}>
+            <Col xs={12} sm={12}>
               <Form.Item label={t('ai.maxSteps')} name="max_steps">
                 <InputNumber min={1} max={50} style={{ width: '100%' }} />
               </Form.Item>
             </Col>
           </Row>
           <Form.Item label={t('ai.systemPrompt')} name="system_prompt">
-            <Input.TextArea rows={3} />
+            <CodeBox label="SYSTEM" minHeight={160} />
           </Form.Item>
           <Button type="primary" loading={saving} onClick={saveConfig}>
             {t('ai.save')}
