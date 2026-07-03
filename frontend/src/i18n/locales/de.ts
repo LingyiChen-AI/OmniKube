@@ -302,7 +302,7 @@ const de: Resources = {
     deleteConfirm: '{{name}} löschen? Dies kann nicht rückgängig gemacht werden.',
     createTitle: 'Benutzer erstellen',
     createOk: 'Erstellen',
-    usernamePlaceholder: 'jane.doe',
+    usernamePlaceholder: 'z. B. jane.doe',
     errUsername: 'Geben Sie einen Benutzernamen ein',
     errUsernamePattern: 'Mindestens 3 Zeichen: Buchstaben, Ziffern, . _ -',
     tempHint: 'Es wird ein einmaliges temporäres Passwort generiert. Der Benutzer muss es bei der ersten Anmeldung ändern.',

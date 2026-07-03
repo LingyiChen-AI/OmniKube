@@ -302,7 +302,7 @@ const es: Resources = {
     deleteConfirm: '¿Eliminar {{name}}? Esta acción no se puede deshacer.',
     createTitle: 'Crear usuario',
     createOk: 'Crear',
-    usernamePlaceholder: 'jane.doe',
+    usernamePlaceholder: 'p. ej. jane.doe',
     errUsername: 'Introduce un usuario',
     errUsernamePattern: 'Al menos 3 caracteres: letras, dígitos, . _ -',
     tempHint: 'Se generará una contraseña temporal de un solo uso. El usuario debe cambiarla en el primer inicio de sesión.',

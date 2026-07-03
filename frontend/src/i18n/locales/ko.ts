@@ -302,7 +302,7 @@ const ko: Resources = {
     deleteConfirm: '{{name}}을(를) 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.',
     createTitle: '사용자 생성',
     createOk: '생성',
-    usernamePlaceholder: 'jane.doe',
+    usernamePlaceholder: '예: jane.doe',
     errUsername: '사용자 이름을 입력하세요',
     errUsernamePattern: '3자 이상: 영문자, 숫자, . _ -',
     tempHint: '일회용 임시 비밀번호가 생성됩니다. 사용자는 최초 로그인 시 변경해야 합니다.',

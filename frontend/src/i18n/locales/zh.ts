@@ -302,7 +302,7 @@ const zh: Resources = {
     deleteConfirm: '确定删除 {{name}}？此操作无法撤销。',
     createTitle: '创建用户',
     createOk: '创建',
-    usernamePlaceholder: 'jane.doe',
+    usernamePlaceholder: '例如 zhangsan',
     errUsername: '请输入用户名',
     errUsernamePattern: '至少 3 个字符：字母、数字、. _ -',
     tempHint: '将生成一个一次性临时密码。用户首次登录时必须修改。',

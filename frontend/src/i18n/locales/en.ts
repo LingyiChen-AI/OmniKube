@@ -300,7 +300,7 @@ const en = {
     deleteConfirm: 'Delete {{name}}? This cannot be undone.',
     createTitle: 'Create user',
     createOk: 'Create',
-    usernamePlaceholder: 'jane.doe',
+    usernamePlaceholder: 'e.g. jane.doe',
     errUsername: 'Enter a username',
     errUsernamePattern: 'At least 3 chars: letters, digits, . _ -',
     tempHint: 'A one-time temporary password will be generated. The user must change it on first sign-in.',

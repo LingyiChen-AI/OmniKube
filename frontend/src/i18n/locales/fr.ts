@@ -302,7 +302,7 @@ const fr: Resources = {
     deleteConfirm: 'Supprimer {{name}} ? Cette action est irréversible.',
     createTitle: 'Créer un utilisateur',
     createOk: 'Créer',
-    usernamePlaceholder: 'jane.doe',
+    usernamePlaceholder: 'ex. jane.doe',
     errUsername: "Saisissez un nom d'utilisateur",
     errUsernamePattern: 'Au moins 3 caractères : lettres, chiffres, . _ -',
     tempHint: 'Un mot de passe temporaire à usage unique sera généré. L’utilisateur devra le changer à la première connexion.',

@@ -302,7 +302,7 @@ const ja: Resources = {
     deleteConfirm: '{{name}} を削除しますか？この操作は元に戻せません。',
     createTitle: 'ユーザーを作成',
     createOk: '作成',
-    usernamePlaceholder: 'jane.doe',
+    usernamePlaceholder: '例: jane.doe',
     errUsername: 'ユーザー名を入力してください',
     errUsernamePattern: '3 文字以上：英字・数字・. _ -',
     tempHint: '一度きりの仮パスワードが生成されます。ユーザーは初回サインイン時に変更する必要があります。',

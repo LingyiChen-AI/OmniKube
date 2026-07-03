@@ -59,7 +59,7 @@ describe('create user with roles', () => {
     await user.click(screen.getByRole('button', { name: /create user/i }));
 
     // Fill the username.
-    const username = await screen.findByPlaceholderText('jane.doe');
+    const username = await screen.findByPlaceholderText('e.g. jane.doe');
     await user.type(username, 'jane');
 
     // Pick a role from the multi-select.
