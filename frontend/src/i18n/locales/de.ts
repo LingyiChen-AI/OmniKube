@@ -691,6 +691,9 @@ const de: Resources = {
     selectCluster: 'Cluster auswählen',
     save: 'Speichern',
     saved: 'Gespeichert',
+    notConfigured: 'KI ist nicht konfiguriert oder aktiviert. Bitte wenden Sie sich an Ihren Administrator, um die KI-Funktion zu aktivieren.',
+    comingSoon: 'Demnächst verfügbar.',
+    askPlaceholder: 'OmniKube fragen…',
   },
   common: {
     cancel: 'Abbrechen',

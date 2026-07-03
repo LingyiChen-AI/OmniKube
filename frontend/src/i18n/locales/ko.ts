@@ -691,6 +691,9 @@ const ko: Resources = {
     selectCluster: '클러스터 선택',
     save: '저장',
     saved: '저장됨',
+    notConfigured: 'AI가 구성되지 않았거나 활성화되지 않았습니다. 관리자에게 AI 기능 활성화를 요청하세요.',
+    comingSoon: '곧 출시 예정',
+    askPlaceholder: 'OmniKube에 질문하기',
   },
   common: {
     cancel: '취소',

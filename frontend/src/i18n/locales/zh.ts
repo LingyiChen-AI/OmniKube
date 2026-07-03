@@ -691,6 +691,9 @@ const zh: Resources = {
     selectCluster: '选择集群',
     save: '保存',
     saved: '已保存',
+    notConfigured: '未配置或未开启 AI，请联系管理员开启 AI 功能',
+    comingSoon: '即将上线',
+    askPlaceholder: '向 OmniKube 提问',
   },
   common: {
     cancel: '取消',

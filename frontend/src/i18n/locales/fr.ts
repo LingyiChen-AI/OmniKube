@@ -691,6 +691,9 @@ const fr: Resources = {
     selectCluster: 'Sélectionner un cluster',
     save: 'Enregistrer',
     saved: 'Enregistré',
+    notConfigured: "L'IA n'est pas configurée ou activée. Veuillez contacter votre administrateur pour activer la fonctionnalité IA.",
+    comingSoon: 'Bientôt disponible.',
+    askPlaceholder: 'Poser une question à OmniKube…',
   },
   common: {
     cancel: 'Annuler',

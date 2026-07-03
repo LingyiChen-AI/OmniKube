@@ -38,6 +38,7 @@ import PersistentVolumes from './pages/cluster/PersistentVolumes';
 import Releases from './pages/releases/Releases';
 import AuditLogs from './pages/audit/AuditLogs';
 import AiConfig from './pages/ai/AiConfig';
+import AiAssistant from './components/AiAssistant';
 
 const ANTD_LOCALES: Record<string, Locale> = {
   zh: zhCN,
@@ -94,6 +95,7 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <AppLayout />
+            <AiAssistant />
           </ProtectedRoute>
         }
       >

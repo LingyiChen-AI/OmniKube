@@ -691,6 +691,9 @@ const ja: Resources = {
     selectCluster: 'クラスターを選択',
     save: '保存',
     saved: '保存しました',
+    notConfigured: 'AI が構成または有効化されていません。管理者に AI 機能の有効化を依頼してください。',
+    comingSoon: '近日公開予定',
+    askPlaceholder: 'OmniKube に質問',
   },
   common: {
     cancel: 'キャンセル',

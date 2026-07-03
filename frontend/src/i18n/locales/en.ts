@@ -689,6 +689,9 @@ const en = {
     selectCluster: 'Select cluster',
     save: 'Save',
     saved: 'Saved',
+    notConfigured: 'AI is not configured or enabled. Please contact your administrator to enable the AI feature.',
+    comingSoon: 'The assistant is coming soon.',
+    askPlaceholder: 'Ask OmniKube…',
   },
   common: {
     cancel: 'Cancel',
