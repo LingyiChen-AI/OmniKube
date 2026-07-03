@@ -31,7 +31,7 @@ func InitializeApp(cfg *config.Config) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	handler := provideHandler(db, jwtManager, clusterPool, service)
+	handler := provideHandler(db, jwtManager, clusterPool, service, cipher)
 	engine := provideEngine(handler, jwtManager)
 	app := provideApp(cfg, db, engine, clusterPool, service)
 	return app, nil

@@ -73,8 +73,8 @@ func provideRBAC(db *gorm.DB, pool *cluster.ClusterPool) (*rbac.Service, error) 
 	return rbac.NewService(db, pool)
 }
 
-func provideHandler(db *gorm.DB, jm *auth.JWTManager, pool *cluster.ClusterPool, rbacSvc *rbac.Service) *handler.Handler {
-	return &handler.Handler{DB: db, JWT: jm, Pool: pool, RBAC: rbacSvc, Captcha: captcha.NewStore()}
+func provideHandler(db *gorm.DB, jm *auth.JWTManager, pool *cluster.ClusterPool, rbacSvc *rbac.Service, cipher *crypto.Cipher) *handler.Handler {
+	return &handler.Handler{DB: db, JWT: jm, Pool: pool, RBAC: rbacSvc, Cipher: cipher, Captcha: captcha.NewStore()}
 }
 
 func provideEngine(h *handler.Handler, jm *auth.JWTManager) *gin.Engine {

@@ -9,6 +9,7 @@ import (
 	"omnikube/internal/auth"
 	"omnikube/internal/captcha"
 	"omnikube/internal/cluster"
+	"omnikube/internal/crypto"
 	"omnikube/internal/rbac"
 )
 
@@ -17,6 +18,7 @@ type Handler struct {
 	JWT     *auth.JWTManager
 	Pool    *cluster.ClusterPool
 	RBAC    *rbac.Service
+	Cipher  *crypto.Cipher
 	Captcha *captcha.Store // nil = 关闭登录验证码(测试默认关闭)
 }
 
