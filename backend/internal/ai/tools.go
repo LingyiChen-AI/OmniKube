@@ -48,7 +48,10 @@ type listResult struct {
 
 type getResult struct {
 	resourceSummary
-	Error string `json:"error,omitempty"`
+	// Manifest 是去噪后的完整对象（含 spec，如工作负载的容器镜像），让模型能回答
+	// 「用的哪个镜像」这类需要看 spec 的问题；list 仍只返回摘要以保护上下文窗口。
+	Manifest map[string]any `json:"manifest,omitempty"`
+	Error    string         `json:"error,omitempty"`
 }
 
 // ReadTools 构建供 ReAct agent 使用的只读工具集（list_resources / get_resource）。
@@ -145,7 +148,7 @@ func ReadTools(pool *cluster.ClusterPool, clusterID string, guard *Guard, userID
 			if err != nil {
 				return getResult{Error: fmt.Sprintf("读取失败: %v", err)}, nil
 			}
-			return getResult{resourceSummary: summarize(obj)}, nil
+			return getResult{resourceSummary: summarize(obj), Manifest: trimManifest(obj)}, nil
 		})
 	if gerr != nil {
 		log.Printf("ai: 构建 get_resource 工具失败: %v", gerr)
@@ -194,6 +197,15 @@ func resolveGVR(cc *cluster.ClusterClient, resource string) (schema.GroupVersion
 		return gvr, false, err
 	}
 	return gvr, mapping.Scope.Name() == meta.RESTScopeNameNamespace, nil
+}
+
+// trimManifest 返回对象的去噪副本：剔除体量大且对问答无用的字段（managedFields、
+// last-applied-configuration 注解），保留 spec 等关键内容供模型分析（如容器镜像）。
+func trimManifest(obj *unstructured.Unstructured) map[string]any {
+	out := obj.DeepCopy()
+	unstructured.RemoveNestedField(out.Object, "metadata", "managedFields")
+	unstructured.RemoveNestedField(out.Object, "metadata", "annotations", "kubectl.kubernetes.io/last-applied-configuration")
+	return out.Object
 }
 
 // summarize 从 unstructured 对象抽取紧凑摘要：名字、命名空间、kind、以及一个

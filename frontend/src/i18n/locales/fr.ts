@@ -685,6 +685,8 @@ const fr: Resources = {
     subtitle: "Vous n'avez pas l'autorisation de voir cette page.",
   },
   ai: {
+    toolCall: 'Appel',
+    history: 'Historique',
     followsUserPermsTitle: 'L’IA suit les permissions de l’utilisateur',
     followsUserPerms: 'L’assistant ne peut effectuer que les opérations autorisées pour l’utilisateur lui-même — aucune configuration de permission séparée. Une fois activé, il respecte le RBAC de chaque utilisateur (les admins ont un accès total).',
     noCluster: 'Aucun cluster',

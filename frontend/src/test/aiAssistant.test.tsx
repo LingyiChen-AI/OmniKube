@@ -127,6 +127,32 @@ describe('AiAssistant streaming chat', () => {
     await waitFor(() => expect(screen.getByPlaceholderText(/ask omnikube|向 omnikube 提问/i)).not.toBeDisabled());
   });
 
+  it('renders tool call + result cards from streamed tool frames', async () => {
+    const user = userEvent.setup({ delay: null });
+    renderWithProviders(<AiAssistant />);
+
+    await user.click(await screen.findByLabelText(/omnikube assistant/i));
+    const box = await screen.findByPlaceholderText(/ask omnikube|向 omnikube 提问/i);
+    await user.type(box, 'list ns');
+    await user.click(screen.getByRole('button', { name: /send|发送/i }));
+
+    await waitFor(() => expect(FakeWebSocket.last).toBeTruthy());
+    const ws = FakeWebSocket.last;
+    await waitFor(() => expect(ws.sent.length).toBe(1));
+
+    // The agent invokes a tool, then it returns — both should surface as cards.
+    act(() => {
+      ws.emit({ type: 'tool_call', tool: 'list_resources', args: '{"resource":"namespaces"}' });
+      ws.emit({ type: 'tool_result', tool: 'list_resources', result: '{"count":5}' });
+      ws.emit({ type: 'token', text: 'You have 5 namespaces.' });
+      ws.emit({ type: 'done', text: 'You have 5 namespaces.' });
+    });
+
+    await waitFor(() => expect(screen.getByText('list_resources')).toBeInTheDocument());
+    // The "执行结果 / Result" row label renders for the tool result.
+    expect(screen.getByText(/执行结果|result/i)).toBeInTheDocument();
+  });
+
   it('re-enables the composer when the socket closes mid-stream', async () => {
     const user = userEvent.setup({ delay: null });
     renderWithProviders(<AiAssistant />);
@@ -306,8 +332,8 @@ describe('AiAssistant reload with pending write (Phase 4)', () => {
     const user = userEvent.setup({ delay: null });
     renderWithProviders(<AiAssistant />);
     await user.click(await screen.findByLabelText(/omnikube assistant/i));
-    // Open the conversation dropdown and pick the pending one.
-    await user.click(screen.getByRole('combobox'));
+    // Open the history popover and pick the pending conversation.
+    await user.click(screen.getByRole('button', { name: /history|历史记录/i }));
     await user.click((await screen.findAllByText('del nginx'))[0]);
     await waitFor(() => expect(getConversationMock).toHaveBeenCalledWith(7));
     return { user };

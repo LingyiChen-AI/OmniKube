@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { App as AntApp, Button, Collapse, Input, Select, Tooltip, Typography, theme as antdTheme } from 'antd';
+import { App as AntApp, Button, Collapse, Empty, Input, Popover, Tooltip, Typography, theme as antdTheme } from 'antd';
 import {
+  CaretRightOutlined,
+  CheckCircleFilled,
   CloseOutlined,
+  CodeOutlined,
+  HistoryOutlined,
+  PlayCircleOutlined,
   PlusOutlined,
   RobotOutlined,
   SendOutlined,
@@ -108,13 +113,21 @@ function useDrag(w: number, h: number, storageKey: string, initial: () => Pos) {
   return { pos, movedRef, handlers: { onPointerDown, onPointerMove, onPointerUp } };
 }
 
-/** Parse the persisted eino tool-call trace (JSON `[]schema.ToolCall`) into UI steps. */
+/**
+ * Parse the persisted tool trace into UI steps. Current format is `[]ToolTrace`
+ * (`{tool,args,result}`); older rows used eino's `[]ToolCall`
+ * (`{function:{name,arguments}}`) — both are handled for backward compatibility.
+ */
 function parseToolCalls(raw: string): ToolStep[] {
   if (!raw) return [];
   try {
-    const arr = JSON.parse(raw) as Array<{ function?: { name?: string; arguments?: string } }>;
+    const arr = JSON.parse(raw);
     if (!Array.isArray(arr)) return [];
-    return arr.map((tc) => ({ tool: tc.function?.name ?? '', args: tc.function?.arguments }));
+    return arr.map((tc: { tool?: string; args?: string; result?: string; function?: { name?: string; arguments?: string } }) =>
+      tc.function
+        ? { tool: tc.function.name ?? '', args: tc.function.arguments }
+        : { tool: tc.tool ?? '', args: tc.args, result: tc.result },
+    );
   } catch {
     return [];
   }
@@ -164,6 +177,7 @@ export default function AiAssistant() {
 
   const [ready, setReady] = useState(false);
   const [open, setOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   const [conversations, setConversations] = useState<AiConversation[]>([]);
   const [activeConv, setActiveConv] = useState<number | null>(null);
@@ -551,26 +565,39 @@ export default function AiAssistant() {
               </div>
             </div>
             <div className="ok-ai-head__btns">
+              <Popover
+                open={historyOpen}
+                onOpenChange={setHistoryOpen}
+                trigger="click"
+                placement="bottomRight"
+                zIndex={POPUP_Z}
+                styles={{ body: { padding: 0 } }}
+                content={
+                  <HistoryList
+                    conversations={clusterConversations}
+                    activeConv={activeConv}
+                    onPick={(id) => {
+                      setHistoryOpen(false);
+                      void selectConversation(id);
+                    }}
+                  />
+                }
+              >
+                <Tooltip title={t('ai.history')} zIndex={POPUP_Z}>
+                  <Button type="text" size="small" aria-label={t('ai.history')} icon={<HistoryOutlined />} />
+                </Tooltip>
+              </Popover>
               <Tooltip title={t('ai.newChat')} zIndex={POPUP_Z}>
-                <Button type="text" size="small" icon={<PlusOutlined />} onClick={newChat} />
+                <Button type="text" size="small" aria-label={t('ai.newChat')} icon={<PlusOutlined />} onClick={newChat} />
               </Tooltip>
-              <Button type="text" size="small" icon={<CloseOutlined />} onClick={() => setOpen(false)} />
+              <Button
+                type="text"
+                size="small"
+                aria-label={t('common.close')}
+                icon={<CloseOutlined />}
+                onClick={() => setOpen(false)}
+              />
             </div>
-          </div>
-
-          {/* Conversation switcher */}
-          <div className="ok-ai-toolbar">
-            <Select
-              size="small"
-              style={{ flex: 1 }}
-              placeholder={t('ai.conversations')}
-              value={activeConv ?? undefined}
-              onChange={selectConversation}
-              options={clusterConversations.map((c) => ({ value: c.id, label: c.title || `#${c.id}` }))}
-              notFoundContent={t('ai.noConversations')}
-              styles={{ popup: { root: { zIndex: POPUP_Z } } }}
-              listHeight={320}
-            />
           </div>
 
           {/* Messages */}
@@ -627,6 +654,137 @@ export default function AiAssistant() {
   );
 }
 
+/** Format an ISO timestamp as "YYYY/M/D · HH:mm" for the history list. */
+function formatConvTime(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()} · ${hh}:${mm}`;
+}
+
+/** The history popover body: past conversations for the current cluster. */
+function HistoryList({
+  conversations,
+  activeConv,
+  onPick,
+}: {
+  conversations: AiConversation[];
+  activeConv: number | null;
+  onPick: (id: number) => void;
+}) {
+  const { t } = useTranslation();
+  if (conversations.length === 0) {
+    return (
+      <div className="ok-ai-history">
+        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('ai.noConversations')} />
+      </div>
+    );
+  }
+  return (
+    <div className="ok-ai-history">
+      {conversations.map((c) => (
+        <button
+          key={c.id}
+          type="button"
+          className={`ok-ai-histitem ${c.id === activeConv ? 'is-active' : ''}`}
+          onClick={() => onPick(c.id)}
+        >
+          <MessageIcon />
+          <div className="ok-ai-histmain">
+            <div className="ok-ai-histtitle">{c.title || t('ai.newChat')}</div>
+            <div className="ok-ai-histtime">{formatConvTime(c.created_at)}</div>
+          </div>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function MessageIcon() {
+  return (
+    <span className="ok-ai-histicon" aria-hidden>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </span>
+  );
+}
+
+/** One collapsible row (a tool call OR its result) inside a tool step. */
+function ToolRow({
+  icon,
+  label,
+  body,
+  status,
+  defaultOpen,
+}: {
+  icon: React.ReactNode;
+  label: React.ReactNode;
+  body?: string;
+  status?: React.ReactNode;
+  defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(!!defaultOpen);
+  const hasBody = body !== undefined && body !== '';
+  return (
+    <div className="ok-ai-toolstep">
+      <button
+        type="button"
+        className="ok-ai-toolhead"
+        onClick={() => hasBody && setOpen((o) => !o)}
+        style={{ cursor: hasBody ? 'pointer' : 'default' }}
+      >
+        <CaretRightOutlined className="ok-ai-toolchev" rotate={open ? 90 : 0} style={{ opacity: hasBody ? 1 : 0.25 }} />
+        <span className="ok-ai-toolicon">{icon}</span>
+        <span className="ok-ai-toollabel">{label}</span>
+        {status && <span className="ok-ai-toolstatus">{status}</span>}
+      </button>
+      {open && hasBody && <pre className="ok-ai-toolbody">{prettyJson(body)}</pre>}
+    </div>
+  );
+}
+
+/** A tool step: the "调用: <tool>" row and the "执行结果" row (with a done check). */
+function ToolStepCard({ step }: { step: ToolStep }) {
+  const { t } = useTranslation();
+  const done = step.result !== undefined;
+  return (
+    <div className="ok-ai-toolcard">
+      <ToolRow
+        icon={<CodeOutlined />}
+        label={
+          <>
+            {t('ai.toolCall')}: <b>{step.tool}</b>
+          </>
+        }
+        body={step.args}
+      />
+      <ToolRow
+        icon={<PlayCircleOutlined />}
+        label={t('ai.toolResult')}
+        body={step.result}
+        status={
+          done ? (
+            <CheckCircleFilled style={{ color: '#22c55e' }} />
+          ) : (
+            <span className="ok-ai-toolspin">…</span>
+          )
+        }
+      />
+    </div>
+  );
+}
+
+/** Pretty-print a JSON string; fall back to the raw text when it isn't JSON. */
+function prettyJson(raw: string): string {
+  try {
+    return JSON.stringify(JSON.parse(raw), null, 2);
+  } catch {
+    return raw;
+  }
+}
+
 function MessageBubble({
   msg,
   streaming,
@@ -636,7 +794,6 @@ function MessageBubble({
   streaming: boolean;
   onConfirm?: (approved: boolean) => void;
 }) {
-  const { t } = useTranslation();
   const isUser = msg.role === 'user';
   const showThinking = !isUser && streaming && !msg.content && msg.tools.length === 0 && !msg.confirm;
 
@@ -647,42 +804,11 @@ function MessageBubble({
       </span>
       <div className={`ok-ai-bubble ${isUser ? 'ok-ai-bubble--user' : 'ok-ai-bubble--ai'}`}>
         {msg.tools.length > 0 && (
-          <Collapse
-            size="small"
-            ghost
-            style={{ marginBottom: msg.content ? 6 : 0 }}
-            items={[
-              {
-                key: 'tools',
-                label: (
-                  <Typography.Text style={{ fontSize: 12 }} type="secondary">
-                    {t('ai.toolSteps')} · {msg.tools.length}
-                  </Typography.Text>
-                ),
-                children: (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    {msg.tools.map((step, i) => (
-                      <div key={i}>
-                        <Typography.Text strong style={{ fontSize: 12 }}>
-                          {step.tool}
-                        </Typography.Text>
-                        {step.args && (
-                          <pre style={preStyle}>
-                            {t('ai.toolArgs')}: {step.args}
-                          </pre>
-                        )}
-                        {step.result !== undefined && (
-                          <pre style={preStyle}>
-                            {t('ai.toolResult')}: {step.result}
-                          </pre>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                ),
-              },
-            ]}
-          />
+          <div className="ok-ai-tools">
+            {msg.tools.map((step, i) => (
+              <ToolStepCard key={i} step={step} />
+            ))}
+          </div>
         )}
         {showThinking ? (
           <span className="ok-ai-thinking">

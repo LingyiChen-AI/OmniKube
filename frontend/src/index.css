@@ -940,6 +940,126 @@ body[data-theme='dark'] {
 .ok-ai-tag--update { background: rgba(245, 158, 11, 0.15); color: #d97706; }
 .ok-ai-tag--delete { background: rgba(239, 68, 68, 0.15); color: #dc2626; }
 
+/* Tool execution steps (call + result cards) */
+.ok-ai-tools {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.ok-ai-toolcard {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ok-ai-toolstep {
+  border: 1px solid var(--ok-ai-border);
+  border-radius: 9px;
+  overflow: hidden;
+  background: var(--ok-ai-bar);
+}
+.ok-ai-toolhead {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  padding: 7px 10px;
+  border: none;
+  background: transparent;
+  color: var(--ok-ai-fg);
+  font-size: 12.5px;
+  text-align: left;
+}
+.ok-ai-toolchev {
+  font-size: 10px;
+  color: var(--ok-ai-muted);
+  transition: transform 0.15s ease;
+}
+.ok-ai-toolicon {
+  display: inline-flex;
+  color: #0ea5e9;
+  font-size: 13px;
+}
+.ok-ai-toollabel {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ok-ai-toolstatus {
+  display: inline-flex;
+  font-size: 13px;
+}
+.ok-ai-toolspin {
+  color: var(--ok-ai-muted);
+  letter-spacing: 1px;
+}
+.ok-ai-toolbody {
+  margin: 0;
+  padding: 10px 12px;
+  border-top: 1px solid var(--ok-ai-border);
+  background: #0b1220;
+  color: #cbd5e1;
+  font-family: 'Fira Code', monospace;
+  font-size: 11.5px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 260px;
+  overflow: auto;
+}
+
+/* History popover */
+.ok-ai-history {
+  width: 260px;
+  max-height: 340px;
+  overflow-y: auto;
+  padding: 6px;
+}
+.ok-ai-histitem {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 10px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+.ok-ai-histitem:hover {
+  background: var(--ok-ai-bar);
+}
+.ok-ai-histitem.is-active {
+  background: rgba(14, 165, 233, 0.12);
+}
+.ok-ai-histicon {
+  display: inline-flex;
+  margin-top: 1px;
+  color: var(--ok-ai-muted);
+  flex-shrink: 0;
+}
+.ok-ai-histmain {
+  min-width: 0;
+  flex: 1;
+}
+.ok-ai-histtitle {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ok-ai-fg);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ok-ai-histtime {
+  font-size: 11.5px;
+  color: var(--ok-ai-muted);
+  margin-top: 2px;
+}
+
 /* Markdown rendering inside assistant bubbles */
 .ok-ai-md {
   white-space: normal;

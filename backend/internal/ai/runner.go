@@ -133,76 +133,83 @@ func (r *Runner) Stream(ctx context.Context, userID uint, clusterID, convID stri
 	if err != nil {
 		return err
 	}
-	// 读工具 + 写工具（写工具共享本轮新建的 stager：只暂存不执行）。
+	// 读工具 + 写工具（写工具共享本轮新建的 stager：只暂存不执行），再包一层 tracedTool：
+	// 每次工具调用实时发 tool_call/tool_result 并记入 tracer（供落库回放）。
 	stager := &Stager{}
-	tools := append(ReadTools(r.pool, clusterID, r.guard, userID),
+	tracer := &Tracer{}
+	events := make(chan Event, 256)
+	// 工具在 agent 后台 goroutine 执行，其 emit 与流消费 goroutine 的 emit 并发；
+	// 全部经 events channel 汇入主 goroutine 单线程下发，避免并发写 WS。
+	toolEmit := func(ev Event) {
+		select {
+		case events <- ev:
+		case <-ctx.Done():
+		}
+	}
+	baseTools := append(ReadTools(r.pool, clusterID, r.guard, userID),
 		WriteTools(r.pool, clusterID, r.guard, userID, stager)...)
+	tools := traceTools(baseTools, toolEmit, tracer)
 	run, err := r.newAgent(ctx, cm, tools, cfg.SystemPrompt, cfg.MaxSteps)
 	if err != nil {
 		return err
 	}
 
-	sr, err := run(ctx, msgs)
-	if err != nil {
-		return err
-	}
-	defer sr.Close()
-
-	// 4. 消费流。
-	//    Phase-2 简化：这里把每个文本增量直接拼接成整段回答（fragment-concat），
-	//    未按 message index/工具轮次做分段还原；对当前单轮问答足够，后续如需多段
-	//    trace 再细化（对应 review #8）。
-	var full strings.Builder
-	var toolCalls []schema.ToolCall
-	for {
-		chunk, err := sr.Recv()
-		if errors.Is(err, io.EOF) {
-			break
-		}
+	// 4. 在后台 goroutine 里跑 agent 流并消费：文本增量发 token，工具步骤由 tracedTool
+	//    实时发出；两者都汇入 events，由主 goroutine 顺序下发（单一 WS 写者）。收尾时
+	//    落库并把结果错误存入 retErr；close(events) 提供 happens-before，主循环随后安全读取。
+	var retErr error
+	go func() {
+		defer close(events)
+		sr, err := run(ctx, msgs)
 		if err != nil {
-			// 流中途出错：不能丢弃已累计的文本，否则前端已渲染的 token 与落库历史不一致。
-			// 把已累计的助手文本（加「…（已中断）」标记）落库，并发一帧终止事件（error），
-			// 让客户端渲染与持久化对齐，然后返回。
-			answer := full.String()
-			if answer != "" {
-				answer += "…（已中断）"
+			retErr = err
+			events <- Event{Type: "error", Text: err.Error()}
+			return
+		}
+		defer sr.Close()
+
+		var full strings.Builder
+		for {
+			chunk, err := sr.Recv()
+			if errors.Is(err, io.EOF) {
+				break
 			}
-			_ = r.convs.AppendMessage(uint(cid), "assistant", answer, marshalToolCalls(toolCalls))
-			emit(Event{Type: "error", Text: err.Error()})
-			return err
-		}
-		if chunk == nil {
-			continue
-		}
-		switch chunk.Role {
-		case schema.Tool:
-			// 工具结果消息（部分模型/agent 会把中间步骤混入流）。
-			emit(Event{Type: "tool_result", Tool: chunk.ToolName, Result: chunk.Content})
-		default:
-			if chunk.Content != "" {
+			if err != nil {
+				// 流中途出错：把已累计文本（加「…（已中断）」）连同工具轨迹落库，保持
+				// 前端已渲染与持久化一致，再发一帧 error 终止。
+				answer := full.String()
+				if answer != "" {
+					answer += "…（已中断）"
+				}
+				_ = r.convs.AppendMessage(uint(cid), "assistant", answer, marshalTrace(tracer.Steps())) // best-effort 落库
+				retErr = err                                                                            // 返回流错误（与旧行为一致）
+				events <- Event{Type: "error", Text: err.Error()}
+				return
+			}
+			// 只累计/下发最终答案文本；工具调用与结果由 tracedTool 实时发出。
+			if chunk != nil && chunk.Role != schema.Tool && chunk.Content != "" {
 				full.WriteString(chunk.Content)
-				emit(Event{Type: "token", Text: chunk.Content})
-			}
-			for _, tc := range chunk.ToolCalls {
-				toolCalls = append(toolCalls, tc)
-				emit(Event{Type: "tool_call", Tool: tc.Function.Name, Args: tc.Function.Arguments})
+				events <- Event{Type: "token", Text: chunk.Content}
 			}
 		}
-	}
 
-	// 5. 收尾。若本轮暂存了写操作 → 不执行、不发 done，而是发 confirm_required 并把
-	//    暂存动作以 pending_action 落到助手消息上，等待用户经 Confirm 确认后再执行。
-	answer := full.String()
-	staged := stager.Actions()
-	if len(staged) > 0 {
-		pending := marshalActions(staged)
-		emit(Event{Type: "confirm_required", Text: answer, Actions: staged})
-		return r.convs.AppendAssistant(uint(cid), answer, marshalToolCalls(toolCalls), pending)
-	}
+		// 5. 收尾。暂存了写操作 → 发 confirm_required 并把动作作为 pending 落到助手消息上；
+		//    否则 done。两者都把工具轨迹（含结果）随消息落库以便重载回放。
+		answer := full.String()
+		trace := marshalTrace(tracer.Steps())
+		if staged := stager.Actions(); len(staged) > 0 {
+			events <- Event{Type: "confirm_required", Text: answer, Actions: staged}
+			retErr = r.convs.AppendAssistant(uint(cid), answer, trace, marshalActions(staged))
+			return
+		}
+		events <- Event{Type: "done", Text: answer}
+		retErr = r.convs.AppendMessage(uint(cid), "assistant", answer, trace)
+	}()
 
-	// 无暂存写操作 → 与 Phase 2 一致：done + 助手消息落库（含工具调用轨迹 JSON）。
-	emit(Event{Type: "done", Text: answer})
-	return r.convs.AppendMessage(uint(cid), "assistant", answer, marshalToolCalls(toolCalls))
+	for ev := range events {
+		emit(ev)
+	}
+	return retErr
 }
 
 // Confirm 处理用户对上一轮暂存写操作的确认/取消：
@@ -256,17 +263,6 @@ func marshalActions(actions []StagedAction) string {
 		return ""
 	}
 	if raw, err := json.Marshal(actions); err == nil {
-		return string(raw)
-	}
-	return ""
-}
-
-// marshalToolCalls 把工具调用轨迹序列化为 JSON 字符串；无调用或序列化失败时返回空串。
-func marshalToolCalls(toolCalls []schema.ToolCall) string {
-	if len(toolCalls) == 0 {
-		return ""
-	}
-	if raw, err := json.Marshal(toolCalls); err == nil {
 		return string(raw)
 	}
 	return ""
