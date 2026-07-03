@@ -6,12 +6,20 @@ import (
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"gorm.io/gorm"
 )
 
 // writeGuard 返回一个 AI 授予矩阵含 create/edit/delete、rbac 侧按 allow 放行/拒绝的 Guard。
 func writeGuard(t *testing.T, allow bool) *Guard {
 	t.Helper()
-	store := NewStore(testDB(t), testCipher(t))
+	return writeGuardDB(t, testDB(t), allow)
+}
+
+// writeGuardDB 同 writeGuard，但把授予矩阵存进指定 db（供 executor 测试与审计共用一个库）。
+func writeGuardDB(t *testing.T, db *gorm.DB, allow bool) *Guard {
+	t.Helper()
+	store := NewStore(db, testCipher(t))
 	if err := store.SaveGrant("c1", map[string][]string{"deployments": {"view", "create", "edit", "delete"}}); err != nil {
 		t.Fatal(err)
 	}
