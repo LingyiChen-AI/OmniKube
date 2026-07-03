@@ -25,6 +25,10 @@ func NewGuard(store *Store, rbac authorizer) *Guard {
 // Allow 判定 (userID) 能否在 (cluster, namespace) 下对 resource 执行 action。
 // action 为前端树动作(view/create/edit/delete/exec/reveal)；对 rbac 侧会映射为
 // casbin 动作，对 AI 授予矩阵侧按树动作原样比对。
+//
+// 注意：Allow 只回传布尔裁决，会丢弃 rbac 返回的 visibleNS。对「集群级只读聚合」
+// 场景（namespace==""）请改用 AllowRead，以拿到受限的可见 NS 子集并逐 NS 聚合，
+// 否则会跨越用户 RBAC 边界越权读取。
 func (g *Guard) Allow(userID uint, cluster, namespace, resource, action string) bool {
 	// 闸门 1：AI 授予矩阵。
 	grant, err := g.store.LoadGrant(cluster)
@@ -40,6 +44,30 @@ func (g *Guard) Allow(userID uint, cluster, namespace, resource, action string) 
 		return false
 	}
 	return ok
+}
+
+// AllowRead 是只读工具的专用闸门，在 Allow 的双闸门基础上「暴露 rbac 的可见 NS 子集」。
+// 返回 (allowed, visibleNS)：
+//   - allowed==false：任一闸门未过或出错（fail-closed），visibleNS 恒为 nil。
+//   - visibleNS==nil：无约束（系统 admin / 集群级角色）→ 调用方可全集群列举。
+//   - visibleNS!=nil：受控集群级只读 → 调用方必须只遍历这些 NS 聚合，绝不全集群列举。
+//
+// resource 必须是规范复数名（调用方应先解析 GVR 再传入），以便与 AI 授予矩阵严格对齐。
+func (g *Guard) AllowRead(userID uint, cluster, namespace, resource string) (allowed bool, visibleNS []string) {
+	// 闸门 1：AI 授予矩阵必须包含 view。
+	grant, err := g.store.LoadGrant(cluster)
+	if err != nil {
+		return false, nil
+	}
+	if !contains(grant[resource], "view") {
+		return false, nil
+	}
+	// 闸门 2：用户自身 RBAC（read 动作），并透传其可见 NS 子集。
+	ok, visible, err := g.rbac.Authorize(strconv.FormatUint(uint64(userID), 10), cluster, namespace, resource, "read")
+	if err != nil || !ok {
+		return false, nil
+	}
+	return true, visible
 }
 
 // actionToCasbin 把树动作映射为 casbin 动作（与 rbac 包保持一致）。

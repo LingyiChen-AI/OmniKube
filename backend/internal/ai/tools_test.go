@@ -124,6 +124,66 @@ func TestReadTools_DenyReturnsStructuredResult(t *testing.T) {
 	}
 }
 
+// fakeClusterDevProd 装有 dev 与 prod 各一个 deployment，用于验证受控集群级只读只聚合 dev。
+func fakeClusterDevProd(t *testing.T) *cluster.ClusterPool {
+	t.Helper()
+	scheme := runtime.NewScheme()
+	gvrToList := map[schema.GroupVersionResource]string{
+		{Group: "apps", Version: "v1", Resource: "deployments"}: "DeploymentList",
+	}
+	dyn := dynamicfake.NewSimpleDynamicClientWithCustomListKinds(scheme, gvrToList,
+		deploy("dev", "web"), deploy("prod", "payments"))
+	cc := &cluster.ClusterClient{Dynamic: dyn, RESTMapper: toolsMapper()}
+	pool := cluster.NewPool(nil, nil, nil)
+	pool.Set("c1", cc)
+	return pool
+}
+
+// restrictedGuard 返回一个 rbac 允许但可见 NS 仅限 visibleNS 的 Guard（模拟受控集群级只读）。
+func restrictedGuard(t *testing.T, visibleNS []string) *Guard {
+	t.Helper()
+	store := NewStore(testDB(t), testCipher(t))
+	if err := store.SaveGrant("c1", map[string][]string{"deployments": {"view"}}); err != nil {
+		t.Fatal(err)
+	}
+	return &Guard{store: store, rbac: stubAuthorizer{allow: true, visibleNS: visibleNS}}
+}
+
+// TestReadTools_ListRestrictedAggregatesOnlyVisibleNS 是核心安全回归：非受限（namespace=""）
+// 列举时，rbac 返回 visibleNS=[dev]，工具必须只列 dev，绝不泄露 prod。
+func TestReadTools_ListRestrictedAggregatesOnlyVisibleNS(t *testing.T) {
+	pool := fakeClusterDevProd(t)
+	tools := ReadTools(pool, "c1", restrictedGuard(t, []string{"dev"}), 1)
+	lt := findTool(t, tools, "list_resources")
+
+	// 不传 namespace → 触发集群级聚合路径。
+	out, err := lt.InvokableRun(context.Background(), `{"resource":"deployments"}`)
+	if err != nil {
+		t.Fatalf("InvokableRun err: %v", err)
+	}
+	var res struct {
+		Items []struct {
+			Name      string `json:"name"`
+			Namespace string `json:"namespace"`
+		} `json:"items"`
+		Error string `json:"error"`
+	}
+	if err := json.Unmarshal([]byte(out), &res); err != nil {
+		t.Fatalf("bad json %q: %v", out, err)
+	}
+	if res.Error != "" {
+		t.Fatalf("unexpected error: %s", res.Error)
+	}
+	if len(res.Items) != 1 || res.Items[0].Name != "web" || res.Items[0].Namespace != "dev" {
+		t.Fatalf("expected only dev/web, got %q", out)
+	}
+	for _, it := range res.Items {
+		if it.Namespace == "prod" {
+			t.Fatalf("LEAK: prod resource returned for restricted user: %q", out)
+		}
+	}
+}
+
 func TestReadTools_Get(t *testing.T) {
 	pool := fakeToolsCluster(t)
 	tools := ReadTools(pool, "c1", allowGuard(t, true), 1)

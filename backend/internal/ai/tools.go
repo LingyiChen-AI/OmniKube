@@ -3,6 +3,7 @@ package ai
 import (
 	"context"
 	"fmt"
+	"log"
 
 	"github.com/cloudwego/eino/components/tool"
 	"github.com/cloudwego/eino/components/tool/utils"
@@ -13,6 +14,9 @@ import (
 
 	"omnikube/internal/cluster"
 )
+
+// listLimit 限制单次列举回传给模型的资源条数，保护上下文窗口；同时用作 K8s ListOptions.Limit。
+const listLimit = 100
 
 // listParams / getParams 是暴露给模型的工具入参（json 标签即模型可见参数名）。
 type listParams struct {
@@ -36,9 +40,10 @@ type resourceSummary struct {
 
 // listResult / getResult 为工具返回值；被 denied 时只填 Error（不返回 Go error，避免中断 agent）。
 type listResult struct {
-	Items []resourceSummary `json:"items,omitempty"`
-	Count int               `json:"count,omitempty"`
-	Error string            `json:"error,omitempty"`
+	Items     []resourceSummary `json:"items,omitempty"`
+	Count     int               `json:"count,omitempty"`
+	Truncated bool              `json:"truncated,omitempty"` // 命中 listLimit 截断，模型据此知悉结果不完整。
+	Error     string            `json:"error,omitempty"`
 }
 
 type getResult struct {
@@ -47,47 +52,78 @@ type getResult struct {
 }
 
 // ReadTools 构建供 ReAct agent 使用的只读工具集（list_resources / get_resource）。
-// 每次调用都会经 guard.Allow(userID, clusterID, ns, resource, "view") 双闸门校验，
-// 未授权时返回结构化的 permission denied 结果而非报错崩溃。
+// 每次调用都会经 guard 的双闸门校验（AI 授予矩阵 + 用户自身 RBAC），未授权时返回
+// 结构化的 permission denied 结果而非报错崩溃。列举路径还会据 rbac 的可见 NS 子集
+// 把「集群级只读」收敛为「逐 NS 聚合」，绝不越权全集群列举（见 AllowRead）。
 func ReadTools(pool *cluster.ClusterPool, clusterID string, guard *Guard, userID uint) []tool.BaseTool {
-	listTool, _ := utils.InferTool("list_resources",
+	listTool, err := utils.InferTool("list_resources",
 		"列出指定命名空间下某类资源（返回名称与关键状态摘要）。",
 		func(ctx context.Context, p listParams) (listResult, error) {
-			if !guard.Allow(userID, clusterID, p.Namespace, p.Resource, "view") {
-				return listResult{Error: fmt.Sprintf("permission denied: 无权读取集群 %s 命名空间 %s 的 %s", clusterID, p.Namespace, p.Resource)}, nil
-			}
 			cc, ok := pool.Get(clusterID)
 			if !ok {
 				return listResult{Error: fmt.Sprintf("cluster %s 不存在或未连接", clusterID)}, nil
 			}
+			// 先解析 GVR，再用规范复数名过闸门：把 deploy/deployment 归一到 deployments
+			// 后再比对授予矩阵；解析失败即 fail-closed。
 			gvr, namespaced, err := resolveGVR(cc, p.Resource)
 			if err != nil {
 				return listResult{Error: fmt.Sprintf("解析资源 %s 失败: %v", p.Resource, err)}, nil
 			}
+			canonical := gvr.Resource
+
+			allowed, visibleNS := guard.AllowRead(userID, clusterID, p.Namespace, canonical)
+			if !allowed {
+				return listResult{Error: fmt.Sprintf("permission denied: 无权读取集群 %s 命名空间 %s 的 %s", clusterID, p.Namespace, canonical)}, nil
+			}
+
 			ri := cc.Dynamic.Resource(gvr)
-			var list *unstructured.UnstructuredList
-			if namespaced && p.Namespace != "" {
-				list, err = ri.Namespace(p.Namespace).List(ctx, metav1.ListOptions{})
-			} else {
-				list, err = ri.List(ctx, metav1.ListOptions{})
+			opts := metav1.ListOptions{Limit: listLimit}
+
+			// 集群型资源 → 全量单次列举。
+			if !namespaced {
+				list, err := ri.List(ctx, opts)
+				return summarizeList(list, err)
 			}
-			if err != nil {
-				return listResult{Error: fmt.Sprintf("列举失败: %v", err)}, nil
+			// 命名空间型且指定了具体 namespace（已被单 NS 闸门放行）→ 单 NS 列举。
+			if p.Namespace != "" {
+				list, err := ri.Namespace(p.Namespace).List(ctx, opts)
+				return summarizeList(list, err)
 			}
-			out := listResult{Items: make([]resourceSummary, 0, len(list.Items))}
-			for i := range list.Items {
-				out.Items = append(out.Items, summarize(&list.Items[i]))
+
+			// 命名空间型且 namespace 为空（集群级聚合）。
+			if visibleNS == nil {
+				// 无约束（admin / 集群级角色）→ 全集群列举。
+				list, err := ri.List(ctx, opts)
+				return summarizeList(list, err)
+			}
+			// 受控集群级只读：只遍历可见 NS 逐一聚合，绝不全集群列举。
+			out := listResult{Items: make([]resourceSummary, 0, listLimit)}
+			for _, n := range visibleNS {
+				list, err := ri.Namespace(n).List(ctx, metav1.ListOptions{Limit: listLimit})
+				if err != nil {
+					return listResult{Error: fmt.Sprintf("列举失败: %v", err)}, nil
+				}
+				for i := range list.Items {
+					if len(out.Items) >= listLimit {
+						out.Truncated = true
+						break
+					}
+					out.Items = append(out.Items, summarize(&list.Items[i]))
+				}
+				if out.Truncated {
+					break
+				}
 			}
 			out.Count = len(out.Items)
 			return out, nil
 		})
+	if err != nil {
+		log.Printf("ai: 构建 list_resources 工具失败: %v", err)
+	}
 
-	getTool, _ := utils.InferTool("get_resource",
+	getTool, gerr := utils.InferTool("get_resource",
 		"读取单个资源的名称与关键状态摘要。",
 		func(ctx context.Context, p getParams) (getResult, error) {
-			if !guard.Allow(userID, clusterID, p.Namespace, p.Resource, "view") {
-				return getResult{Error: fmt.Sprintf("permission denied: 无权读取集群 %s 命名空间 %s 的 %s", clusterID, p.Namespace, p.Resource)}, nil
-			}
 			cc, ok := pool.Get(clusterID)
 			if !ok {
 				return getResult{Error: fmt.Sprintf("cluster %s 不存在或未连接", clusterID)}, nil
@@ -95,6 +131,10 @@ func ReadTools(pool *cluster.ClusterPool, clusterID string, guard *Guard, userID
 			gvr, namespaced, err := resolveGVR(cc, p.Resource)
 			if err != nil {
 				return getResult{Error: fmt.Sprintf("解析资源 %s 失败: %v", p.Resource, err)}, nil
+			}
+			// get_resource 走具体 namespace，用规范复数名过闸门即可（visibleNS 无关）。
+			if allowed, _ := guard.AllowRead(userID, clusterID, p.Namespace, gvr.Resource); !allowed {
+				return getResult{Error: fmt.Sprintf("permission denied: 无权读取集群 %s 命名空间 %s 的 %s", clusterID, p.Namespace, gvr.Resource)}, nil
 			}
 			var obj *unstructured.Unstructured
 			if namespaced {
@@ -107,6 +147,9 @@ func ReadTools(pool *cluster.ClusterPool, clusterID string, guard *Guard, userID
 			}
 			return getResult{resourceSummary: summarize(obj)}, nil
 		})
+	if gerr != nil {
+		log.Printf("ai: 构建 get_resource 工具失败: %v", gerr)
+	}
 
 	tools := make([]tool.BaseTool, 0, 2)
 	if listTool != nil {
@@ -116,6 +159,23 @@ func ReadTools(pool *cluster.ClusterPool, clusterID string, guard *Guard, userID
 		tools = append(tools, getTool)
 	}
 	return tools
+}
+
+// summarizeList 把一次列举结果压成 listResult（超过 listLimit 截断并置 Truncated）。
+func summarizeList(list *unstructured.UnstructuredList, err error) (listResult, error) {
+	if err != nil {
+		return listResult{Error: fmt.Sprintf("列举失败: %v", err)}, nil
+	}
+	out := listResult{Items: make([]resourceSummary, 0, len(list.Items))}
+	for i := range list.Items {
+		if len(out.Items) >= listLimit {
+			out.Truncated = true
+			break
+		}
+		out.Items = append(out.Items, summarize(&list.Items[i]))
+	}
+	out.Count = len(out.Items)
+	return out, nil
 }
 
 // resolveGVR 经 RESTMapper 把规范资源名解析为完整 GVR，并返回是否命名空间型
