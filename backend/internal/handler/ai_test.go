@@ -107,3 +107,32 @@ func TestAIConfigMaskAndStatus(t *testing.T) {
 		t.Fatalf("status should be enabled+configured, got %+v", st)
 	}
 }
+
+func TestAIGrantsRoundTrip(t *testing.T) {
+	app, _ := aiApp(t)
+
+	body := map[string]any{"operations": map[string][]string{"deployments": {"view", "create"}}}
+	if w := aiReq(app, "PUT", "/api/v1/ai/grants?cluster_id=c1", "1", true, body); w.Code != http.StatusOK {
+		t.Fatalf("put grants: %d %s", w.Code, w.Body.String())
+	}
+
+	w := aiReq(app, "GET", "/api/v1/ai/grants?cluster_id=c1", "1", true, nil)
+	if w.Code != http.StatusOK {
+		t.Fatalf("get grants: %d %s", w.Code, w.Body.String())
+	}
+	var resp struct {
+		Operations map[string][]string `json:"operations"`
+	}
+	_ = json.Unmarshal(w.Body.Bytes(), &resp)
+	if len(resp.Operations["deployments"]) != 2 {
+		t.Fatalf("expected 2 deployment ops, got %+v", resp.Operations)
+	}
+}
+
+func TestAIGrantsMissingCluster(t *testing.T) {
+	app, _ := aiApp(t)
+	w := aiReq(app, "GET", "/api/v1/ai/grants", "1", true, nil)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("missing cluster_id should be 400, got %d %s", w.Code, w.Body.String())
+	}
+}

@@ -4,6 +4,7 @@ package ai
 
 import (
 	"encoding/json"
+	"errors"
 
 	"gorm.io/gorm"
 
@@ -48,11 +49,26 @@ func NewStore(db *gorm.DB, cipher *crypto.Cipher) *Store {
 	return &Store{db: db, cipher: cipher}
 }
 
-// LoadConfig returns the current config (decrypted). Zero-value Config when unset.
+// LoadConfig returns the current config with the api_key decrypted (for
+// server-side use, e.g. the agent). Zero-value Config when unset.
 func (s *Store) LoadConfig() (Config, error) {
+	return s.loadConfig(true)
+}
+
+// LoadConfigMeta returns the current config WITHOUT decrypting the api_key
+// (APIKey stays ""); HasKey still reflects whether a key is stored. Use this
+// for read-only metadata paths (status/config views) that never need the
+// plaintext secret. Zero-value Config when unset.
+func (s *Store) LoadConfigMeta() (Config, error) {
+	return s.loadConfig(false)
+}
+
+// loadConfig is the shared implementation; decryptKey toggles whether the
+// stored api_key is decrypted into Config.APIKey.
+func (s *Store) loadConfig(decryptKey bool) (Config, error) {
 	var row model.AIConfig
 	err := s.db.First(&row, configRowID).Error
-	if err == gorm.ErrRecordNotFound {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return Config{}, nil
 	}
 	if err != nil {
@@ -63,7 +79,7 @@ func (s *Store) LoadConfig() (Config, error) {
 		Temperature: row.Temperature, SystemPrompt: row.SystemPrompt, MaxSteps: row.MaxSteps,
 		HasKey: row.APIKeyEnc != "",
 	}
-	if row.APIKeyEnc != "" {
+	if decryptKey && row.APIKeyEnc != "" {
 		plain, err := s.cipher.Decrypt(row.APIKeyEnc)
 		if err != nil {
 			return Config{}, err
@@ -77,7 +93,7 @@ func (s *Store) LoadConfig() (Config, error) {
 func (s *Store) SaveConfig(in ConfigInput) error {
 	var row model.AIConfig
 	err := s.db.First(&row, configRowID).Error
-	if err != nil && err != gorm.ErrRecordNotFound {
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
 	}
 	row.ID = configRowID
@@ -101,7 +117,7 @@ func (s *Store) SaveConfig(in ConfigInput) error {
 func (s *Store) LoadGrant(clusterID string) (map[string][]string, error) {
 	var row model.AIGrant
 	err := s.db.Where("cluster_id = ?", clusterID).First(&row).Error
-	if err == gorm.ErrRecordNotFound {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return map[string][]string{}, nil
 	}
 	if err != nil {
@@ -124,7 +140,7 @@ func (s *Store) SaveGrant(clusterID string, ops map[string][]string) error {
 	}
 	var row model.AIGrant
 	err = s.db.Where("cluster_id = ?", clusterID).First(&row).Error
-	if err != nil && err != gorm.ErrRecordNotFound {
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
 	}
 	row.ClusterID = clusterID

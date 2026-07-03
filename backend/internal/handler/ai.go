@@ -12,7 +12,7 @@ func (h *Handler) aiStore() *ai.Store { return ai.NewStore(h.DB, h.Cipher) }
 
 // GetAIStatus GET /ai/status — any logged-in user; drives the ⚠️ launcher state.
 func (h *Handler) GetAIStatus(c *gin.Context) {
-	cfg, err := h.aiStore().LoadConfig()
+	cfg, err := h.aiStore().LoadConfigMeta()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "读取 AI 配置失败"})
 		return
@@ -23,7 +23,7 @@ func (h *Handler) GetAIStatus(c *gin.Context) {
 
 // GetAIConfig GET /ai/config — RequireGlobalPerm("ai","view"); api_key masked.
 func (h *Handler) GetAIConfig(c *gin.Context) {
-	cfg, err := h.aiStore().LoadConfig()
+	cfg, err := h.aiStore().LoadConfigMeta()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "读取 AI 配置失败"})
 		return
