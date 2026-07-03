@@ -678,6 +678,18 @@ const en = {
   error403: {
     subtitle: "You don't have permission to view this page.",
   },
+  ai: {
+    modelConfig: 'Model configuration',
+    enabled: 'Enabled',
+    apiKey: 'API Key',
+    temperature: 'Temperature',
+    maxSteps: 'Max steps',
+    systemPrompt: 'System prompt',
+    permScope: 'Permission scope',
+    selectCluster: 'Select cluster',
+    save: 'Save',
+    saved: 'Saved',
+  },
   common: {
     cancel: 'Cancel',
     close: 'Close',

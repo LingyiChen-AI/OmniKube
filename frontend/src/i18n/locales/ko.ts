@@ -680,6 +680,18 @@ const ko: Resources = {
   error403: {
     subtitle: '이 페이지를 볼 수 있는 권한이 없습니다.',
   },
+  ai: {
+    modelConfig: '모델 구성',
+    enabled: '활성화',
+    apiKey: 'API 키',
+    temperature: '온도',
+    maxSteps: '최대 단계 수',
+    systemPrompt: '시스템 프롬프트',
+    permScope: '권한 범위',
+    selectCluster: '클러스터 선택',
+    save: '저장',
+    saved: '저장됨',
+  },
   common: {
     cancel: '취소',
     close: '닫기',

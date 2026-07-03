@@ -25,6 +25,7 @@ import {
   RocketOutlined,
   SettingOutlined,
   AuditOutlined,
+  RobotOutlined,
 } from '@ant-design/icons';
 import { useAuthStore } from '../store/auth';
 import { canSeeResource, canSeeModule, canGlobal, canSeeSystem } from '../nav';
@@ -111,6 +112,9 @@ export default function Sidebar({ collapsed }: Props) {
       if (canGlobal('roles', 'view', user)) {
         sysChildren.push({ key: '/roles', icon: <SafetyOutlined />, label: t('nav.roles') });
       }
+      if (canGlobal('ai', 'view', user)) {
+        sysChildren.push({ key: '/ai/config', icon: <RobotOutlined />, label: t('nav.aiConfig') });
+      }
       if (canGlobal('audit', 'view', user)) {
         sysChildren.push({ key: '/audit', icon: <AuditOutlined />, label: t('nav.audit') });
       }
@@ -127,7 +131,7 @@ export default function Sidebar({ collapsed }: Props) {
   const openKeys = useMemo(() => {
     const seg = location.pathname.split('/')[1];
     if (['workloads', 'networking', 'storage'].includes(seg)) return [seg];
-    if (['clusters', 'users', 'roles', 'audit'].includes(seg)) return ['system'];
+    if (['clusters', 'users', 'roles', 'ai', 'audit'].includes(seg)) return ['system'];
     return [];
   }, [location.pathname]);
 

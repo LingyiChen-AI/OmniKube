@@ -37,6 +37,7 @@ import Nodes from './pages/cluster/Nodes';
 import PersistentVolumes from './pages/cluster/PersistentVolumes';
 import Releases from './pages/releases/Releases';
 import AuditLogs from './pages/audit/AuditLogs';
+import AiConfig from './pages/ai/AiConfig';
 
 const ANTD_LOCALES: Record<string, Locale> = {
   zh: zhCN,
@@ -145,6 +146,14 @@ function AppRoutes() {
           element={
             <GlobalRoute area="audit">
               <AuditLogs />
+            </GlobalRoute>
+          }
+        />
+        <Route
+          path="/ai/config"
+          element={
+            <GlobalRoute area="ai">
+              <AiConfig />
             </GlobalRoute>
           }
         />

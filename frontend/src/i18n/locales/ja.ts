@@ -680,6 +680,18 @@ const ja: Resources = {
   error403: {
     subtitle: 'このページを表示する権限がありません。',
   },
+  ai: {
+    modelConfig: 'モデル設定',
+    enabled: '有効化',
+    apiKey: 'API キー',
+    temperature: '温度',
+    maxSteps: '最大ステップ数',
+    systemPrompt: 'システムプロンプト',
+    permScope: '権限範囲',
+    selectCluster: 'クラスターを選択',
+    save: '保存',
+    saved: '保存しました',
+  },
   common: {
     cancel: 'キャンセル',
     close: '閉じる',

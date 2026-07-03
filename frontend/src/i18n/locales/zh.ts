@@ -680,6 +680,18 @@ const zh: Resources = {
   error403: {
     subtitle: '您没有权限查看此页面。',
   },
+  ai: {
+    modelConfig: '模型配置',
+    enabled: '启用',
+    apiKey: 'API Key',
+    temperature: '温度',
+    maxSteps: '最大步数',
+    systemPrompt: '系统提示',
+    permScope: '权限范围',
+    selectCluster: '选择集群',
+    save: '保存',
+    saved: '已保存',
+  },
   common: {
     cancel: '取消',
     close: '关闭',

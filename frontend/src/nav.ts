@@ -58,6 +58,7 @@ export function canSeeSystem(user: NavUser): boolean {
     canGlobal('clusters', 'view', user) ||
     canGlobal('users', 'view', user) ||
     canGlobal('roles', 'view', user) ||
+    canGlobal('ai', 'view', user) ||
     canGlobal('audit', 'view', user)
   );
 }

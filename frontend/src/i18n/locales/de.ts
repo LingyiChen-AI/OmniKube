@@ -680,6 +680,18 @@ const de: Resources = {
   error403: {
     subtitle: 'Sie haben keine Berechtigung, diese Seite anzuzeigen.',
   },
+  ai: {
+    modelConfig: 'Modellkonfiguration',
+    enabled: 'Aktiviert',
+    apiKey: 'API-Schlüssel',
+    temperature: 'Temperatur',
+    maxSteps: 'Max. Schritte',
+    systemPrompt: 'System-Prompt',
+    permScope: 'Berechtigungsbereich',
+    selectCluster: 'Cluster auswählen',
+    save: 'Speichern',
+    saved: 'Gespeichert',
+  },
   common: {
     cancel: 'Abbrechen',
     close: 'Schließen',

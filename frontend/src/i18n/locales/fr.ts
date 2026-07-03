@@ -680,6 +680,18 @@ const fr: Resources = {
   error403: {
     subtitle: "Vous n'avez pas l'autorisation de voir cette page.",
   },
+  ai: {
+    modelConfig: 'Configuration du modèle',
+    enabled: 'Activé',
+    apiKey: 'Clé API',
+    temperature: 'Température',
+    maxSteps: 'Étapes max',
+    systemPrompt: 'Invite système',
+    permScope: 'Portée des autorisations',
+    selectCluster: 'Sélectionner un cluster',
+    save: 'Enregistrer',
+    saved: 'Enregistré',
+  },
   common: {
     cancel: 'Annuler',
     close: 'Fermer',
