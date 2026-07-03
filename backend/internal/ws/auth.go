@@ -15,15 +15,17 @@ import (
 	"omnikube/internal/audit"
 	"omnikube/internal/auth"
 	"omnikube/internal/cluster"
+	"omnikube/internal/crypto"
 	"omnikube/internal/rbac"
 )
 
 // Handler 持有 WebSocket 流所需依赖，复用与 handler.Handler 相同的注入。
 type Handler struct {
-	DB   *gorm.DB
-	JWT  *auth.JWTManager
-	Pool *cluster.ClusterPool
-	RBAC *rbac.Service
+	DB     *gorm.DB
+	JWT    *auth.JWTManager
+	Pool   *cluster.ClusterPool
+	RBAC   *rbac.Service
+	Cipher *crypto.Cipher // AI 对话流需要解密 API Key（LoadConfig）。
 }
 
 // authContext 是升级前鉴权门的产物，供 exec/logs handler 复用。

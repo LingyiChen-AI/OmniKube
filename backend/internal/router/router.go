@@ -20,9 +20,11 @@ func New(h *handler.Handler, jm *auth.JWTManager) *gin.Engine {
 
 		// WebSocket 流（WebSSH / 实时日志）：不挂 Header 中间件，handler 内从
 		// query 参数完成升级前鉴权（PRD §8）。浏览器原生 WebSocket 无法自定义 Header。
-		wsh := &ws.Handler{DB: h.DB, JWT: jm, Pool: h.Pool, RBAC: h.RBAC}
+		wsh := &ws.Handler{DB: h.DB, JWT: jm, Pool: h.Pool, RBAC: h.RBAC, Cipher: h.Cipher}
 		api.GET("/exec", wsh.ExecHandler)
 		api.GET("/logs", wsh.LogHandler)
+		// AI 助手流式对话：同为 query-token 鉴权的 WebSocket，不挂 Header 中间件。
+		api.GET("/ai/chat", wsh.AIChatHandler)
 
 		authed := api.Group("")
 		authed.Use(middleware.JWTAuth(jm))
@@ -48,6 +50,11 @@ func New(h *handler.Handler, jm *auth.JWTManager) *gin.Engine {
 			authed.PUT("/ai/config", middleware.RequireGlobalPerm(h.GlobalPermCheck, "ai", "edit"), h.PutAIConfig)
 			authed.GET("/ai/grants", middleware.RequireGlobalPerm(h.GlobalPermCheck, "ai", "view"), h.GetAIGrants)
 			authed.PUT("/ai/grants", middleware.RequireGlobalPerm(h.GlobalPermCheck, "ai", "edit"), h.PutAIGrants)
+
+			// AI 会话 REST：任意登录用户可用；GetConversation 在 handler 内强制归属校验。
+			authed.GET("/ai/conversations", h.ListConversations)
+			authed.POST("/ai/conversations", h.CreateConversation)
+			authed.GET("/ai/conversations/:id", h.GetConversation)
 
 			// 集群管理：JWTAuth + per-端点 global-perm（admin 旁路；注意 /my/clusters 不在此组）
 			clusters := authed.Group("/clusters")
