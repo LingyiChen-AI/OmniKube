@@ -48,5 +48,6 @@ func AllGlobalPerms() map[string][]string {
 		"roles":    full,
 		"releases": {"view"},
 		"audit":    {"view"},
+		"ai":       {"view", "edit"},
 	}
 }
