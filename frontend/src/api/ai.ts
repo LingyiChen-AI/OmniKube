@@ -26,6 +26,24 @@ export interface AiConfigInput {
   max_steps: number;
 }
 
+export interface AiConversation {
+  id: number;
+  user_id: number;
+  cluster_id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AiMessage {
+  id: number;
+  conversation_id: number;
+  role: string; // user / assistant / tool
+  content: string;
+  tool_calls: string; // JSON trace, may be empty
+  created_at: string;
+}
+
 export const aiApi = {
   status: () => client.get<AiStatus>('/ai/status').then((r) => r.data),
   getConfig: () => client.get<AiConfig>('/ai/config').then((r) => r.data),
@@ -36,4 +54,19 @@ export const aiApi = {
       .then((r) => r.data.operations ?? {}),
   putGrants: (clusterId: string, operations: Operations) =>
     client.put('/ai/grants', { operations }, { params: { cluster_id: clusterId } }).then((r) => r.data),
+
+  // ---- Conversations (current user; newest-first) ----
+  listConversations: () =>
+    client.get<{ conversations: AiConversation[] }>('/ai/conversations').then((r) => r.data.conversations ?? []),
+  createConversation: (clusterId: string, title: string) =>
+    client
+      .post<{ id: number; cluster_id: string; title: string }>('/ai/conversations', {
+        cluster_id: clusterId,
+        title,
+      })
+      .then((r) => r.data),
+  getConversation: (id: number) =>
+    client
+      .get<{ conversation: AiConversation; messages: AiMessage[] }>(`/ai/conversations/${id}`)
+      .then((r) => r.data),
 };

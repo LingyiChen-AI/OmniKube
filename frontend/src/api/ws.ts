@@ -1,7 +1,7 @@
 import { API_BASE, API_PREFIX } from './client';
 import { getToken } from '../store/auth';
 
-function wsBase(): string {
+export function wsBase(): string {
   // Derive ws(s):// origin from the configured API base.
   try {
     const u = new URL(API_BASE, window.location.origin);
