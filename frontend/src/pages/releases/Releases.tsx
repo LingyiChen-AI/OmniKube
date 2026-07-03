@@ -18,7 +18,7 @@ import {
   ApiOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
-import { releaseApi, parseImageList, type ReleaseRecord } from '../../api/release';
+import { releaseApi, parseImageList, splitImageTag, type ReleaseRecord } from '../../api/release';
 import { useApi } from '../../hooks/useApi';
 import { useCtxStore } from '../../store/ctx';
 import { defaultTableProps, defaultPagination, tableScrollX } from '../../components/tableConfig';
@@ -26,22 +26,73 @@ import { formatAge, formatTime } from '../../utils';
 
 const { Title, Text } = Typography;
 
-/** Render a "name=image;..." string as a stack of image tags (container name muted). */
-function ImageTags({ value, color }: { value: string; color: string }) {
-  const items = parseImageList(value);
-  if (items.length === 0) return <Text type="secondary">—</Text>;
+/**
+ * Per-container image change. Since the repo almost never changes across a
+ * release (only the tag does), show the repo once (muted, in a tooltip) and
+ * put the emphasis on `oldTag → newTag`. When the repo *does* change, fall back
+ * to the two full refs so nothing is hidden.
+ */
+function ImageDiff({ before, after }: { before: string; after: string }) {
+  const { token } = antdTheme.useToken();
+  const mono = { fontFamily: token.fontFamilyCode } as const;
+
+  const beforeItems = parseImageList(before);
+  const afterItems = parseImageList(after);
+  const names = Array.from(
+    new Set([...beforeItems, ...afterItems].map((i) => i.name)),
+  );
+  const byName = (list: { name: string; image: string }[], n: string) =>
+    list.find((i) => i.name === n)?.image ?? '';
+
+  if (names.length === 0) return <Text type="secondary">—</Text>;
+
   return (
-    <Space direction="vertical" size={2} style={{ display: 'flex' }}>
-      {items.map((it, i) => (
-        <Tag
-          key={i}
-          color={color}
-          style={{ marginInlineEnd: 0, fontFamily: 'var(--ok-code-font, monospace)', maxWidth: 260 }}
-        >
-          {it.name && <span style={{ opacity: 0.6 }}>{it.name}: </span>}
-          {it.image}
-        </Tag>
-      ))}
+    <Space direction="vertical" size={8} style={{ display: 'flex' }}>
+      {names.map((n) => {
+        const b = splitImageTag(byName(beforeItems, n));
+        const a = splitImageTag(byName(afterItems, n));
+        const sameRepo = b.repo === a.repo && !!a.repo;
+
+        return (
+          <div key={n} style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }}>
+            {n && (
+              <Text style={{ ...mono, fontSize: 12, color: token.colorTextSecondary }}>{n}</Text>
+            )}
+            {sameRepo ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <Tooltip title={a.repo}>
+                  <Text
+                    type="secondary"
+                    ellipsis
+                    style={{ ...mono, fontSize: 11.5, maxWidth: 150 }}
+                  >
+                    {a.repo.split('/').pop()}
+                  </Text>
+                </Tooltip>
+                <Tag style={{ margin: 0, ...mono }}>{b.tag || '—'}</Tag>
+                <ArrowRightOutlined style={{ color: token.colorPrimary, fontSize: 11 }} />
+                <Tag color="green" style={{ margin: 0, ...mono }}>
+                  {a.tag || '—'}
+                </Tag>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <Tooltip title={byName(beforeItems, n)}>
+                  <Tag style={{ margin: 0, ...mono, maxWidth: 220 }}>
+                    {byName(beforeItems, n) || '—'}
+                  </Tag>
+                </Tooltip>
+                <ArrowRightOutlined style={{ color: token.colorPrimary, fontSize: 11 }} />
+                <Tooltip title={byName(afterItems, n)}>
+                  <Tag color="green" style={{ margin: 0, ...mono, maxWidth: 220 }}>
+                    {byName(afterItems, n) || '—'}
+                  </Tag>
+                </Tooltip>
+              </div>
+            )}
+          </div>
+        );
+      })}
     </Space>
   );
 }
@@ -125,14 +176,8 @@ export default function Releases() {
     {
       title: t('release.imageDiff'),
       key: 'images',
-      width: 560,
-      render: (_, r) => (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <ImageTags value={r.image_before} color="default" />
-          <ArrowRightOutlined style={{ color: token.colorPrimary, flexShrink: 0 }} />
-          <ImageTags value={r.image_after} color="green" />
-        </div>
-      ),
+      width: 420,
+      render: (_, r) => <ImageDiff before={r.image_before} after={r.image_after} />,
     },
     {
       title: t('release.comment'),

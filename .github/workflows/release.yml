@@ -1,0 +1,124 @@
+name: build & release
+
+# Build & push two images (api + frontend) on every push to main and on every
+# version tag; on a tag, also cut a GitHub Release whose notes come from the tag
+# message plus an auto-generated commit summary.
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+
+env:
+  IMAGE: twwch/omnikube
+
+jobs:
+  # ── Gate: don't ship a broken image ───────────────────────────────────────
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+      - name: Backend tests
+        working-directory: backend
+        run: go test ./...
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Frontend lint + tests + build
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run lint
+          npm test
+          npm run build
+
+  # ── Build & push twwch/omnikube:api-* and :frontend-* ─────────────────────
+  docker:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # --- API image (tags: api-latest, api-<sha>, api-v1.2.3) ---
+      - name: Metadata (api)
+        id: meta_api
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE }}
+          flavor: |
+            latest=false
+            prefix=api-
+          tags: |
+            type=raw,value=latest
+            type=ref,event=tag
+            type=sha,enable=${{ github.ref == 'refs/heads/main' }}
+      - name: Build & push (api)
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          push: true
+          tags: ${{ steps.meta_api.outputs.tags }}
+          labels: ${{ steps.meta_api.outputs.labels }}
+          build-args: |
+            VERSION=${{ steps.meta_api.outputs.version }}
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,mode=max,scope=api
+
+      # --- Frontend image (tags: frontend-latest, frontend-<sha>, frontend-v1.2.3) ---
+      - name: Metadata (frontend)
+        id: meta_web
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE }}
+          flavor: |
+            latest=false
+            prefix=frontend-
+          tags: |
+            type=raw,value=latest
+            type=ref,event=tag
+            type=sha,enable=${{ github.ref == 'refs/heads/main' }}
+      - name: Build & push (frontend)
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          push: true
+          tags: ${{ steps.meta_web.outputs.tags }}
+          labels: ${{ steps.meta_web.outputs.labels }}
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
+
+  # ── On a tag: cut a GitHub Release from the tag message + auto notes ───────
+  release:
+    needs: docker
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Extract tag message
+        id: tag
+        run: |
+          {
+            echo 'body<<__OMNIKUBE_EOF__'
+            git tag -l --format='%(contents)' "${GITHUB_REF_NAME}"
+            echo '__OMNIKUBE_EOF__'
+          } >> "$GITHUB_OUTPUT"
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          body: ${{ steps.tag.outputs.body }}
+          generate_release_notes: true

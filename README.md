@@ -101,6 +101,36 @@ npm run dev            # :5173,已配代理 /api + ws → :8080
 
 打开 http://localhost:5173,用 config 里的 admin 账号登录(首登会要求改密)。
 
+> **首次启动自举**:后端启动即自动**建库建表**、**幂等播种预置角色**,并在 `ok_users` 为空时创建管理员——**用户名与一次性初始密码会打印到启动日志**(仅一次),该账号**首登强制改密**。
+
+---
+
+## 🐳 Docker 部署
+
+拆成两个镜像(同一仓库,tag 前缀区分):
+
+| 组件 | 镜像 |
+|------|------|
+| 后端 API(REST + WebSocket) | `twwch/omnikube:api-<版本>` |
+| 前端(nginx 托管 SPA + 反代 `/api`) | `twwch/omnikube:frontend-<版本>` |
+
+`<版本>` 为 `latest`(main)或标签名(如 `v1.0.0`)。
+
+### 一键起(compose:Postgres + API + 前端)
+
+```bash
+JWT_SECRET=$(openssl rand -hex 32) MASTER_KEY=$(openssl rand -base64 32) \
+  docker compose up -d          # 加 --build 可本地构建
+
+docker compose logs api         # 查看初始 admin 用户名 + 一次性密码
+```
+
+打开 http://localhost:8080 登录(首登强制改密)。前端容器把 `/api`(含 exec/日志 WebSocket)反代到 `api:8080`。
+
+**CI/CD**(`.github/workflows/release.yml`):`main` 推送 → 跑测试 → 构建并推送 `api-latest` / `frontend-latest`(+ `-<sha>`);打 `vX.Y.Z` 标签 → 推送 `api-vX.Y.Z` / `frontend-vX.Y.Z` 并**自动生成 GitHub Release**(正文取自 **tag 注解消息** + 自动汇总的提交摘要)。
+
+> 需在仓库 Secrets 配置 `DOCKERHUB_USERNAME`、`DOCKERHUB_TOKEN`。
+
 ---
 
 ## 📁 目录结构

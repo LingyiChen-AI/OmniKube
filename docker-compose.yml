@@ -1,0 +1,51 @@
+# OmniKube — one-command stack: PostgreSQL + API + Web.
+#
+#   JWT_SECRET=$(openssl rand -hex 32) MASTER_KEY=$(openssl rand -base64 32) \
+#     docker compose up -d
+#
+# Then open http://localhost:8080 and check `docker compose logs api` for the
+# initial admin username + one-time password (first login forces a reset).
+#
+# Uses the published images by default; `docker compose build` builds locally.
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: omnikube
+      POSTGRES_PASSWORD: omnikube
+      POSTGRES_DB: omnikube
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U omnikube"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    image: twwch/omnikube:api-latest
+    build:
+      context: ./backend
+    environment:
+      DATABASE_URL: "postgres://omnikube:omnikube@postgres:5432/omnikube?sslmode=disable"
+      # openssl rand -hex 32  /  openssl rand -base64 32
+      JWT_SECRET: "${JWT_SECRET:?set JWT_SECRET, at least 32 chars}"
+      MASTER_KEY: "${MASTER_KEY:?set MASTER_KEY, base64 of 32 bytes}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  web:
+    image: twwch/omnikube:frontend-latest
+    build:
+      context: ./frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  pgdata:

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from './render';
-import { parseImageList, type ReleaseRecord } from '../api/release';
+import { parseImageList, splitImageTag, type ReleaseRecord } from '../api/release';
 
 // ---- mocks --------------------------------------------------------------
 
@@ -51,6 +51,19 @@ describe('parseImageList', () => {
   });
 });
 
+describe('splitImageTag', () => {
+  it('splits repo:tag, ignoring registry ports', () => {
+    expect(splitImageTag('nginx:1.28')).toEqual({ repo: 'nginx', tag: '1.28' });
+    expect(splitImageTag('registry.cn-chengdu.aliyuncs.com/zhihuige/voc-backend:v0.0.1')).toEqual({
+      repo: 'registry.cn-chengdu.aliyuncs.com/zhihuige/voc-backend',
+      tag: 'v0.0.1',
+    });
+    // a colon that precedes a '/' is a registry port, not a tag → no tag
+    expect(splitImageTag('registry:5000/app')).toEqual({ repo: 'registry:5000/app', tag: '' });
+    expect(splitImageTag('nginx')).toEqual({ repo: 'nginx', tag: '' });
+  });
+});
+
 describe('Releases page', () => {
   beforeEach(() => {
     (releaseApi.list as ReturnType<typeof vi.fn>).mockResolvedValue([ROW]);
@@ -61,8 +74,10 @@ describe('Releases page', () => {
 
     expect(await screen.findByText('alice')).toBeInTheDocument();
     expect(screen.getByText('web')).toBeInTheDocument();
-    expect(screen.getByText('nginx:1.27')).toBeInTheDocument();
-    expect(screen.getByText('nginx:1.28')).toBeInTheDocument();
+    // Same repo (nginx) → shown once, with tag-only diff 1.27 → 1.28.
+    expect(screen.getByText('nginx')).toBeInTheDocument();
+    expect(screen.getByText('1.27')).toBeInTheDocument();
+    expect(screen.getByText('1.28')).toBeInTheDocument();
     expect(screen.getByText('bump nginx for CVE fix')).toBeInTheDocument();
   });
 });

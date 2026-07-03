@@ -3,7 +3,11 @@ import { message } from 'antd';
 import { getToken, useAuthStore } from '../store/auth';
 import { getCurrentCluster } from '../store/ctx';
 
-export const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8080';
+// Prod builds are served by the backend on the same origin → use relative paths
+// (`/api/v1`), so the app works behind any host/port. Dev points at :8080.
+// An explicit VITE_API_BASE always wins (use it to target a remote backend).
+export const API_BASE =
+  import.meta.env.VITE_API_BASE ?? (import.meta.env.PROD ? '' : 'http://localhost:8080');
 export const API_PREFIX = '/api/v1';
 
 /** Paths that need the X-Cluster-ID header (resource / namespace / capability calls). */

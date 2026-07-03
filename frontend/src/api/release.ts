@@ -47,6 +47,19 @@ export function countTodayReleases(records: ReleaseRecord[], ref: Date = new Dat
   return records.reduce((n, r) => (isSameLocalDay(r.created_at, ref) ? n + 1 : n), 0);
 }
 
+/**
+ * Split an image ref into `{ repo, tag }`. The tag is the part after the last
+ * colon *only* when no `/` follows it (otherwise that colon is a registry port,
+ * e.g. `registry:5000/app`). `repo` keeps the full path incl. registry/host.
+ */
+export function splitImageTag(image: string): { repo: string; tag: string } {
+  const colon = image.lastIndexOf(':');
+  if (colon === -1 || image.indexOf('/', colon) !== -1) {
+    return { repo: image, tag: '' };
+  }
+  return { repo: image.slice(0, colon), tag: image.slice(colon + 1) };
+}
+
 /** Parse a "name=image;name=image" string into [name, image] pairs. */
 export function parseImageList(s: string): { name: string; image: string }[] {
   if (!s) return [];

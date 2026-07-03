@@ -14,6 +14,9 @@ import (
 	"omnikube/internal/config"
 )
 
+// version is stamped at build time via -ldflags "-X main.version=...".
+var version = "dev"
+
 func main() {
 	cfgPath := flag.String("config", "config.yaml", "配置文件路径 (YAML)")
 	flag.Parse()
@@ -43,7 +46,7 @@ func main() {
 	stopHealth := cluster.StartHealthChecker(application.Pool, application.DB, 30*time.Second)
 	defer stopHealth()
 
-	log.Printf("OmniKube 监听 :%s", cfg.ServerPort)
+	log.Printf("OmniKube %s 监听 :%s", version, cfg.ServerPort)
 	if err := application.Engine.Run(":" + cfg.ServerPort); err != nil {
 		log.Fatalf("服务启动失败: %v", err)
 	}

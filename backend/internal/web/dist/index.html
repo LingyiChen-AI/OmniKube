@@ -1,0 +1,14 @@
+<!doctype html>
+<!--
+  Placeholder so `//go:embed all:dist` compiles in local dev / CI tests before
+  the frontend is built. The real Vite build overwrites this directory in the
+  Docker image (see Dockerfile). Serving this file in dev means: run the Vite
+  dev server on :5173 for the UI, and hit the API on :8080.
+-->
+<html lang="en">
+  <head><meta charset="utf-8" /><title>OmniKube API</title></head>
+  <body>
+    <p>OmniKube backend is running. The web UI is not embedded in this build —
+       run the Vite dev server, or use the Docker image which bundles it.</p>
+  </body>
+</html>

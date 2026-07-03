@@ -6,6 +6,7 @@ import (
 	"omnikube/internal/auth"
 	"omnikube/internal/handler"
 	"omnikube/internal/middleware"
+	"omnikube/internal/web"
 	"omnikube/internal/ws"
 )
 
@@ -112,5 +113,9 @@ func New(h *handler.Handler, jm *auth.JWTManager) *gin.Engine {
 			}
 		}
 	}
+
+	// Serve the embedded React SPA (static assets + client-side-route fallback)
+	// for every non-API path, so the whole app ships as one binary / one port.
+	web.Register(r)
 	return r
 }

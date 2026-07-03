@@ -42,12 +42,14 @@ type fileConfig struct {
 // Load 读取 YAML 配置文件并应用环境变量覆盖（敏感项 env 优先），再校验。
 func Load(path string) (*Config, error) {
 	var fc fileConfig
-	raw, err := os.ReadFile(path)
-	if err != nil {
+	// A missing file is OK: run env-only (12-factor / container mode). Every
+	// sensitive value can be supplied via environment variables below.
+	if raw, err := os.ReadFile(path); err == nil {
+		if err := yaml.Unmarshal(raw, &fc); err != nil {
+			return nil, fmt.Errorf("parse config yaml: %w", err)
+		}
+	} else if !os.IsNotExist(err) {
 		return nil, fmt.Errorf("read config file %q: %w", path, err)
-	}
-	if err := yaml.Unmarshal(raw, &fc); err != nil {
-		return nil, fmt.Errorf("parse config yaml: %w", err)
 	}
 
 	// 敏感项允许环境变量覆盖（保留 PRD「主密钥/密钥来自 env/KMS」原则）。
