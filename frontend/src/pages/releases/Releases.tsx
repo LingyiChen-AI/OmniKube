@@ -16,6 +16,7 @@ import {
   ArrowRightOutlined,
   ReloadOutlined,
   ApiOutlined,
+  ThunderboltFilled,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { releaseApi, parseImageList, splitImageTag, type ReleaseRecord } from '../../api/release';
@@ -141,8 +142,23 @@ export default function Releases() {
       title: t('release.releaser'),
       dataIndex: 'username',
       key: 'releaser',
-      width: 150,
-      render: (v: string) => (v ? <Tag color="cyan">{v}</Tag> : <Text type="secondary">—</Text>),
+      width: 170,
+      render: (v: string, r) => {
+        // AI-initiated releases carry the fixed marker comment; tag them so the
+        // manual vs. assistant distinction is obvious.
+        const viaAI = (r.comment ?? '').includes('OmniKube AI');
+        return (
+          <Space size={4} wrap>
+            {v ? <Tag color="cyan">{v}</Tag> : <Text type="secondary">—</Text>}
+            {viaAI && (
+              <Tag color="purple" style={{ marginInlineEnd: 0 }}>
+                <ThunderboltFilled style={{ marginInlineEnd: 3 }} />
+                AI
+              </Tag>
+            )}
+          </Space>
+        );
+      },
     },
     {
       title: t('release.location'),

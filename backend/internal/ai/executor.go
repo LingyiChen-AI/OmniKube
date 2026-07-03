@@ -179,8 +179,15 @@ func formatImages(m map[string]string) string {
 }
 
 // recordRelease 追加一条发布记录（best-effort：落库失败不影响已成功的更新）。
-// Comment 固定为「via OmniKube AI」以标识这是经 AI 助手确认执行的发布。
+// Comment 固定为「via OmniKube AI」以标识这是经 AI 助手确认执行的发布；发布人取发起
+// 用户本人（JWT 不含用户名，故按 UserID 回查 ok_users 补全，避免「发布人」列空着）。
 func (e *Executor) recordRelease(userID uint, username, clusterID, ns, resource, name, before, after string) {
+	if username == "" {
+		var u model.User
+		if err := e.db.Select("username").First(&u, userID).Error; err == nil {
+			username = u.Username
+		}
+	}
 	e.db.Create(&model.ReleaseRecord{
 		UserID:      userID,
 		Username:    username,
