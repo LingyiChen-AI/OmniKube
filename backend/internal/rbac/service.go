@@ -250,6 +250,14 @@ func domainOf(clusterID, namespace string) string {
 // Authorize 实现 PRD §7 的鉴权裁决（不含 namespace 解析，那在 D）。
 // 返回 (allowed, visibleNS, err)。
 func (s *Service) Authorize(userID, clusterID, namespace, resource, action string) (bool, []string, error) {
+	// 系统管理员旁路：与 HTTP RBAC 中间件(middleware/rbac.go)一致，is_admin 用户
+	// 不经 casbin 策略而直接放行。直接调用 Authorize 的路径（如 AI 助手双闸门 Guard）
+	// 没有中间件的旁路，故必须在此统一体现，否则 admin 会被误判为无任何权限。
+	if admin, err := s.isAdminUser(userID); err != nil {
+		return false, nil, err
+	} else if admin {
+		return true, nil, nil
+	}
 	dom := domainOf(clusterID, namespace)
 	ok, err := s.enforcer.Enforce(userID, dom, resource, action)
 	if err != nil {
@@ -281,6 +289,24 @@ func (s *Service) Authorize(userID, clusterID, namespace, resource, action strin
 		}
 	}
 	return false, nil, nil
+}
+
+// isAdminUser 判断 userID 是否系统管理员。记录不存在按非 admin 处理（走 casbin）；
+// 其它 DB 错误上抛，让调用方 fail-closed。
+func (s *Service) isAdminUser(userID string) (bool, error) {
+	id, err := strconv.ParseUint(userID, 10, 64)
+	if err != nil {
+		return false, nil // 非数字 subject（不该出现）→ 交给 casbin。
+	}
+	var u model.User
+	err = s.db.Select("is_admin").First(&u, uint(id)).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return u.IsAdmin, nil
 }
 
 // ListVisibleNamespaces 列出用户在某集群可见的命名空间。

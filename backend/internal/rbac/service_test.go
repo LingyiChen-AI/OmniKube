@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"reflect"
 	"sort"
+	"strconv"
 	"testing"
 
 	"github.com/glebarez/sqlite"
@@ -317,6 +318,41 @@ func TestAuthorize_ControlledClusterRead(t *testing.T) {
 	ok, _, _ = svc.Authorize("ghost", "cluster_g", "", "pods", "read")
 	if ok {
 		t.Fatal("expected deny for ungranted user")
+	}
+}
+
+// TestAuthorize_AdminBypass verifies that an is_admin user is allowed by
+// Authorize without any casbin grant (mirroring the HTTP RBAC middleware),
+// which is what the AI double-gate relies on for admin operators.
+func TestAuthorize_AdminBypass(t *testing.T) {
+	svc, db := newServiceWithNS(t, "")
+	if err := db.Create(&model.User{Username: "root", IsAdmin: true}).Error; err != nil {
+		t.Fatal(err)
+	}
+	var admin model.User
+	if err := db.Where("username = ?", "root").First(&admin).Error; err != nil {
+		t.Fatal(err)
+	}
+	adminID := strconv.FormatUint(uint64(admin.ID), 10)
+
+	// No casbin grants exist for this user, yet admin is allowed everything.
+	ok, visible, err := svc.Authorize(adminID, "any-cluster", "", "services", "read")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ok || visible != nil {
+		t.Fatalf("expected admin allow with nil visible, got ok=%v visible=%v", ok, visible)
+	}
+	// Also allowed for a write action and namespaced request.
+	if ok, _, _ := svc.Authorize(adminID, "any-cluster", "default", "namespaces", "read"); !ok {
+		t.Fatal("expected admin allow for namespaces read")
+	}
+	if ok, _, _ := svc.Authorize(adminID, "any-cluster", "default", "deployments", "write"); !ok {
+		t.Fatal("expected admin allow for write")
+	}
+	// A non-admin ghost user (no grants) is still denied.
+	if ok, _, _ := svc.Authorize("99999", "any-cluster", "", "services", "read"); ok {
+		t.Fatal("expected deny for non-admin ungranted user")
 	}
 }
 
