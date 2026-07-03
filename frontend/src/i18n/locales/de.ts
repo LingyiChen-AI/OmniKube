@@ -26,6 +26,8 @@ const de: Resources = {
     users: 'Benutzer',
     roles: 'Rollen',
     audit: 'Audit-Protokoll',
+    ai: 'KI-Assistent',
+    aiConfig: 'KI-Konfiguration',
   },
   topbar: {
     toggleSidebar: 'Seitenleiste umschalten',

@@ -26,6 +26,8 @@ const ko: Resources = {
     users: '사용자',
     roles: '역할',
     audit: '감사 로그',
+    ai: 'AI 어시스턴트',
+    aiConfig: 'AI 설정',
   },
   topbar: {
     toggleSidebar: '사이드바 토글',

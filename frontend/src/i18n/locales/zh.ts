@@ -26,6 +26,8 @@ const zh: Resources = {
     users: '用户',
     roles: '角色',
     audit: '审计日志',
+    ai: 'AI 助手',
+    aiConfig: 'AI 配置',
   },
   topbar: {
     toggleSidebar: '折叠侧边栏',

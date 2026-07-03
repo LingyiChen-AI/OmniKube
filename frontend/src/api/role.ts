@@ -104,18 +104,20 @@ export function cleanOperations(ops: Operations): Operations {
 }
 
 /** Global permission areas (platform-level, not per-cluster). */
-export type GlobalArea = 'clusters' | 'users' | 'roles' | 'releases' | 'audit';
+export type GlobalArea = 'clusters' | 'users' | 'roles' | 'releases' | 'audit' | 'ai';
 
 /** View-only global areas (no create/edit/delete). */
 export const VIEW_ONLY_AREAS: GlobalArea[] = ['releases', 'audit'];
 
 /** The system-management areas (each supports view/create/edit/delete). */
-export const SYSTEM_AREAS: Exclude<GlobalArea, 'releases' | 'audit'>[] = ['clusters', 'users', 'roles'];
-export const GLOBAL_AREAS: GlobalArea[] = ['clusters', 'users', 'roles', 'releases', 'audit'];
+export const SYSTEM_AREAS: Exclude<GlobalArea, 'releases' | 'audit'>[] = ['clusters', 'users', 'roles', 'ai'];
+export const GLOBAL_AREAS: GlobalArea[] = ['clusters', 'users', 'roles', 'releases', 'audit', 'ai'];
 
-/** Actions applicable to a global area (`releases`/`audit` are view-only). */
+/** Actions applicable to a global area (`releases`/`audit` are view-only; `ai` is view/edit). */
 export function actionsForGlobalArea(area: GlobalArea): TreeAction[] {
-  return VIEW_ONLY_AREAS.includes(area) ? ['view'] : BASE_ACTIONS;
+  if (VIEW_ONLY_AREAS.includes(area)) return ['view'];
+  if (area === 'ai') return ['view', 'edit'];
+  return BASE_ACTIONS;
 }
 
 /** Global permissions map: area → granted actions. */

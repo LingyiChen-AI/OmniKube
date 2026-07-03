@@ -26,6 +26,8 @@ const es: Resources = {
     users: 'Usuarios',
     roles: 'Roles',
     audit: 'Registro de auditoría',
+    ai: 'Asistente de IA',
+    aiConfig: 'Configuración de IA',
   },
   topbar: {
     toggleSidebar: 'Alternar barra lateral',

@@ -26,6 +26,8 @@ const fr: Resources = {
     users: 'Utilisateurs',
     roles: 'Rôles',
     audit: 'Journal d\'audit',
+    ai: 'Assistant IA',
+    aiConfig: 'Configuration IA',
   },
   topbar: {
     toggleSidebar: 'Afficher/masquer la barre latérale',

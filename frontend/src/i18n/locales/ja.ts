@@ -26,6 +26,8 @@ const ja: Resources = {
     users: 'ユーザー',
     roles: 'ロール',
     audit: '監査ログ',
+    ai: 'AI アシスタント',
+    aiConfig: 'AI 設定',
   },
   topbar: {
     toggleSidebar: 'サイドバーの切り替え',

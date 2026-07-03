@@ -24,6 +24,8 @@ const en = {
     users: 'Users',
     roles: 'Roles',
     audit: 'Audit Log',
+    ai: 'AI assistant',
+    aiConfig: 'AI Config',
   },
   topbar: {
     toggleSidebar: 'Toggle sidebar',
