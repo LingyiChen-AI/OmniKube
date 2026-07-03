@@ -144,9 +144,9 @@ export default function Releases() {
       key: 'releaser',
       width: 170,
       render: (v: string, r) => {
-        // AI-initiated releases carry the fixed marker comment; tag them so the
-        // manual vs. assistant distinction is obvious.
-        const viaAI = (r.comment ?? '').includes('OmniKube AI');
+        // Tag AI-initiated releases (dedicated via_ai column) so the manual vs.
+        // assistant distinction is obvious.
+        const viaAI = r.via_ai;
         return (
           <Space size={4} wrap>
             {v ? <Tag color="cyan">{v}</Tag> : <Text type="secondary">—</Text>}

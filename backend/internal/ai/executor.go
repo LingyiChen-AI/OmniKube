@@ -198,5 +198,6 @@ func (e *Executor) recordRelease(userID uint, username, clusterID, ns, resource,
 		ImageBefore: before,
 		ImageAfter:  after,
 		Comment:     "via OmniKube AI",
+		ViaAI:       true,
 	})
 }

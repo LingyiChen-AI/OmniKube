@@ -29,3 +29,4 @@ NNN_<简短描述>.sql      # 例：001_ai_assistant_tables.sql
 | 001 | `001_ai_assistant_tables.sql` | 新增 `ok_ai_config` / `ok_ai_conversations` / `ok_ai_messages` |
 | 002 | `002_ai_message_confirm_result.sql` | `ok_ai_messages` 增加 `confirm_result` 列 |
 | 003 | `003_drop_ai_grants.sql` | 删除废弃的 `ok_ai_grants`（AI 权限改为跟随用户 RBAC） |
+| 004 | `004_release_record_via_ai.sql` | `ok_release_records` 增加 `via_ai` 列（区分 AI 发布），并回填历史 |

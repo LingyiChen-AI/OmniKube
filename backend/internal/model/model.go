@@ -109,7 +109,8 @@ type ReleaseRecord struct {
 	Name        string    `gorm:"size:200" json:"name"`
 	ImageBefore string    `gorm:"type:text" json:"image_before"` // "container=image;..." 拼接(多容器)
 	ImageAfter  string    `gorm:"type:text" json:"image_after"`
-	Comment     string    `gorm:"type:text" json:"comment"` // 发布说明(必填)
+	Comment     string    `gorm:"type:text" json:"comment"`         // 发布说明(必填)
+	ViaAI       bool      `gorm:"default:false" json:"via_ai"`      // 是否由 AI 助手确认执行的发布
 	CreatedAt   time.Time `gorm:"index" json:"created_at"`
 }
 

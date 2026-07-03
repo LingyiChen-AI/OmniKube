@@ -13,6 +13,7 @@ export interface ReleaseRecord {
   image_before: string;
   image_after: string;
   comment: string;
+  via_ai?: boolean; // 由 AI 助手确认执行的发布
   created_at: string;
 }
 
