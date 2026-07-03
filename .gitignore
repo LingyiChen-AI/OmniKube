@@ -13,3 +13,4 @@
 .DS_Store
 
 video
+docker-compose-local.yml

@@ -379,6 +379,7 @@ const zh: Resources = {
     scope: '范围',
     scopeCluster: '整个集群',
     scopeNamespace: '指定命名空间',
+    clusterScopedHint: '节点、持久卷为集群级资源，需将范围设为「整个集群」才能授权',
     namespaces: '命名空间',
     nsPlaceholder: '选择或输入命名空间名称',
     operations: '资源操作权限',

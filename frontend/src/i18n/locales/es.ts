@@ -379,6 +379,7 @@ const es: Resources = {
     scope: 'Ámbito',
     scopeCluster: 'Todo el clúster',
     scopeNamespace: 'Namespaces específicos',
+    clusterScopedHint: 'Los nodos y PersistentVolumes son de ámbito de clúster: elige el alcance «Todo el clúster» para concederlos',
     namespaces: 'Espacios de nombres',
     nsPlaceholder: 'Selecciona o escribe nombres de namespace',
     operations: 'Operaciones sobre recursos',

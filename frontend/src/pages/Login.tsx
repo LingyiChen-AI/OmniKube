@@ -37,6 +37,9 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [form] = Form.useForm();
   const [captcha, setCaptcha] = useState<CaptchaResp | null>(null);
+  // Resolved status: until the first fetch returns we reserve the field's space
+  // (a placeholder) so it doesn't pop in and shove the layout — no flash.
+  const [captchaResolved, setCaptchaResolved] = useState(false);
 
   const refreshCaptcha = useCallback(async () => {
     try {
@@ -45,6 +48,8 @@ export default function Login() {
       setCaptcha(c.id ? c : null);
     } catch {
       setCaptcha(null);
+    } finally {
+      setCaptchaResolved(true);
     }
     form.setFieldValue('captcha', '');
   }, [form]);
@@ -198,11 +203,14 @@ export default function Login() {
                 autoComplete="current-password"
               />
             </Form.Item>
-            {captcha && (
+            {/* Show while loading (placeholder) or when enabled; hide only once
+                we know it's disabled server-side. Reserving the space avoids the
+                pop-in layout shift on refresh. */}
+            {(!captchaResolved || captcha) && (
               <Form.Item
                 label={t('login.captcha')}
                 name="captcha"
-                rules={[{ required: true, message: t('login.errCaptcha') }]}
+                rules={captcha ? [{ required: true, message: t('login.errCaptcha') }] : []}
               >
                 <Space.Compact style={{ width: '100%' }}>
                   <Input
@@ -210,21 +218,41 @@ export default function Login() {
                     placeholder={t('login.captchaPlaceholder')}
                     autoComplete="off"
                     maxLength={4}
+                    disabled={!captcha}
                   />
-                  <Tooltip title={t('login.captchaRefresh')}>
-                    <img
-                      src={captcha.image}
-                      alt={t('login.captcha')}
-                      onClick={refreshCaptcha}
+                  {captcha ? (
+                    <Tooltip title={t('login.captchaRefresh')}>
+                      <img
+                        src={captcha.image}
+                        alt={t('login.captcha')}
+                        onClick={refreshCaptcha}
+                        style={{
+                          height: 40,
+                          borderRadius: 8,
+                          cursor: 'pointer',
+                          border: '1px solid var(--ok-border, rgba(0,0,0,0.1))',
+                          flexShrink: 0,
+                        }}
+                      />
+                    </Tooltip>
+                  ) : (
+                    // Same-footprint placeholder while the first captcha loads.
+                    <span
+                      aria-hidden
                       style={{
+                        display: 'inline-block',
+                        width: 115,
                         height: 40,
                         borderRadius: 8,
-                        cursor: 'pointer',
                         border: '1px solid var(--ok-border, rgba(0,0,0,0.1))',
+                        background:
+                          'linear-gradient(90deg, rgba(0,0,0,0.04) 25%, rgba(0,0,0,0.07) 37%, rgba(0,0,0,0.04) 63%)',
+                        backgroundSize: '400% 100%',
+                        animation: 'ok-shimmer 1.4s ease infinite',
                         flexShrink: 0,
                       }}
                     />
-                  </Tooltip>
+                  )}
                 </Space.Compact>
               </Form.Item>
             )}

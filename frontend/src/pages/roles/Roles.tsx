@@ -43,6 +43,8 @@ import {
   BASE_ACTIONS,
   MODULE_KEYS,
   MODULE_RESOURCES,
+  isClusterScopedResource,
+  stripClusterScopedOps,
   SYSTEM_AREAS,
   ALL_CLUSTERS,
   type RoleView,
@@ -730,7 +732,12 @@ function RuleRow({ index, rule, clusters, canRemove, disabled, onChange, onRemov
   };
 
   const onScopeChange = (scope: RuleScope) => {
-    onChange({ scope, namespaces: scope === 'cluster' ? [] : rule.namespaces });
+    onChange({
+      scope,
+      namespaces: scope === 'cluster' ? [] : rule.namespaces,
+      // Namespace scope can't grant cluster-scoped resources — drop stale grants.
+      operations: scope === 'namespace' ? stripClusterScopedOps(rule.operations) : rule.operations,
+    });
   };
 
   // Best-effort namespace suggestions: /namespaces resolves the current cluster
@@ -832,6 +839,7 @@ function RuleRow({ index, rule, clusters, canRemove, disabled, onChange, onRemov
           <ResourceOpsMatrix
             operations={rule.operations}
             disabled={disabled}
+            nsScoped={rule.scope === 'namespace'}
             onChange={(operations) => onChange({ operations })}
           />
         </div>
@@ -844,6 +852,10 @@ interface ResourceOpsMatrixProps {
   operations: Operations;
   onChange: (operations: Operations) => void;
   disabled?: boolean;
+  /** Rule is scoped to specific namespaces → cluster-scoped resources (nodes,
+   *  PVs) can't be granted, so their rows are disabled and excluded from
+   *  bulk toggles. */
+  nsScoped?: boolean;
 }
 
 /**
@@ -855,8 +867,14 @@ interface ResourceOpsMatrixProps {
  * row toggles every applicable action for it. Inapplicable cells (e.g. `exec`
  * on non-pods, `reveal` on non-secrets) show a disabled, muted checkbox.
  */
-export function ResourceOpsMatrix({ operations, onChange, disabled }: ResourceOpsMatrixProps) {
+export function ResourceOpsMatrix({ operations, onChange, disabled, nsScoped }: ResourceOpsMatrixProps) {
   const { t } = useTranslation();
+
+  // A resource whose grant would silently do nothing under this rule's scope.
+  const resBlocked = (res: string) => !!nsScoped && isClusterScopedResource(res);
+  // Effective resource list for bulk toggles / aggregate state — excludes
+  // blocked (cluster-scoped) resources so "select all" never grants them.
+  const usable = (list: readonly string[]) => list.filter((r) => !resBlocked(r));
 
   const has = (res: string, a: TreeAction) => (operations[res] ?? []).includes(a);
 
@@ -922,9 +940,9 @@ export function ResourceOpsMatrix({ operations, onChange, disabled }: ResourceOp
             <Checkbox
               aria-label="op-all"
               disabled={disabled}
-              checked={groupState(ALL_RESOURCES).checked}
-              indeterminate={groupState(ALL_RESOURCES).indeterminate}
-              onChange={(e) => setResources(ALL_RESOURCES, 'all', e.target.checked)}
+              checked={groupState(usable(ALL_RESOURCES)).checked}
+              indeterminate={groupState(usable(ALL_RESOURCES)).indeterminate}
+              onChange={(e) => setResources(usable(ALL_RESOURCES), 'all', e.target.checked)}
             >
               <Text type="secondary" style={{ fontSize: 12 }}>
                 {t('role.allResources')}
@@ -932,7 +950,7 @@ export function ResourceOpsMatrix({ operations, onChange, disabled }: ResourceOp
             </Checkbox>
           </th>
           {TREE_ACTIONS.map((a) => {
-            const cs = groupState(ALL_RESOURCES, a);
+            const cs = groupState(usable(ALL_RESOURCES), a);
             const label =
               a === 'reveal' ? (
                 <Tooltip title={t('role.action.revealHint')}>
@@ -951,7 +969,7 @@ export function ResourceOpsMatrix({ operations, onChange, disabled }: ResourceOp
                     disabled={disabled}
                     checked={cs.checked}
                     indeterminate={cs.indeterminate}
-                    onChange={(e) => setResources(ALL_RESOURCES, a, e.target.checked)}
+                    onChange={(e) => setResources(usable(ALL_RESOURCES), a, e.target.checked)}
                   />
                   <span>{label}</span>
                 </div>
@@ -963,7 +981,8 @@ export function ResourceOpsMatrix({ operations, onChange, disabled }: ResourceOp
       <tbody>
         {MODULE_KEYS.map((m) => {
           const resources = MODULE_RESOURCES[m];
-          const gs = groupState(resources);
+          const gs = groupState(usable(resources));
+          const groupBlocked = usable(resources).length === 0; // whole module cluster-scoped (nodes)
           return (
             <Fragment key={m}>
               {/* Module group row: master checkbox for the whole module. */}
@@ -971,10 +990,10 @@ export function ResourceOpsMatrix({ operations, onChange, disabled }: ResourceOp
                 <td>
                   <Checkbox
                     aria-label={`op-module-${m}`}
-                    disabled={disabled}
+                    disabled={disabled || groupBlocked}
                     checked={gs.checked}
                     indeterminate={gs.indeterminate}
-                    onChange={(e) => setResources(resources, 'all', e.target.checked)}
+                    onChange={(e) => setResources(usable(resources), 'all', e.target.checked)}
                   >
                     <Text strong>{t(`role.module.${m}`)}</Text>
                   </Checkbox>
@@ -983,27 +1002,37 @@ export function ResourceOpsMatrix({ operations, onChange, disabled }: ResourceOp
               </tr>
               {resources.map((res) => {
                 const rs = rowState(res);
+                const blocked = resBlocked(res);
+                const label = blocked ? (
+                  <Tooltip title={t('role.clusterScopedHint')}>
+                    <span style={{ color: 'var(--ant-color-text-quaternary)' }}>
+                      {t(`role.resource.${res}`)}
+                    </span>
+                  </Tooltip>
+                ) : (
+                  t(`role.resource.${res}`)
+                );
                 return (
                   <tr key={res} className="ok-ops-res">
                     <td>
                       <Checkbox
                         aria-label={`op-row-${res}`}
-                        disabled={disabled}
-                        checked={rs.checked}
-                        indeterminate={rs.indeterminate}
+                        disabled={disabled || blocked}
+                        checked={!blocked && rs.checked}
+                        indeterminate={!blocked && rs.indeterminate}
                         onChange={(e) => setRow(res, e.target.checked)}
                       >
-                        {t(`role.resource.${res}`)}
+                        {label}
                       </Checkbox>
                     </td>
                     {TREE_ACTIONS.map((a) => {
                       const applicable = actionAppliesToResource(res, a);
                       return (
-                        <td key={a} className={applicable ? undefined : 'ok-ops-na'}>
+                        <td key={a} className={applicable && !blocked ? undefined : 'ok-ops-na'}>
                           <Checkbox
                             aria-label={`op-${res}-${a}`}
-                            disabled={disabled || !applicable}
-                            checked={applicable && has(res, a)}
+                            disabled={disabled || blocked || !applicable}
+                            checked={!blocked && applicable && has(res, a)}
                             onChange={(e) => setCell(res, a, e.target.checked)}
                           />
                         </td>

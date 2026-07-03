@@ -379,6 +379,7 @@ const ko: Resources = {
     scope: '범위',
     scopeCluster: '전체 클러스터',
     scopeNamespace: '특정 Namespace',
+    clusterScopedHint: '노드와 PersistentVolume은 클러스터 범위 리소스입니다. 부여하려면 범위를 “전체 클러스터”로 설정하세요',
     namespaces: '네임스페이스',
     nsPlaceholder: 'Namespace 이름을 선택하거나 입력',
     operations: '리소스 작업',

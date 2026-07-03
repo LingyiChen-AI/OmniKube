@@ -218,6 +218,11 @@ body {
   0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
   50% { transform: translate3d(30px, -34px, 0) scale(1.1); }
 }
+/* Loading-placeholder shimmer (e.g. the captcha image slot before it loads). */
+@keyframes ok-shimmer {
+  0% { background-position: 100% 0; }
+  100% { background-position: 0 0; }
+}
 
 .ok-login__showcase-top {
   position: relative;

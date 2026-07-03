@@ -377,6 +377,7 @@ const en = {
     scope: 'Scope',
     scopeCluster: 'Whole cluster',
     scopeNamespace: 'Specific namespaces',
+    clusterScopedHint: 'Nodes and PersistentVolumes are cluster-scoped — set the scope to “Whole cluster” to grant them',
     namespaces: 'Namespaces',
     nsPlaceholder: 'Select or type namespace names',
     operations: 'Resource operations',

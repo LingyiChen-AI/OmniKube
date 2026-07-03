@@ -23,6 +23,8 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useCtxStore } from '../../store/ctx';
+import { useCapabilities } from '../../store/caps';
+import { useAuthStore } from '../../store/auth';
 import { resourceApi, type K8sObject } from '../../api/resource';
 import { clusterApi, type Cluster } from '../../api/cluster';
 import { releaseApi, countTodayReleases } from '../../api/release';
@@ -97,6 +99,12 @@ export default function Dashboard() {
   const { t } = useTranslation();
   const { token } = antdTheme.useToken();
   const { currentCluster, currentNamespace } = useCtxStore();
+  const { can } = useCapabilities();
+  const isAdmin = !!useAuthStore((s) => s.user?.is_admin);
+  // Nodes are cluster-scoped; events aren't in the RBAC model (admin-only).
+  // Gate both so namespace-scoped users don't trigger dashboard 403s.
+  const canNodes = isAdmin || can('nodes', 'view');
+  const canEvents = isAdmin;
 
   // Cluster-independent: the set of clusters the user can access.
   const [clusters, setClusters] = useState<Async<Cluster[]>>(LOADING);
@@ -127,9 +135,7 @@ export default function Dashboard() {
     const ns = currentNamespace ?? undefined;
     setPods(LOADING);
     setDeployments(LOADING);
-    setNodes(LOADING);
     setTodayReleases(LOADING);
-    setEvents(LOADING);
 
     resourceApi
       .list('pods', ns)
@@ -145,33 +151,55 @@ export default function Dashboard() {
       .then((items) => active && setDeployments({ status: 'ok', data: items.length }))
       .catch(() => active && setDeployments({ status: 'error' }));
 
-    resourceApi
-      .list('nodes')
-      .then((items) => active && setNodes({ status: 'ok', data: items.length }))
-      .catch(() => active && setNodes({ status: 'error' }));
-
     releaseApi
       .list({ cluster_id: currentCluster })
       .then((items) => active && setTodayReleases({ status: 'ok', data: countTodayReleases(items) }))
       .catch(() => active && setTodayReleases({ status: 'error' }));
 
-    // Events frequently 403 for non-admins — degrade gracefully.
-    resourceApi
-      .list('events', ns)
-      .then((items) => {
-        if (!active) return;
-        const sorted = items
-          .map(toEventItem)
-          .sort((a, b) => (b.ts ?? '').localeCompare(a.ts ?? ''))
-          .slice(0, 10);
-        setEvents({ status: 'ok', data: sorted });
-      })
-      .catch(() => active && setEvents({ status: 'error' }));
-
     return () => {
       active = false;
     };
   }, [currentCluster, currentNamespace]);
+
+  // Nodes (cluster-scoped) + events (admin-only) are permission-gated so a
+  // namespace-scoped user never fires a call that would 403. Re-runs when the
+  // capability resolves. Not permitted → show the degraded state (— / no-perm).
+  useEffect(() => {
+    if (!currentCluster) return;
+    let active = true;
+    const ns = currentNamespace ?? undefined;
+
+    if (canNodes) {
+      setNodes(LOADING);
+      resourceApi
+        .list('nodes')
+        .then((items) => active && setNodes({ status: 'ok', data: items.length }))
+        .catch(() => active && setNodes({ status: 'error' }));
+    } else {
+      setNodes({ status: 'error' });
+    }
+
+    if (canEvents) {
+      setEvents(LOADING);
+      resourceApi
+        .list('events', ns)
+        .then((items) => {
+          if (!active) return;
+          const sorted = items
+            .map(toEventItem)
+            .sort((a, b) => (b.ts ?? '').localeCompare(a.ts ?? ''))
+            .slice(0, 10);
+          setEvents({ status: 'ok', data: sorted });
+        })
+        .catch(() => active && setEvents({ status: 'error' }));
+    } else {
+      setEvents({ status: 'error' });
+    }
+
+    return () => {
+      active = false;
+    };
+  }, [currentCluster, currentNamespace, canNodes, canEvents]);
 
   const clusterCount: Async<number> =
     clusters.status === 'ok'

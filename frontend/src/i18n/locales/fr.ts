@@ -379,6 +379,7 @@ const fr: Resources = {
     scope: 'Portée',
     scopeCluster: 'Cluster entier',
     scopeNamespace: 'Namespaces spécifiques',
+    clusterScopedHint: 'Les nœuds et PersistentVolumes sont au niveau du cluster — choisissez la portée « Cluster entier » pour les accorder',
     namespaces: 'Espaces de noms',
     nsPlaceholder: 'Sélectionnez ou saisissez des noms de namespace',
     operations: 'Opérations sur les ressources',

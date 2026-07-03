@@ -24,6 +24,15 @@ vi.mock('../api/release', async (importOriginal) => {
   return { ...actual, releaseApi: { list: vi.fn() } };
 });
 
+// Dashboard gates nodes (cluster-scoped) + events (admin-only) on permission.
+// Render as an admin with full capabilities so those widgets are exercised.
+vi.mock('../store/auth', () => ({
+  useAuthStore: (sel: (s: unknown) => unknown) => sel({ user: { is_admin: true } }),
+}));
+vi.mock('../store/caps', () => ({
+  useCapabilities: () => ({ can: () => true, resources: {}, loading: false }),
+}));
+
 import { clusterApi } from '../api/cluster';
 import { releaseApi } from '../api/release';
 import { resourceApi } from '../api/resource';

@@ -21,6 +21,7 @@ import {
   PlusOutlined,
   ReloadOutlined,
   DeleteOutlined,
+  EditOutlined,
   SafetyCertificateOutlined,
   StopOutlined,
   CheckCircleOutlined,
@@ -179,7 +180,7 @@ export default function Users() {
               <Button
                 type="text"
                 size="small"
-                icon={<SafetyCertificateOutlined />}
+                icon={<EditOutlined />}
                 disabled={u.is_admin}
                 onClick={() => setRolesUser(u)}
               />

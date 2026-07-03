@@ -379,6 +379,7 @@ const ja: Resources = {
     scope: '範囲',
     scopeCluster: 'クラスター全体',
     scopeNamespace: '特定の Namespace',
+    clusterScopedHint: 'ノードと PersistentVolume はクラスタ全体のリソースです。付与するには範囲を「クラスタ全体」にしてください',
     namespaces: 'ネームスペース',
     nsPlaceholder: 'Namespace 名を選択または入力',
     operations: 'リソース操作権限',

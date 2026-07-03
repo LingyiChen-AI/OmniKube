@@ -379,6 +379,7 @@ const de: Resources = {
     scope: 'Geltungsbereich',
     scopeCluster: 'Gesamter Cluster',
     scopeNamespace: 'Bestimmte Namespaces',
+    clusterScopedHint: 'Nodes und PersistentVolumes sind clusterweit — Umfang auf „Gesamter Cluster“ setzen, um sie zu vergeben',
     namespaces: 'Namespaces',
     nsPlaceholder: 'Namespace-Namen auswählen oder eingeben',
     operations: 'Ressourcenoperationen',

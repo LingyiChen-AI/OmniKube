@@ -47,6 +47,27 @@ export const MODULE_KEYS: ModuleKey[] = ['workloads', 'networking', 'storage', '
 /** All concrete resources, in canonical order. */
 export const ALL_RESOURCES: ResourceKey[] = MODULE_KEYS.flatMap((m) => MODULE_RESOURCES[m]);
 
+/**
+ * Cluster-scoped k8s resources (no namespace). A namespace-scoped rule cannot
+ * grant these — access is evaluated at the cluster domain, which a
+ * per-namespace rule never covers — so the role matrix disables them when the
+ * rule scope is 指定命名空间, and any stale grants get stripped.
+ */
+export const CLUSTER_SCOPED_RESOURCES: readonly string[] = ['nodes', 'persistentvolumes'];
+
+export function isClusterScopedResource(resource: string): boolean {
+  return CLUSTER_SCOPED_RESOURCES.includes(resource);
+}
+
+/** Drop grants for cluster-scoped resources (used when a rule becomes namespace-scoped). */
+export function stripClusterScopedOps(ops: Operations): Operations {
+  const out: Operations = {};
+  for (const [res, acts] of Object.entries(ops)) {
+    if (!isClusterScopedResource(res)) out[res] = acts;
+  }
+  return out;
+}
+
 /** Resolve the module a concrete resource belongs to. */
 export function moduleOfResource(resource: string): ModuleKey | undefined {
   return MODULE_KEYS.find((m) => (MODULE_RESOURCES[m] as string[]).includes(resource));
