@@ -14,6 +14,13 @@
 
 ## ✨ 功能一览
 
+### 🤖 AI 助手（OmniKube）
+- 全局**悬浮助手**,用自然语言在当前集群查询与操作资源;基于 **Eino ReAct** agent,接 **OpenAI 兼容大模型**(可配 baseURL / apiKey / modelId,系统管理 › AI 配置页,角色可授权)。
+- **权限即用户本人 RBAC**:AI 只能执行发起用户本人有权限的操作,读操作按可见命名空间聚合,绝不越权(管理员则全量)。
+- **对话中实时看到工具执行**:`list_resources` / `get_resource` / `get_pod_logs` 等读工具以「调用 / 执行结果」卡片**流式**展示(get 返回完整清单,能回答"用的哪个镜像")。
+- **写操作两阶段确认(人在环)**:`create / update / delete` 先暂存 → 出**确认卡片** → 用户点确认后才执行,结果写回卡片并**持久化**(重载可见);创建按 `<名>-deploy`/`<名>-service` 命名规范;改镜像自动补**发布记录**(发布人 = 当前用户 + `⚡AI` 标记)。
+- WebSocket 流式(`/ai/chat`,query-token 鉴权)· 多轮对话持久化 · Markdown 渲染 · 可拖动窗口 + 历史记录 · 中文输入法回车兼容。
+
 ### 多集群管理
 - 多集群统一纳管:添加 / 编辑 / 删除、连接测试,kubeconfig **AES-256-GCM 加密**存储。
 - 顶栏一键切换集群 / 命名空间,权限内的集群才可见。
@@ -64,10 +71,50 @@
 
 | 层 | 技术 |
 |----|------|
-| 后端 | Go · Gin · GORM · Casbin · client-go(dynamic client)· PostgreSQL |
-| 前端 | React 18 · TypeScript · Vite · Ant Design 5 · Zustand · react-i18next |
+| 后端 | Go · Gin · GORM · Casbin · client-go(dynamic client)· Google Wire(DI)· PostgreSQL |
+| 前端 | React 18 · TypeScript · Vite · Ant Design 5 · Zustand · react-i18next · react-markdown |
+| AI | Eino ReAct agent · OpenAI 兼容大模型(baseURL / apiKey / modelId) |
 | 观测 | metrics-server(节点 / Pod 用量) |
-| 实时 | WebSocket(exec 终端 / 日志流) |
+| 实时 | WebSocket(WebSSH 终端 · 日志流 · AI 对话) |
+| 交付 | 单二进制内嵌 SPA(`go:embed`)或 nginx + API 双镜像 · GitHub Actions → Docker Hub |
+
+---
+
+## 🏛️ 架构
+
+分层架构:浏览器内的 React SPA 经**接入层**(单二进制内嵌 SPA,或 nginx 前端镜像反代)到达 **Gin API**;API 经统一的中间件链(**JWT → 审计 → RBAC**)分发到 REST 与 WebSocket 处理器;下沉到领域服务(**Casbin 鉴权**、**client-go 集群连接池**、**Eino AI 助手**、发布通知、加密、审计),最终对接 PostgreSQL、多个 Kubernetes 集群、metrics-server、大模型与 IM Webhook。
+
+![OmniKube 架构图](images/00-architecture.png)
+
+**请求与鉴权**:公开路由仅 `login` / `captcha` / `healthz`;其余走 `authed` 组 —— `JWTAuth`(解析 `Authorization: Bearer`)→ `Audit`(写操作按最终状态码埋点)。之上三档授权:平台级端点用 `RequireGlobalPerm`,集群级动态资源用 `RBACAuthMiddleware`(读 `X-Cluster-ID` 头 → 连接池取客户端 → RESTMapper 归一资源 → Casbin 按 `域=集群[:命名空间]` 鉴权);管理员旁路。WebSocket 因浏览器无法设头,改用 query 的 `token` 在升级前鉴权。
+
+**AI 助手交互流**(ReAct + 人在环):
+
+```mermaid
+sequenceDiagram
+  actor U as 用户
+  participant FE as 前端（悬浮助手）
+  participant WS as ai/chat（WS）
+  participant AG as Eino ReAct Agent
+  participant G as RBAC Guard
+  participant K as K8s 集群
+  U->>FE: 自然语言指令
+  FE->>WS: user_message（query-token 鉴权）
+  WS->>AG: 运行 ReAct
+  loop 读工具（自动执行）
+    AG->>G: 鉴权 = 发起用户 RBAC
+    G->>K: list / get / logs（仅授权范围）
+    K-->>FE: 实时「调用 / 结果」卡片
+  end
+  alt 写操作 create / update / delete
+    AG-->>FE: confirm_required（暂存动作预览）
+    U->>FE: 点击确认
+    FE->>WS: confirm
+    WS->>G: 二次门控
+    G->>K: apply + 审计 + 发布记录
+    K-->>FE: 执行结果（写回卡片并落库）
+  end
+```
 
 ---
 
@@ -136,12 +183,14 @@ docker compose logs api         # 查看初始 admin 用户名 + 一次性密码
 ## 📁 目录结构
 
 ```
-backend/    Go 后端(cmd/server 入口;internal: handler / rbac / cluster / notify / captcha / audit / middleware / ws ...)
-frontend/   React 前端(src: pages / components / api / store / i18n)
+backend/    Go 后端(cmd/server 入口;app=Wire DI;internal: handler / rbac / cluster /
+            ai(Eino) / ws / notify / captcha / audit / middleware / crypto / web(内嵌 SPA) ...)
+backend/migrations/   版本化 SQL 迁移文件(NNN_desc.sql,与 GORM AutoMigrate 对应,见 CLAUDE.md)
+frontend/   React 前端(src: pages / components(含 AiAssistant) / api / store / i18n)
 docs/       设计文档(docs/superpowers/specs)、功能查漏 feature-gaps.md
 images/     界面截图
 video/      产品演示视频(成片 + 可复现源码)
-PRD/        产品需求文档
+CLAUDE.md   项目约定(重点:数据库变更规范 —— 改模型 + AutoMigrate + 加编号迁移文件)
 ```
 
 ---
