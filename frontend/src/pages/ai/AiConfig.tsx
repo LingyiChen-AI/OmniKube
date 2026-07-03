@@ -14,30 +14,58 @@ export default function AiConfig() {
   const { clusters, load: loadClusters } = useClusterStore();
   const [grantCluster, setGrantCluster] = useState<string>();
   const [ops, setOps] = useState<Operations>({});
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     loadClusters();
   }, [loadClusters]);
   useEffect(() => {
+    let active = true;
     aiApi.getConfig().then((c) => {
+      if (!active) return;
       setHasKey(c.has_key);
       form.setFieldsValue({ ...c, api_key: '' });
     });
+    return () => {
+      active = false;
+    };
   }, [form]);
   useEffect(() => {
-    if (grantCluster) aiApi.getGrants(grantCluster).then(setOps);
+    if (!grantCluster) return;
+    let active = true;
+    setOps({});
+    aiApi.getGrants(grantCluster).then((o) => {
+      if (active) setOps(o);
+    });
+    return () => {
+      active = false;
+    };
   }, [grantCluster]);
 
   const saveConfig = async () => {
     const v = await form.validateFields();
-    await aiApi.putConfig(v);
-    message.success(t('ai.saved'));
-    setHasKey(!!v.api_key || hasKey);
+    setSaving(true);
+    try {
+      await aiApi.putConfig(v);
+      message.success(t('ai.saved'));
+      setHasKey(!!v.api_key || hasKey);
+    } catch {
+      /* interceptor toast */
+    } finally {
+      setSaving(false);
+    }
   };
   const saveGrants = async () => {
     if (!grantCluster) return;
-    await aiApi.putGrants(grantCluster, ops);
-    message.success(t('ai.saved'));
+    setSaving(true);
+    try {
+      await aiApi.putGrants(grantCluster, ops);
+      message.success(t('ai.saved'));
+    } catch {
+      /* interceptor toast */
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -47,13 +75,13 @@ export default function AiConfig() {
           <Form.Item label={t('ai.enabled')} name="enabled" valuePropName="checked">
             <Switch />
           </Form.Item>
-          <Form.Item label="Base URL" name="base_url">
+          <Form.Item label={t('ai.baseUrl')} name="base_url">
             <Input placeholder="https://api.openai.com/v1" />
           </Form.Item>
           <Form.Item label={t('ai.apiKey')} name="api_key">
-            <Input.Password placeholder={hasKey ? '••••••（已设置，留空保留）' : ''} autoComplete="off" />
+            <Input.Password placeholder={hasKey ? t('ai.apiKeySet') : ''} autoComplete="off" />
           </Form.Item>
-          <Form.Item label="Model" name="model_id">
+          <Form.Item label={t('ai.model')} name="model_id">
             <Input placeholder="gpt-4o-mini" />
           </Form.Item>
           <Form.Item label={t('ai.temperature')} name="temperature">
@@ -65,7 +93,7 @@ export default function AiConfig() {
           <Form.Item label={t('ai.systemPrompt')} name="system_prompt">
             <Input.TextArea rows={3} />
           </Form.Item>
-          <Button type="primary" onClick={saveConfig}>
+          <Button type="primary" loading={saving} onClick={saveConfig}>
             {t('ai.save')}
           </Button>
         </Form>
@@ -83,7 +111,7 @@ export default function AiConfig() {
           <>
             <ResourceOpsMatrix operations={ops} onChange={setOps} />
             <div style={{ marginTop: 12 }}>
-              <Button type="primary" onClick={saveGrants}>
+              <Button type="primary" loading={saving} onClick={saveGrants}>
                 {t('ai.save')}
               </Button>
             </div>

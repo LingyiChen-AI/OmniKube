@@ -11,10 +11,18 @@ export default function AiAssistant() {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
+    let active = true;
     aiApi
       .status()
-      .then((s) => setReady(s.enabled && s.configured))
-      .catch(() => setReady(false));
+      .then((s) => {
+        if (active) setReady(s.enabled && s.configured);
+      })
+      .catch(() => {
+        if (active) setReady(false);
+      });
+    return () => {
+      active = false;
+    };
   }, []);
 
   const onClick = () => {
