@@ -112,21 +112,31 @@ export default function AiAssistant() {
     streamingRef.current = streaming;
   }, [streaming]);
 
-  // ---- launcher readiness (Phase-1 behaviour, unchanged) ----
+  // ---- launcher readiness ----
+  // Fetch once on mount, and re-fetch when the tab regains focus so that saving
+  // the config on the settings page clears the ⚠️ without a full page reload
+  // (this component lives in the persistent layout and never remounts).
+  const refreshStatus = useCallback(
+    () =>
+      aiApi
+        .status()
+        .then((s) => {
+          if (mountedRef.current) setReady(s.enabled && s.configured);
+          return s.enabled && s.configured;
+        })
+        .catch(() => {
+          if (mountedRef.current) setReady(false);
+          return false;
+        }),
+    [],
+  );
+
   useEffect(() => {
-    let active = true;
-    aiApi
-      .status()
-      .then((s) => {
-        if (active) setReady(s.enabled && s.configured);
-      })
-      .catch(() => {
-        if (active) setReady(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
+    void refreshStatus();
+    const onFocus = () => void refreshStatus();
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [refreshStatus]);
 
   const closeSocket = useCallback(() => {
     const ws = socketRef.current;
@@ -179,12 +189,18 @@ export default function AiAssistant() {
     listEndRef.current?.scrollIntoView?.({ block: 'end' });
   }, [messages]);
 
-  const onClickLauncher = () => {
-    if (!ready) {
-      message.warning(t('ai.notConfigured'));
+  const onClickLauncher = async () => {
+    if (ready) {
+      setOpen(true);
       return;
     }
-    setOpen(true);
+    // Stale-state guard: our cached readiness may predate an admin just enabling
+    // AI. Re-check before refusing, so a fresh config opens the panel immediately.
+    if (await refreshStatus()) {
+      setOpen(true);
+    } else {
+      message.warning(t('ai.notConfigured'));
+    }
   };
 
   // ---- streaming helpers (functional updates so stale closures are safe) ----
@@ -406,7 +422,7 @@ export default function AiAssistant() {
               shape="circle"
               size="large"
               icon={<RobotOutlined />}
-              onClick={onClickLauncher}
+              onClick={() => void onClickLauncher()}
             />
           </Badge>
         </Tooltip>
