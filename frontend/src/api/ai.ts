@@ -41,11 +41,12 @@ export interface AiMessage {
   role: string; // user / assistant / tool
   content: string;
   tool_calls: string; // JSON trace, may be empty
-  // JSON `[]StagedAction` staged on an assistant message awaiting confirmation;
-  // empty once confirmed/cancelled. Only the latest assistant message can carry
-  // a live value (the backend clears older pendings), so reloading a conversation
-  // can rebuild the confirm card from it.
+  // JSON `[]StagedAction` staged on an assistant message; kept even after the
+  // write is resolved so a reloaded conversation can rebuild the confirm card.
   pending_action?: string;
+  // JSON `{status:"running"|"done"|"cancelled", text}` — the confirm outcome,
+  // empty while still awaiting the user. Drives the resolved card on reload.
+  confirm_result?: string;
   created_at: string;
 }
 

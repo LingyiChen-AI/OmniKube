@@ -148,9 +148,13 @@ type AIMessage struct {
 	ConversationID uint      `gorm:"index;not null" json:"conversation_id"`
 	Role           string    `gorm:"size:20;not null" json:"role"` // user/assistant/tool
 	Content        string    `gorm:"type:text" json:"content"`
-	ToolCalls      string    `gorm:"type:text" json:"tool_calls"`      // JSON，可空
-	PendingAction  string    `gorm:"type:text" json:"pending_action"`  // JSON: 待用户确认的暂存写操作([]StagedAction)，确认/取消后清空
-	CreatedAt      time.Time `gorm:"index" json:"created_at"`
+	ToolCalls      string    `gorm:"type:text" json:"tool_calls"`     // JSON，可空
+	PendingAction  string    `gorm:"type:text" json:"pending_action"` // JSON: 暂存写操作([]StagedAction)；保留以便重载重建确认卡片
+	// ConfirmResult 记录该提案的确认结局，供重载时重建「已解决的确认卡片」：
+	// 空串=尚待确认；JSON {status:"running|done|cancelled", text:"..."}。同时用作
+	// 原子认领的抢占标记（'' → 'running'），杜绝并发双执行。
+	ConfirmResult string    `gorm:"type:text" json:"confirm_result"`
+	CreatedAt     time.Time `gorm:"index" json:"created_at"`
 }
 
 func (AIMessage) TableName() string { return "ok_ai_messages" }

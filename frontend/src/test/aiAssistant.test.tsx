@@ -357,6 +357,29 @@ describe('AiAssistant reload with pending write (Phase 4)', () => {
     return { user };
   }
 
+  it('rebuilds a RESOLVED confirm card with its outcome on reload', async () => {
+    getConversationMock.mockResolvedValueOnce({
+      conversation: { id: 7, user_id: 1, cluster_id: 'c1', title: 'del nginx', created_at: '', updated_at: '' },
+      messages: [
+        { id: 1, conversation_id: 7, role: 'user', content: 'delete pod nginx', tool_calls: '', created_at: '' },
+        {
+          id: 2,
+          conversation_id: 7,
+          role: 'assistant',
+          content: '将删除该 Pod。',
+          tool_calls: '',
+          pending_action: JSON.stringify([{ action: 'delete', resource: 'pods', namespace: 'default', name: 'nginx' }]),
+          confirm_result: JSON.stringify({ status: 'done', text: '✅ 已执行 delete pods default/nginx' }),
+          created_at: '',
+        },
+      ],
+    });
+    await reloadPending();
+    // The action is still shown, but as a resolved card with the outcome text and no buttons.
+    await waitFor(() => expect(screen.getByText(/已执行 delete pods default\/nginx/)).toBeInTheDocument());
+    expect(screen.queryByRole('button', { name: /确认执行|^confirm$/i })).not.toBeInTheDocument();
+  });
+
   it('rebuilds the confirmation card from pending_action and disables the composer', async () => {
     await reloadPending();
 

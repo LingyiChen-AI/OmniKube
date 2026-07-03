@@ -146,21 +146,46 @@ function parseStagedActions(raw?: string): StagedAction[] {
   }
 }
 
+/** Parse the persisted `confirm_result` JSON into a card outcome, if present. */
+function parseConfirmOutcome(raw?: string): { status: string; text: string } | undefined {
+  if (!raw) return undefined;
+  try {
+    const o = JSON.parse(raw) as { status?: string; text?: string };
+    if (!o.status) return undefined;
+    return { status: o.status, text: o.text ?? '' };
+  } catch {
+    return undefined;
+  }
+}
+
 /**
  * Map persisted messages (user/assistant only) into renderable chat bubbles.
- * An assistant message with a non-empty `pending_action` rebuilds its confirmation
- * card (unresolved) so a reloaded conversation can still confirm/cancel the write.
+ * An assistant message with a `pending_action` rebuilds its confirmation card:
+ * still awaiting → active buttons; resolved (`confirm_result` set) → the resolved
+ * card with the executed outcome, so reload matches the live experience.
  */
 function toChatMessages(msgs: AiMessage[]): ChatMessage[] {
   return msgs
     .filter((m) => m.role === 'user' || m.role === 'assistant')
     .map((m) => {
       const staged = m.role === 'assistant' ? parseStagedActions(m.pending_action) : [];
+      let confirm: PendingConfirm | undefined;
+      if (staged.length > 0) {
+        const outcome = parseConfirmOutcome(m.confirm_result);
+        confirm = outcome
+          ? {
+              actions: staged,
+              resolved: true,
+              running: outcome.status === 'running',
+              result: outcome.status === 'running' ? '' : outcome.text,
+            }
+          : { actions: staged, resolved: false };
+      }
       return {
         role: m.role as 'user' | 'assistant',
         content: m.content,
         tools: m.role === 'assistant' ? parseToolCalls(m.tool_calls) : [],
-        confirm: staged.length > 0 ? { actions: staged, resolved: false } : undefined,
+        confirm,
       };
     });
 }

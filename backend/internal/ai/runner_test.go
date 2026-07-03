@@ -136,11 +136,14 @@ func TestRunnerConfirmApproves(t *testing.T) {
 	if _, _, ok := convs.LatestPending(convID); ok {
 		t.Fatal("pending_action must be cleared after confirm")
 	}
-	// 执行结果作为一条助手消息落库，重载历史时可见。
+	// 执行结局写回该提案消息的 confirm_result（保留 pending_action 以便重载重建卡片）。
 	msgs, _ := convs.Messages(convID)
 	last := msgs[len(msgs)-1]
-	if last.Role != "assistant" || !strings.Contains(last.Content, "已执行") {
-		t.Fatalf("confirm outcome not persisted as assistant message: %+v", last)
+	if !strings.Contains(last.ConfirmResult, "已执行") || !strings.Contains(last.ConfirmResult, "\"done\"") {
+		t.Fatalf("confirm outcome not persisted on the proposal message: %+v", last)
+	}
+	if last.PendingAction == "" {
+		t.Fatal("pending_action must be preserved for reload display")
 	}
 }
 

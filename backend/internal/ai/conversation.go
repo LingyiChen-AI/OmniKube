@@ -45,12 +45,13 @@ func (s *ConvStore) AppendMessage(convID uint, role, content, toolCalls string) 
 // 等价（顺带刷新会话 updated_at）。
 func (s *ConvStore) AppendAssistant(convID uint, content, toolCalls, pendingAction string) error {
 	return s.db.Transaction(func(tx *gorm.DB) error {
-		// 若本条带来新的待确认动作，先作废该会话内所有旧的未确认 pending_action：
-		// 用户不能再去确认一个已被新提案取代的旧操作（避免执行陈旧/被覆盖的暂存动作）。
+		// 若本条带来新的待确认动作，先作废该会话内所有旧的「仍待确认」提案：给它们打上
+		// cancelled 结局（而非清空 pending_action——那会丢失重载展示所需的动作）。已解决
+		// 的提案(confirm_result != '')保持不动，其卡片在历史里照常呈现。
 		if pendingAction != "" {
 			if err := tx.Model(&model.AIMessage{}).
-				Where("conversation_id = ? AND pending_action != ''", convID).
-				Update("pending_action", "").Error; err != nil {
+				Where("conversation_id = ? AND pending_action != '' AND confirm_result = ''", convID).
+				Update("confirm_result", `{"status":"cancelled","text":"🚫 已被新的提案取代"}`).Error; err != nil {
 				return err
 			}
 		}
@@ -66,11 +67,11 @@ func (s *ConvStore) AppendAssistant(convID uint, content, toolCalls, pendingActi
 	})
 }
 
-// LatestPending 返回会话内「最近一条仍带待确认写操作」的消息 id 与解析后的动作列表。
+// LatestPending 返回会话内「最近一条仍待确认（未解决）写操作」的消息 id 与动作列表。
 // ok==false 表示无待确认动作（或解析失败——按无处理，避免误执行残缺动作）。
 func (s *ConvStore) LatestPending(convID uint) (msgID uint, actions []StagedAction, ok bool) {
 	var msg model.AIMessage
-	err := s.db.Where("conversation_id = ? AND pending_action != ''", convID).
+	err := s.db.Where("conversation_id = ? AND pending_action != '' AND confirm_result = ''", convID).
 		Order("id desc").First(&msg).Error
 	if err != nil {
 		return 0, nil, false
@@ -91,29 +92,30 @@ func (s *ConvStore) LatestPending(convID uint) (msgID uint, actions []StagedActi
 // 「LatestPending→Apply→ClearPending 非原子」导致的 TOCTOU 双执行竞态。
 func (s *ConvStore) ClaimPending(convID uint) (msgID uint, actions []StagedAction, ok bool) {
 	var msg model.AIMessage
-	err := s.db.Where("conversation_id = ? AND pending_action != ''", convID).
+	err := s.db.Where("conversation_id = ? AND pending_action != '' AND confirm_result = ''", convID).
 		Order("id desc").First(&msg).Error
 	if err != nil {
 		return 0, nil, false
 	}
-	// 先捕获动作 JSON（抢占清空后就读不到了）。
 	if err := json.Unmarshal([]byte(msg.PendingAction), &actions); err != nil || len(actions) == 0 {
 		return 0, nil, false
 	}
-	// 原子抢占：仅当该行仍未被清空时才认领成功。
+	// 原子抢占：把 confirm_result 从空串置为 running，仅当恰好影响 1 行才算认领成功。
+	// pending_action 保留不动（重载仍要据它重建卡片）。
 	res := s.db.Model(&model.AIMessage{}).
-		Where("id = ? AND pending_action != ''", msg.ID).
-		Update("pending_action", "")
+		Where("id = ? AND confirm_result = ''", msg.ID).
+		Update("confirm_result", `{"status":"running"}`)
 	if res.Error != nil || res.RowsAffected != 1 {
 		return 0, nil, false
 	}
 	return msg.ID, actions, true
 }
 
-// ClearPending 清空某条消息的待确认写操作（确认执行或取消后调用，防止二次确认）。
-func (s *ConvStore) ClearPending(msgID uint) error {
+// SetConfirmResult 把某提案消息的确认结局落库（重载时据此重建「已解决的确认卡片」）。
+func (s *ConvStore) SetConfirmResult(msgID uint, status, text string) error {
+	raw, _ := json.Marshal(map[string]string{"status": status, "text": text})
 	return s.db.Model(&model.AIMessage{}).Where("id = ?", msgID).
-		Update("pending_action", "").Error
+		Update("confirm_result", string(raw)).Error
 }
 
 // Messages 返回会话内的消息，按 id 升序（即时间顺序）。

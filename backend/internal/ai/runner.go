@@ -233,25 +233,24 @@ func (r *Runner) Confirm(ctx context.Context, userID uint, username, convID stri
 		return ErrConversationNotFound
 	}
 
-	// 1. 原子认领最近一条待确认动作（同时抢占清空 pending，杜绝并发双确认）。
+	// 1. 原子认领最近一条待确认动作（抢占把 confirm_result 置为 running，杜绝并发双确认）。
 	//    认领失败 = 无 pending 或被并发确认抢先 → 回一帧 error 且不执行任何变更。
-	_, actions, ok := r.convs.ClaimPending(uint(cid))
+	msgID, actions, ok := r.convs.ClaimPending(uint(cid))
 	if !ok {
 		emit(Event{Type: "error", Text: "没有待确认的操作"})
 		return nil
 	}
 
-	// 2. 取消：pending 已在认领步清空，不执行任何变更。把「已取消」作为一条助手消息
-	//    落库，令重载历史时也能看到当时的选择（而不是凭空消失）。
+	// 2. 取消：把「已取消」结局写回该提案消息（重载据此重建已解决卡片），并实时输出。
 	if !approved {
 		text := "🚫 已取消，未执行任何变更。"
 		emit(Event{Type: "token", Text: text})
 		emit(Event{Type: "done", Text: text})
-		return r.convs.AppendMessage(uint(cid), "assistant", text, "")
+		return r.convs.SetConfirmResult(msgID, "cancelled", text)
 	}
 
-	// 3. 确认：逐个执行（clusterID 取自会话），汇总每个动作的结果为一段文本；
-	//    以 token+done 实时输出，并作为一条助手消息落库（重载可见执行结果）。
+	// 3. 确认：逐个执行（clusterID 取自会话），汇总结果为一段文本；实时 token+done 输出，
+	//    并把结局写回该提案消息（confirm_result），使重载时确认卡片原样呈现执行结果。
 	lines := make([]string, 0, len(actions))
 	for _, a := range actions {
 		target := a.Resource
@@ -267,7 +266,7 @@ func (r *Runner) Confirm(ctx context.Context, userID uint, username, convID stri
 	summary := strings.Join(lines, "\n")
 	emit(Event{Type: "token", Text: summary})
 	emit(Event{Type: "done", Text: summary})
-	return r.convs.AppendMessage(uint(cid), "assistant", summary, "")
+	return r.convs.SetConfirmResult(msgID, "done", summary)
 }
 
 // marshalActions 把暂存动作序列化为 JSON 字符串；空/失败返回空串。
