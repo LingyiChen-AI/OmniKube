@@ -51,15 +51,34 @@ function parseToolCalls(raw: string): ToolStep[] {
   }
 }
 
-/** Map persisted messages (user/assistant only) into renderable chat bubbles. */
+/** Parse the persisted `pending_action` JSON (`[]StagedAction`) into staged actions. */
+function parseStagedActions(raw?: string): StagedAction[] {
+  if (!raw) return [];
+  try {
+    const arr = JSON.parse(raw) as StagedAction[];
+    return Array.isArray(arr) ? arr : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Map persisted messages (user/assistant only) into renderable chat bubbles.
+ * An assistant message with a non-empty `pending_action` rebuilds its confirmation
+ * card (unresolved) so a reloaded conversation can still confirm/cancel the write.
+ */
 function toChatMessages(msgs: AiMessage[]): ChatMessage[] {
   return msgs
     .filter((m) => m.role === 'user' || m.role === 'assistant')
-    .map((m) => ({
-      role: m.role as 'user' | 'assistant',
-      content: m.content,
-      tools: m.role === 'assistant' ? parseToolCalls(m.tool_calls) : [],
-    }));
+    .map((m) => {
+      const staged = m.role === 'assistant' ? parseStagedActions(m.pending_action) : [];
+      return {
+        role: m.role as 'user' | 'assistant',
+        content: m.content,
+        tools: m.role === 'assistant' ? parseToolCalls(m.tool_calls) : [],
+        confirm: staged.length > 0 ? { actions: staged, resolved: false } : undefined,
+      };
+    });
 }
 
 /** Derive a short conversation title from the first user message. */
@@ -360,7 +379,19 @@ export default function AiAssistant() {
     [activeConv, updateLastAssistant, handleFrame, message, t],
   );
 
-  const composerDisabled = !currentCluster || streaming;
+  // A reloaded (or just-staged) conversation may hold an unresolved write card;
+  // block new input until it's confirmed/cancelled — matching the live flow where
+  // `confirm_required` keeps `streaming` true.
+  const last = messages[messages.length - 1];
+  const pendingConfirm = last?.role === 'assistant' && !!last.confirm && !last.confirm.resolved;
+
+  // Sessions are cluster-scoped: only offer conversations belonging to the selected
+  // cluster so we never send into a conversation created for a different cluster.
+  const clusterConversations = currentCluster
+    ? conversations.filter((c) => c.cluster_id === currentCluster)
+    : [];
+
+  const composerDisabled = !currentCluster || streaming || pendingConfirm;
 
   return (
     <>
@@ -391,7 +422,7 @@ export default function AiAssistant() {
               placeholder={t('ai.conversations')}
               value={activeConv ?? undefined}
               onChange={selectConversation}
-              options={conversations.map((c) => ({ value: c.id, label: c.title || `#${c.id}` }))}
+              options={clusterConversations.map((c) => ({ value: c.id, label: c.title || `#${c.id}` }))}
               notFoundContent={t('ai.noConversations')}
             />
           </Space.Compact>

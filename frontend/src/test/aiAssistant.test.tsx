@@ -247,3 +247,80 @@ describe('AiAssistant write confirmation card', () => {
     expect(JSON.parse(ws.sent[1])).toMatchObject({ type: 'confirm', conversation_id: 42, approved: false });
   });
 });
+
+describe('AiAssistant reload with pending write (Phase 4)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    FakeWebSocket.instances = [];
+    vi.stubGlobal('WebSocket', FakeWebSocket as unknown as typeof WebSocket);
+    statusMock.mockResolvedValue({ enabled: true, configured: true });
+    // One conversation on the current cluster (c1) carrying an unresolved delete.
+    listConversationsMock.mockResolvedValue([
+      { id: 7, user_id: 1, cluster_id: 'c1', title: 'del nginx', created_at: '', updated_at: '' },
+      // A different cluster's conversation must NOT be offered in the c1 dropdown.
+      { id: 8, user_id: 1, cluster_id: 'other', title: 'other cluster', created_at: '', updated_at: '' },
+    ]);
+    getConversationMock.mockResolvedValue({
+      conversation: { id: 7, user_id: 1, cluster_id: 'c1', title: 'del nginx', created_at: '', updated_at: '' },
+      messages: [
+        { id: 1, conversation_id: 7, role: 'user', content: 'delete pod nginx', tool_calls: '', created_at: '' },
+        {
+          id: 2,
+          conversation_id: 7,
+          role: 'assistant',
+          content: 'I will delete the pod.',
+          tool_calls: '',
+          pending_action: JSON.stringify([
+            { action: 'delete', resource: 'pods', namespace: 'default', name: 'nginx' },
+          ]),
+          created_at: '',
+        },
+      ],
+    });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  async function reloadPending() {
+    const user = userEvent.setup({ delay: null });
+    renderWithProviders(<AiAssistant />);
+    await user.click(await screen.findByLabelText(/omnikube assistant/i));
+    // Open the conversation dropdown and pick the pending one.
+    await user.click(screen.getByRole('combobox'));
+    await user.click((await screen.findAllByText('del nginx'))[0]);
+    await waitFor(() => expect(getConversationMock).toHaveBeenCalledWith(7));
+    return { user };
+  }
+
+  it('rebuilds the confirmation card from pending_action and disables the composer', async () => {
+    await reloadPending();
+
+    await waitFor(() => expect(screen.getByText(/待确认的操作|pending actions/i)).toBeInTheDocument());
+    expect(screen.getByText(/default\/nginx/)).toBeInTheDocument();
+    // No WS was ever opened on a plain reload.
+    expect(FakeWebSocket.instances.length).toBe(0);
+    // Composer blocked until the restored write is resolved.
+    expect(screen.getByPlaceholderText(/ask omnikube|向 omnikube 提问/i)).toBeDisabled();
+    // The other cluster's conversation is not selectable here.
+    expect(screen.queryByText('other cluster')).not.toBeInTheDocument();
+  });
+
+  it('confirms a restored write via the REST fallback (no socket) and re-enables the composer', async () => {
+    confirmConversationMock.mockResolvedValue([
+      { type: 'tool_result', tool: 'delete_resource', result: '已执行：delete pods/nginx' },
+      { type: 'done', text: '已执行确认的操作。' },
+    ]);
+    const { user } = await reloadPending();
+
+    await user.click(await screen.findByRole('button', { name: /确认执行|^confirm$/i }));
+
+    // Falls back to REST because no live socket exists on reload.
+    await waitFor(() => expect(confirmConversationMock).toHaveBeenCalledWith(7, true));
+    // Replayed events flow through the same handler and re-enable the composer.
+    await waitFor(() =>
+      expect(screen.getByPlaceholderText(/ask omnikube|向 omnikube 提问/i)).not.toBeDisabled(),
+    );
+  });
+});
