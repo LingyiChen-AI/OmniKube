@@ -140,3 +140,27 @@ type AIGrant struct {
 }
 
 func (AIGrant) TableName() string { return "ok_ai_grants" }
+
+// AIConversation 是一次 AI 助手会话（隶属某用户、针对某集群）。
+type AIConversation struct {
+	ID        uint      `gorm:"primaryKey" json:"id"`
+	UserID    uint      `gorm:"index;not null" json:"user_id"`
+	ClusterID string    `gorm:"size:50" json:"cluster_id"`
+	Title     string    `gorm:"size:200" json:"title"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `gorm:"index" json:"updated_at"`
+}
+
+func (AIConversation) TableName() string { return "ok_ai_conversations" }
+
+// AIMessage 是会话中的一条消息。ToolCalls 存 JSON（工具调用轨迹，可空）。
+type AIMessage struct {
+	ID             uint      `gorm:"primaryKey" json:"id"`
+	ConversationID uint      `gorm:"index;not null" json:"conversation_id"`
+	Role           string    `gorm:"size:20;not null" json:"role"` // user/assistant/tool
+	Content        string    `gorm:"type:text" json:"content"`
+	ToolCalls      string    `gorm:"type:text" json:"tool_calls"` // JSON，可空
+	CreatedAt      time.Time `gorm:"index" json:"created_at"`
+}
+
+func (AIMessage) TableName() string { return "ok_ai_messages" }

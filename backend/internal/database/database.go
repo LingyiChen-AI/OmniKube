@@ -28,6 +28,8 @@ func Migrate(db *gorm.DB) error {
 		&model.ReleaseRecord{},
 		&model.AIConfig{},
 		&model.AIGrant{},
+		&model.AIConversation{},
+		&model.AIMessage{},
 	)
 }
 
