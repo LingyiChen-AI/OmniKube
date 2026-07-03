@@ -32,9 +32,14 @@ interface ChatMessage {
   confirm?: PendingConfirm;
 }
 
-const WIN_W = 404;
-const WIN_H = 616;
+// Preferred window size; clamped to the viewport at render for small screens.
+const WIN_PREF_W = 460;
+const WIN_PREF_H = 720;
 const FAB = 56;
+// The assistant's own popups (conversation dropdown, header tooltips) must sit
+// ABOVE the floating window; AntD's default popup z-index (1050) is below it.
+const WIN_Z = 1201;
+const POPUP_Z = WIN_Z + 40;
 
 interface Pos {
   x: number;
@@ -173,13 +178,23 @@ export default function AiAssistant() {
   // that only confirms a Chinese candidate never sends the message).
   const composingRef = useRef(false);
 
+  // Track the viewport so the window stays sized to fit on resize / small screens.
+  const [vp, setVp] = useState(() => ({ w: window.innerWidth, h: window.innerHeight }));
+  useEffect(() => {
+    const onResize = () => setVp({ w: window.innerWidth, h: window.innerHeight });
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+  const winW = Math.min(WIN_PREF_W, vp.w - 24);
+  const winH = Math.min(WIN_PREF_H, vp.h - 24);
+
   const fab = useDrag(FAB, FAB, 'ok-ai-fab-pos', () => ({
     x: window.innerWidth - FAB - 24,
     y: window.innerHeight - FAB - 28,
   }));
-  const win = useDrag(WIN_W, WIN_H, 'ok-ai-win-pos', () => ({
-    x: window.innerWidth - WIN_W - 24,
-    y: window.innerHeight - WIN_H - 24,
+  const win = useDrag(winW, winH, 'ok-ai-win-pos', () => ({
+    x: window.innerWidth - winW - 24,
+    y: window.innerHeight - winH - 24,
   }));
 
   useEffect(() => {
@@ -513,7 +528,7 @@ export default function AiAssistant() {
       {open && (
         <div
           className="ok-ai-window"
-          style={{ ...vars, left: win.pos.x, top: win.pos.y, width: WIN_W, height: WIN_H }}
+          style={{ ...vars, left: win.pos.x, top: win.pos.y, width: winW, height: winH, zIndex: WIN_Z }}
         >
           {/* Header — drag handle (grip) + action buttons kept out of the grip. */}
           <div className="ok-ai-head">
@@ -534,7 +549,7 @@ export default function AiAssistant() {
               </div>
             </div>
             <div className="ok-ai-head__btns">
-              <Tooltip title={t('ai.newChat')}>
+              <Tooltip title={t('ai.newChat')} zIndex={POPUP_Z}>
                 <Button type="text" size="small" icon={<PlusOutlined />} onClick={newChat} />
               </Tooltip>
               <Button type="text" size="small" icon={<CloseOutlined />} onClick={() => setOpen(false)} />
@@ -551,6 +566,8 @@ export default function AiAssistant() {
               onChange={selectConversation}
               options={clusterConversations.map((c) => ({ value: c.id, label: c.title || `#${c.id}` }))}
               notFoundContent={t('ai.noConversations')}
+              styles={{ popup: { root: { zIndex: POPUP_Z } } }}
+              listHeight={320}
             />
           </div>
 
