@@ -7,6 +7,7 @@ import (
 
 	"github.com/cloudwego/eino/components/tool"
 	"github.com/cloudwego/eino/components/tool/utils"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -46,6 +47,23 @@ type listResult struct {
 	Error     string            `json:"error,omitempty"`
 }
 
+// logsParams / logsResult 暴露给模型的 Pod 日志读取工具入参与返回。
+type logsParams struct {
+	Namespace string `json:"namespace" jsonschema:"required" jsonschema_description:"Pod 所在命名空间"`
+	Pod       string `json:"pod" jsonschema:"required" jsonschema_description:"Pod 名称"`
+	Container string `json:"container" jsonschema_description:"容器名；多容器 Pod 不填则取默认容器"`
+	TailLines int    `json:"tail_lines" jsonschema_description:"读取末尾多少行，默认 200，最多 1000"`
+}
+
+type logsResult struct {
+	Logs      string `json:"logs,omitempty"`
+	Truncated bool   `json:"truncated,omitempty"` // 因长度上限被截断
+	Error     string `json:"error,omitempty"`
+}
+
+// logsMaxBytes 限制单次回传给模型的日志体量，保护上下文窗口。
+const logsMaxBytes = 8000
+
 type getResult struct {
 	resourceSummary
 	// Manifest 是去噪后的完整对象（含 spec，如工作负载的容器镜像），让模型能回答
@@ -60,7 +78,9 @@ type getResult struct {
 // 把「集群级只读」收敛为「逐 NS 聚合」，绝不越权全集群列举（见 AllowRead）。
 func ReadTools(pool *cluster.ClusterPool, clusterID string, guard *Guard, userID uint) []tool.BaseTool {
 	listTool, err := utils.InferTool("list_resources",
-		"列出指定命名空间下某类资源（返回名称与关键状态摘要）。",
+		"列出某类 Kubernetes 资源（返回名称与关键状态摘要）。支持任意资源类型："+
+			"deployments/pods/services/configmaps/secrets/ingresses/jobs/cronjobs/"+
+			"namespaces/nodes/events/pvc/pv 等，用规范复数名指定。",
 		func(ctx context.Context, p listParams) (listResult, error) {
 			cc, ok := pool.Get(clusterID)
 			if !ok {
@@ -125,7 +145,8 @@ func ReadTools(pool *cluster.ClusterPool, clusterID string, guard *Guard, userID
 	}
 
 	getTool, gerr := utils.InferTool("get_resource",
-		"读取单个资源的名称与关键状态摘要。",
+		"读取单个资源的完整清单（含 spec，如工作负载的容器镜像、副本数等）。"+
+			"支持任意资源类型；需要看某资源细节（镜像、端口、环境变量等）时用它。",
 		func(ctx context.Context, p getParams) (getResult, error) {
 			cc, ok := pool.Get(clusterID)
 			if !ok {
@@ -154,12 +175,45 @@ func ReadTools(pool *cluster.ClusterPool, clusterID string, guard *Guard, userID
 		log.Printf("ai: 构建 get_resource 工具失败: %v", gerr)
 	}
 
-	tools := make([]tool.BaseTool, 0, 2)
-	if listTool != nil {
-		tools = append(tools, listTool)
+	logsTool, lerr := utils.InferTool("get_pod_logs",
+		"读取某个 Pod（可指定容器）的最近日志。排查报错/崩溃/重启时用它。",
+		func(ctx context.Context, p logsParams) (logsResult, error) {
+			cc, ok := pool.Get(clusterID)
+			if !ok {
+				return logsResult{Error: fmt.Sprintf("cluster %s 不存在或未连接", clusterID)}, nil
+			}
+			// 读日志按 pods 的 read 过闸门（与查看 Pod 同权限）。
+			if allowed, _ := guard.AllowRead(userID, clusterID, p.Namespace, "pods"); !allowed {
+				return logsResult{Error: fmt.Sprintf("permission denied: 无权读取集群 %s 命名空间 %s 的 pods 日志", clusterID, p.Namespace)}, nil
+			}
+			tail := int64(p.TailLines)
+			if tail <= 0 {
+				tail = 200
+			} else if tail > 1000 {
+				tail = 1000
+			}
+			data, err := cc.Typed.CoreV1().Pods(p.Namespace).
+				GetLogs(p.Pod, &corev1.PodLogOptions{Container: p.Container, TailLines: &tail}).
+				DoRaw(ctx)
+			if err != nil {
+				return logsResult{Error: fmt.Sprintf("读取日志失败: %v", err)}, nil
+			}
+			out := logsResult{Logs: string(data)}
+			if len(out.Logs) > logsMaxBytes {
+				out.Logs = out.Logs[len(out.Logs)-logsMaxBytes:] // 保留最新的一段
+				out.Truncated = true
+			}
+			return out, nil
+		})
+	if lerr != nil {
+		log.Printf("ai: 构建 get_pod_logs 工具失败: %v", lerr)
 	}
-	if getTool != nil {
-		tools = append(tools, getTool)
+
+	tools := make([]tool.BaseTool, 0, 3)
+	for _, tl := range []tool.BaseTool{listTool, getTool, logsTool} {
+		if tl != nil {
+			tools = append(tools, tl)
+		}
 	}
 	return tools
 }

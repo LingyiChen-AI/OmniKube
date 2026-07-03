@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strconv"
+	"strings"
 	"testing"
 
 	einomodel "github.com/cloudwego/eino/components/model"
@@ -91,8 +92,8 @@ func TestRunnerStreamStagesAndRequiresConfirm(t *testing.T) {
 	}
 }
 
-// TestRunnerConfirmApproves 确认执行：逐个动作经 fake executor 执行，发 tool_result + done，
-// 并清空 pending（不可二次确认）。
+// TestRunnerConfirmApproves 确认执行：逐个动作经 fake executor 执行，把结果汇总为
+// token+done 输出并作为助手消息落库（重载可见），并清空 pending（不可二次确认）。
 func TestRunnerConfirmApproves(t *testing.T) {
 	db, cipher := testDB(t), testCipher(t)
 	store := NewStore(db, cipher)
@@ -119,21 +120,27 @@ func TestRunnerConfirmApproves(t *testing.T) {
 	if len(fexec.calls) != 1 || fexec.calls[0].Name != "nginx" {
 		t.Fatalf("expected 1 apply call, got %+v", fexec.calls)
 	}
-	var toolResults, dones int
+	var tokens, dones int
 	for _, e := range events {
 		switch e.Type {
-		case "tool_result":
-			toolResults++
+		case "token":
+			tokens++
 		case "done":
 			dones++
 		}
 	}
-	if toolResults != 1 || dones != 1 {
-		t.Fatalf("expected 1 tool_result + 1 done, got %+v", events)
+	if tokens != 1 || dones != 1 {
+		t.Fatalf("expected 1 token + 1 done, got %+v", events)
 	}
 	// pending 已清空。
 	if _, _, ok := convs.LatestPending(convID); ok {
 		t.Fatal("pending_action must be cleared after confirm")
+	}
+	// 执行结果作为一条助手消息落库，重载历史时可见。
+	msgs, _ := convs.Messages(convID)
+	last := msgs[len(msgs)-1]
+	if last.Role != "assistant" || !strings.Contains(last.Content, "已执行") {
+		t.Fatalf("confirm outcome not persisted as assistant message: %+v", last)
 	}
 }
 

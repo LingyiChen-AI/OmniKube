@@ -8,7 +8,6 @@ import {
   HistoryOutlined,
   PlayCircleOutlined,
   PlusOutlined,
-  RobotOutlined,
   SendOutlined,
   ThunderboltFilled,
   WarningFilled,
@@ -19,6 +18,7 @@ import remarkGfm from 'remark-gfm';
 import { aiApi, type AiConversation, type AiMessage } from '../api/ai';
 import { aiChatUrl, type AiChatEvent, type StagedAction } from '../api/aiChat';
 import { useCtxStore } from '../store/ctx';
+import BrandMark from './BrandMark';
 
 interface ToolStep {
   tool: string;
@@ -461,13 +461,25 @@ export default function AiAssistant() {
   const resolveConfirm = useCallback(
     async (approved: boolean) => {
       if (!activeConv) return;
-      updateLastAssistant((m) => (m.confirm ? { ...m, confirm: { ...m.confirm, resolved: true } } : m));
-      const ws = socketRef.current;
+      // Freeze the confirm card on its bubble, then open a fresh assistant bubble
+      // for the execution result so it reads as a clear reply (not a buried tool
+      // card). Subsequent token/done frames stream into this new bubble.
+      setMessages((prev) => {
+        const copy = prev.slice();
+        const li = copy.length - 1;
+        if (li >= 0 && copy[li].role === 'assistant' && copy[li].confirm) {
+          copy[li] = { ...copy[li], confirm: { ...copy[li].confirm!, resolved: true } };
+        }
+        return [...copy, { role: 'assistant', content: '', tools: [] }];
+      });
+      setStreaming(true);
       const payload = { type: 'confirm' as const, conversation_id: activeConv, approved };
+      const ws = socketRef.current;
       if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify(payload));
         return;
       }
+      // Socket dropped — replay via REST and render the returned events locally.
       try {
         const events = await aiApi.confirmConversation(activeConv, approved);
         events.forEach((e) => handleFrame(JSON.stringify(e)));
@@ -476,7 +488,7 @@ export default function AiAssistant() {
         message.error(t('ai.error'));
       }
     },
-    [activeConv, updateLastAssistant, handleFrame, message, t],
+    [activeConv, handleFrame, message, t],
   );
 
   // A reloaded (or just-staged) conversation may hold an unresolved write card;
@@ -531,7 +543,7 @@ export default function AiAssistant() {
             }}
           >
             <span className="ok-ai-fab__spark" />
-            <RobotOutlined />
+            <BrandMark size="58%" />
             {!ready && (
               <span className="ok-ai-fab__badge">
                 <WarningFilled />
@@ -554,7 +566,7 @@ export default function AiAssistant() {
               {...win.handlers}
             >
               <span className="ok-ai-head__avatar">
-                <RobotOutlined />
+                <BrandMark size="66%" />
               </span>
               <div style={{ minWidth: 0 }}>
                 <div className="ok-ai-head__title">OmniKube</div>
@@ -800,7 +812,7 @@ function MessageBubble({
   return (
     <div className={`ok-ai-row ${isUser ? 'ok-ai-row--user' : ''}`}>
       <span className={`ok-ai-ava ${isUser ? 'ok-ai-ava--user' : 'ok-ai-ava--ai'}`}>
-        {isUser ? '🧑' : <RobotOutlined />}
+        {isUser ? '🧑' : <BrandMark size="64%" />}
       </span>
       <div className={`ok-ai-bubble ${isUser ? 'ok-ai-bubble--user' : 'ok-ai-bubble--ai'}`}>
         {msg.tools.length > 0 && (

@@ -146,9 +146,11 @@ func (r *Runner) Stream(ctx context.Context, userID uint, clusterID, convID stri
 		case <-ctx.Done():
 		}
 	}
-	baseTools := append(ReadTools(r.pool, clusterID, r.guard, userID),
+	// 只对读工具包 tracedTool（实时显示「调用/结果」卡片）；写工具只做暂存、不算已执行，
+	// 故不追踪、不发工具卡片——写操作一律以「待确认卡片」呈现，确认后才真正执行并出结果，
+	// 避免同一写操作被展示两次（暂存卡片 + 确认卡片）。
+	tools := append(traceTools(ReadTools(r.pool, clusterID, r.guard, userID), toolEmit, tracer),
 		WriteTools(r.pool, clusterID, r.guard, userID, stager)...)
-	tools := traceTools(baseTools, toolEmit, tracer)
 	run, err := r.newAgent(ctx, cm, tools, cfg.SystemPrompt, cfg.MaxSteps)
 	if err != nil {
 		return err
@@ -239,22 +241,33 @@ func (r *Runner) Confirm(ctx context.Context, userID uint, username, convID stri
 		return nil
 	}
 
-	// 2. 取消：pending 已在认领步清空，不执行任何变更，直接返回。
+	// 2. 取消：pending 已在认领步清空，不执行任何变更。把「已取消」作为一条助手消息
+	//    落库，令重载历史时也能看到当时的选择（而不是凭空消失）。
 	if !approved {
-		emit(Event{Type: "done", Text: "已取消，未执行任何变更。"})
-		return nil
+		text := "🚫 已取消，未执行任何变更。"
+		emit(Event{Type: "token", Text: text})
+		emit(Event{Type: "done", Text: text})
+		return r.convs.AppendMessage(uint(cid), "assistant", text, "")
 	}
 
-	// 2. 确认：逐个执行（clusterID 取自会话），每个动作回一帧结果。
+	// 3. 确认：逐个执行（clusterID 取自会话），汇总每个动作的结果为一段文本；
+	//    以 token+done 实时输出，并作为一条助手消息落库（重载可见执行结果）。
+	lines := make([]string, 0, len(actions))
 	for _, a := range actions {
+		target := a.Resource
+		if a.Namespace != "" || a.Name != "" {
+			target = fmt.Sprintf("%s %s/%s", a.Resource, a.Namespace, a.Name)
+		}
 		if err := r.exec.Apply(ctx, userID, username, conv.ClusterID, a); err != nil {
-			emit(Event{Type: "tool_result", Tool: a.Action + "_resource", Result: fmt.Sprintf("失败：%v", err)})
+			lines = append(lines, fmt.Sprintf("❌ %s %s 执行失败：%v", a.Action, target, err))
 		} else {
-			emit(Event{Type: "tool_result", Tool: a.Action + "_resource", Result: fmt.Sprintf("已执行：%s %s/%s", a.Action, a.Resource, a.Name)})
+			lines = append(lines, fmt.Sprintf("✅ 已执行 %s %s", a.Action, target))
 		}
 	}
-	emit(Event{Type: "done", Text: "已执行确认的操作。"})
-	return nil
+	summary := strings.Join(lines, "\n")
+	emit(Event{Type: "token", Text: summary})
+	emit(Event{Type: "done", Text: summary})
+	return r.convs.AppendMessage(uint(cid), "assistant", summary, "")
 }
 
 // marshalActions 把暂存动作序列化为 JSON 字符串；空/失败返回空串。
