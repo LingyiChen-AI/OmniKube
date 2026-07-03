@@ -683,6 +683,8 @@ const en = {
     subtitle: "You don't have permission to view this page.",
   },
   ai: {
+    noCluster: 'No cluster',
+    enterHint: 'Enter to send · Shift+Enter for newline',
     modelConfig: 'Model configuration',
     enabled: 'Enabled',
     apiKey: 'API Key',

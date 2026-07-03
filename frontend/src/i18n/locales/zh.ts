@@ -685,6 +685,8 @@ const zh: Resources = {
     subtitle: '您没有权限查看此页面。',
   },
   ai: {
+    noCluster: '未选择集群',
+    enterHint: 'Enter 发送 · Shift+Enter 换行',
     modelConfig: '模型配置',
     enabled: '启用',
     apiKey: 'API Key',

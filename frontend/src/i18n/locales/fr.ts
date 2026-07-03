@@ -685,6 +685,8 @@ const fr: Resources = {
     subtitle: "Vous n'avez pas l'autorisation de voir cette page.",
   },
   ai: {
+    noCluster: 'Aucun cluster',
+    enterHint: 'Entrée pour envoyer · Maj+Entrée saut de ligne',
     modelConfig: 'Configuration du modèle',
     enabled: 'Activé',
     apiKey: 'Clé API',

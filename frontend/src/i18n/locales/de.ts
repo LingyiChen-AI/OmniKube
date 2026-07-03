@@ -685,6 +685,8 @@ const de: Resources = {
     subtitle: 'Sie haben keine Berechtigung, diese Seite anzuzeigen.',
   },
   ai: {
+    noCluster: 'Kein Cluster',
+    enterHint: 'Enter zum Senden · Umschalt+Enter neue Zeile',
     modelConfig: 'Modellkonfiguration',
     enabled: 'Aktiviert',
     apiKey: 'API-Schlüssel',

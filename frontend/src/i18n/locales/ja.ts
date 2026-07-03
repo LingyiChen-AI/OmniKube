@@ -685,6 +685,8 @@ const ja: Resources = {
     subtitle: 'このページを表示する権限がありません。',
   },
   ai: {
+    noCluster: 'クラスター未選択',
+    enterHint: 'Enter で送信 · Shift+Enter で改行',
     modelConfig: 'モデル設定',
     enabled: '有効化',
     apiKey: 'API キー',

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { screen, waitFor, act } from '@testing-library/react';
+import { screen, waitFor, act, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from './render';
 
@@ -149,6 +149,25 @@ describe('AiAssistant streaming chat', () => {
     // Composer/send become usable again and a disconnect note is shown.
     await waitFor(() => expect(screen.getByPlaceholderText(/ask omnikube|向 omnikube 提问/i)).not.toBeDisabled());
     expect(screen.getByText(/connection lost|连接已断开/i)).toBeInTheDocument();
+  });
+
+  it('does not send on Enter while an IME composition is active, sends once it ends', async () => {
+    const user = userEvent.setup({ delay: null });
+    renderWithProviders(<AiAssistant />);
+
+    await user.click(await screen.findByLabelText(/omnikube assistant/i));
+    const box = await screen.findByPlaceholderText(/ask omnikube|向 omnikube 提问/i);
+    await user.type(box, 'nihao');
+
+    // Composing a Chinese candidate: Enter only commits it — must NOT send.
+    fireEvent.compositionStart(box);
+    fireEvent.keyDown(box, { key: 'Enter' });
+    expect(createConversationMock).not.toHaveBeenCalled();
+
+    // Composition finished: Enter now sends the message.
+    fireEvent.compositionEnd(box);
+    fireEvent.keyDown(box, { key: 'Enter' });
+    await waitFor(() => expect(createConversationMock).toHaveBeenCalled());
   });
 
   it('restores the typed text when creating the conversation fails', async () => {

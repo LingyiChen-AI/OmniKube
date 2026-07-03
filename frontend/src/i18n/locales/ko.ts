@@ -685,6 +685,8 @@ const ko: Resources = {
     subtitle: '이 페이지를 볼 수 있는 권한이 없습니다.',
   },
   ai: {
+    noCluster: '클러스터 미선택',
+    enterHint: 'Enter 전송 · Shift+Enter 줄바꿈',
     modelConfig: '모델 구성',
     enabled: '활성화',
     apiKey: 'API 키',

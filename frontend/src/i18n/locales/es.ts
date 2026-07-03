@@ -685,6 +685,8 @@ const es: Resources = {
     subtitle: 'No tienes permiso para ver esta página.',
   },
   ai: {
+    noCluster: 'Sin clúster',
+    enterHint: 'Enter para enviar · Mayús+Enter salto de línea',
     modelConfig: 'Configuración del modelo',
     enabled: 'Habilitado',
     apiKey: 'Clave API',
