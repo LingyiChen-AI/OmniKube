@@ -17,6 +17,16 @@ import (
 	dbmodel "omnikube/internal/model"
 )
 
+// namingConventionRule 是追加到系统提示词末尾的固定命名规范：创建资源时统一以
+// 「业务名 + 类型后缀」命名，使同一应用的各类资源可读且成组。用户显式指定名称时以用户为准。
+const namingConventionRule = `创建资源的命名规范（除非用户明确给出了名称，否则严格遵守）：一律用「业务名-类型后缀」命名，
+使同一应用的各类资源可读且成组，例如为 nginx 创建部署与服务应命名为 nginx-deploy、nginx-service：
+- Deployment→<名>-deploy；StatefulSet→<名>-sts；DaemonSet→<名>-ds
+- Service→<名>-service；Ingress→<名>-ingress
+- ConfigMap→<名>-config；Secret→<名>-secret
+- Job→<名>-job；CronJob→<名>-cronjob；PersistentVolumeClaim→<名>-pvc
+注意：Service 的 selector 必须匹配对应 Deployment 的 Pod 标签（labels），不要用资源名去匹配。`
+
 // ErrConversationNotFound 表示 conversation_id 不存在或不属于当前用户。
 // 刻意不区分「不存在」与「他人所有」两种情形——对外统一同一语义，避免泄露会话存在性
 // （与 REST GetConversation 的 403 处理口径一致）。
@@ -151,7 +161,10 @@ func (r *Runner) Stream(ctx context.Context, userID uint, clusterID, convID stri
 	// 避免同一写操作被展示两次（暂存卡片 + 确认卡片）。
 	tools := append(traceTools(ReadTools(r.pool, clusterID, r.guard, userID), toolEmit, tracer),
 		WriteTools(r.pool, clusterID, r.guard, userID, stager)...)
-	run, err := r.newAgent(ctx, cm, tools, cfg.SystemPrompt, cfg.MaxSteps)
+	// 在用户配置的系统提示词之后追加固定的「创建命名规范」，使不论用户提示词如何，
+	// 新建资源都统一按 <业务名>-<类型后缀> 命名。
+	systemPrompt := strings.TrimSpace(cfg.SystemPrompt + "\n\n" + namingConventionRule)
+	run, err := r.newAgent(ctx, cm, tools, systemPrompt, cfg.MaxSteps)
 	if err != nil {
 		return err
 	}

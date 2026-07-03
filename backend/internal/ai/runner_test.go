@@ -318,6 +318,37 @@ func TestRunnerStreamEmitsTokensAndPersists(t *testing.T) {
 	}
 }
 
+// TestRunnerStreamAppendsNamingConvention 断言用户配置的系统提示词之后被追加了固定的
+// 命名规范（如 nginx-deploy/nginx-service），且保留了用户原提示词。
+func TestRunnerStreamAppendsNamingConvention(t *testing.T) {
+	db, cipher := testDB(t), testCipher(t)
+	store := NewStore(db, cipher)
+	if err := store.SaveConfig(ConfigInput{Enabled: true, BaseURL: "https://x/v1", APIKey: "k", ModelID: "m", SystemPrompt: "你是 K8s 助手"}); err != nil {
+		t.Fatal(err)
+	}
+	convs := NewConvStore(db)
+	r := NewRunner(store, convs, nil, NewGuard(stubAuthorizer{allow: true}))
+	r.buildModel = func(ctx context.Context, cfg Config) (einomodel.ToolCallingChatModel, error) { return nil, nil }
+	var gotPrompt string
+	r.newAgent = func(ctx context.Context, cm einomodel.ToolCallingChatModel, tools []tool.BaseTool, systemPrompt string, maxStep int) (streamFn, error) {
+		gotPrompt = systemPrompt
+		return func(ctx context.Context, msgs []*schema.Message) (*schema.StreamReader[*schema.Message], error) {
+			return schema.StreamReaderFromArray([]*schema.Message{{Role: schema.Assistant, Content: "ok"}}), nil
+		}, nil
+	}
+
+	convID, _ := convs.Create(1, "c1", "对话")
+	if err := r.Stream(context.Background(), 1, "c1", strconv.FormatUint(uint64(convID), 10), "创建 nginx", func(Event) {}); err != nil {
+		t.Fatalf("Stream: %v", err)
+	}
+	if !strings.Contains(gotPrompt, "你是 K8s 助手") {
+		t.Fatalf("user prompt not preserved: %q", gotPrompt)
+	}
+	if !strings.Contains(gotPrompt, "nginx-deploy") || !strings.Contains(gotPrompt, "命名规范") {
+		t.Fatalf("naming convention not appended: %q", gotPrompt)
+	}
+}
+
 // TestRunnerStreamRejectsBadConvID 无效 conversation_id 直接报错，不落库。
 func TestRunnerStreamRejectsBadConvID(t *testing.T) {
 	db, cipher := testDB(t), testCipher(t)
