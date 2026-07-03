@@ -51,9 +51,13 @@ client.interceptors.response.use(
     const data = error?.response?.data as Partial<ApiError> | undefined;
     const msg = data?.message || error?.message || 'Request failed';
 
-    if (status === 401) {
+    if (status === 401 && window.location.pathname === '/login') {
+      // A 401 on the login page is a failed sign-in attempt (wrong password /
+      // captcha), NOT an expired session — surface the server's reason.
+      message.error(msg);
+    } else if (status === 401) {
       useAuthStore.getState().logout();
-      if (!redirecting && window.location.pathname !== '/login') {
+      if (!redirecting) {
         redirecting = true;
         message.error('Session expired, please sign in again');
         window.location.assign('/login');
