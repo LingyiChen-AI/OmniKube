@@ -33,6 +33,13 @@ class ResizeObserverMock {
 }
 (globalThis as any).ResizeObserver = ResizeObserverMock;
 
+// jsdom throws "Not implemented" when getComputedStyle is called with a
+// pseudo-element arg, which AntD's scrollbar-size measuring does. Drop the
+// second argument so it resolves normally instead of spamming the test log.
+const realGetComputedStyle = window.getComputedStyle.bind(window);
+window.getComputedStyle = ((elt: Element) =>
+  realGetComputedStyle(elt)) as typeof window.getComputedStyle;
+
 if (!window.matchMedia) {
   // no-op
 }
