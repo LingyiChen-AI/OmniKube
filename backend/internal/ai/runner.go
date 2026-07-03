@@ -16,6 +16,11 @@ import (
 	dbmodel "omnikube/internal/model"
 )
 
+// ErrConversationNotFound 表示 conversation_id 不存在或不属于当前用户。
+// 刻意不区分「不存在」与「他人所有」两种情形——对外统一同一语义，避免泄露会话存在性
+// （与 REST GetConversation 的 403 处理口径一致）。
+var ErrConversationNotFound = errors.New("会话不存在或无权访问")
+
 // Event 是流式对话过程中回传给上层（WebSocket）的一帧事件。
 //   - token：模型输出的一段文本增量。
 //   - tool_call：模型发起的一次工具调用（Tool=工具名，Args=JSON 入参）。
@@ -73,7 +78,9 @@ func NewRunner(store *Store, convs *ConvStore, pool *cluster.ClusterPool, guard 
 }
 
 // Stream 跑一轮流式对话：
-//  1. 解析 convID，加载历史消息并转成 eino 消息序列，追加本轮用户输入；
+//  0. 解析 convID 并强制归属校验：会话必须存在且属于 userID，否则直接返回
+//     ErrConversationNotFound——不读历史、不落库、不跑 agent（防止越权读他人历史/写他人会话）；
+//  1. 加载历史消息并转成 eino 消息序列，追加本轮用户输入；
 //  2. 先把用户消息落库（即便后续出错也保留提问轨迹）；
 //  3. 加载 AI 配置，装配 model + 只读工具 + agent，流式运行；
 //  4. 消费 StreamReader：文本增量发 token、工具调用发 tool_call、工具消息发 tool_result；
@@ -84,6 +91,13 @@ func (r *Runner) Stream(ctx context.Context, userID uint, clusterID, convID stri
 	cid, err := strconv.ParseUint(strings.TrimSpace(convID), 10, 64)
 	if err != nil || cid == 0 {
 		return errors.New("无效的 conversation_id")
+	}
+
+	// 0. 归属校验（防越权）：会话必须存在且属于当前用户，否则一律 ErrConversationNotFound。
+	//    这一步必须先于任何历史读取/落库/agent 运行，任何调用方（含 WS）由此统一受保护。
+	conv, err := r.convs.Get(uint(cid))
+	if err != nil || conv.UserID != userID {
+		return ErrConversationNotFound
 	}
 
 	// 1. 历史 → eino 消息序列 + 本轮用户输入。
@@ -121,6 +135,9 @@ func (r *Runner) Stream(ctx context.Context, userID uint, clusterID, convID stri
 	defer sr.Close()
 
 	// 4. 消费流。
+	//    Phase-2 简化：这里把每个文本增量直接拼接成整段回答（fragment-concat），
+	//    未按 message index/工具轮次做分段还原；对当前单轮问答足够，后续如需多段
+	//    trace 再细化（对应 review #8）。
 	var full strings.Builder
 	var toolCalls []schema.ToolCall
 	for {
@@ -129,6 +146,15 @@ func (r *Runner) Stream(ctx context.Context, userID uint, clusterID, convID stri
 			break
 		}
 		if err != nil {
+			// 流中途出错：不能丢弃已累计的文本，否则前端已渲染的 token 与落库历史不一致。
+			// 把已累计的助手文本（加「…（已中断）」标记）落库，并发一帧终止事件（error），
+			// 让客户端渲染与持久化对齐，然后返回。
+			answer := full.String()
+			if answer != "" {
+				answer += "…（已中断）"
+			}
+			_ = r.convs.AppendMessage(uint(cid), "assistant", answer, marshalToolCalls(toolCalls))
+			emit(Event{Type: "error", Text: err.Error()})
 			return err
 		}
 		if chunk == nil {
@@ -153,14 +179,18 @@ func (r *Runner) Stream(ctx context.Context, userID uint, clusterID, convID stri
 	// 5. done + 助手消息落库（含工具调用轨迹 JSON，便于前端还原 tool-step trace）。
 	answer := full.String()
 	emit(Event{Type: "done", Text: answer})
+	return r.convs.AppendMessage(uint(cid), "assistant", answer, marshalToolCalls(toolCalls))
+}
 
-	var toolCallsJSON string
-	if len(toolCalls) > 0 {
-		if raw, err := json.Marshal(toolCalls); err == nil {
-			toolCallsJSON = string(raw)
-		}
+// marshalToolCalls 把工具调用轨迹序列化为 JSON 字符串；无调用或序列化失败时返回空串。
+func marshalToolCalls(toolCalls []schema.ToolCall) string {
+	if len(toolCalls) == 0 {
+		return ""
 	}
-	return r.convs.AppendMessage(uint(cid), "assistant", answer, toolCallsJSON)
+	if raw, err := json.Marshal(toolCalls); err == nil {
+		return string(raw)
+	}
+	return ""
 }
 
 // toSchemaMessages 把持久化的会话历史转成 eino 消息序列（仅取 user/assistant 文本；

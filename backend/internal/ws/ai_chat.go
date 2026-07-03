@@ -1,14 +1,20 @@
 package ws
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 
 	"omnikube/internal/ai"
 )
+
+// aiWriteWait 是单帧 WS 写超时：死客户端不能阻塞流式 goroutine。
+const aiWriteWait = 10 * time.Second
 
 // AIChatHandler GET /api/v1/ai/chat —— AI 助手流式对话（只读 agent）。
 //
@@ -35,6 +41,12 @@ func (h *Handler) AIChatHandler(c *gin.Context) {
 	}
 	userID := claims.UserID
 
+	// 升级前先校验 cluster_id 在连接池中（与 authorizeWS 一致），未知集群直接 400。
+	if _, ok := h.Pool.Get(clusterID); !ok {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的 cluster_id"})
+		return
+	}
+
 	// 升级前先读一次 AI 状态元信息（不解密 key）。
 	store := ai.NewStore(h.DB, h.Cipher)
 	cfg, err := store.LoadConfigMeta()
@@ -57,27 +69,69 @@ func (h *Handler) AIChatHandler(c *gin.Context) {
 
 	runner := ai.NewRunner(store, ai.NewConvStore(h.DB), h.Pool, ai.NewGuard(store, h.RBAC))
 
-	for {
-		_, data, err := conn.ReadMessage()
-		if err != nil {
-			return // 客户端关闭或读错误，退出循环。
-		}
-		var in struct {
-			Type           string      `json:"type"`
-			ConversationID json.Number `json:"conversation_id"`
-			Text           string      `json:"text"`
-		}
-		if err := json.Unmarshal(data, &in); err != nil {
-			writeAIFrame(conn, ai.Event{Type: "error", Text: "消息格式错误"})
-			continue
-		}
-		if in.Type != "user_message" || in.Text == "" {
-			continue // 忽略非对话帧 / 空输入。
-		}
+	// 连接级可取消上下文：客户端断开（下方读 goroutine 检测到 ReadMessage 出错）即 cancel，
+	// 令在飞的 Runner.Stream 感知取消、停止烧模型 token（用户关标签页 = 立即止损）。
+	ctx, cancel := context.WithCancel(c.Request.Context())
+	defer cancel()
 
-		emit := func(ev ai.Event) { writeAIFrame(conn, ev) }
-		if err := runner.Stream(c.Request.Context(), userID, clusterID, in.ConversationID.String(), in.Text, emit); err != nil {
-			writeAIFrame(conn, ai.Event{Type: "error", Text: err.Error()})
+	// gorilla 不允许并发读，故由单个读 goroutine 统一收帧：正常帧投递到 msgCh，
+	// 读到错误（断开）→ cancel + 关闭 msgCh，主循环随之退出。
+	msgCh := make(chan []byte)
+	go func() {
+		defer cancel()
+		defer close(msgCh)
+		for {
+			_, data, err := conn.ReadMessage()
+			if err != nil {
+				return
+			}
+			select {
+			case msgCh <- data:
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case data, ok := <-msgCh:
+			if !ok {
+				return // 读 goroutine 已退出（客户端关闭）。
+			}
+			var in struct {
+				Type           string      `json:"type"`
+				ConversationID json.Number `json:"conversation_id"`
+				Text           string      `json:"text"`
+			}
+			if err := json.Unmarshal(data, &in); err != nil {
+				writeAIFrame(conn, ai.Event{Type: "error", Text: "消息格式错误"})
+				continue
+			}
+			if in.Type != "user_message" || in.Text == "" {
+				continue // 忽略非对话帧 / 空输入。
+			}
+
+			// terminated 记录 Stream 是否已自行下发终止帧（done/error）。中途出错时
+			// Runner.Stream 已发过 error 帧并落库，这里就不再重复补发，避免双重终止帧；
+			// 而握手前/流启动前的错误（归属、配置、装配失败）尚未发过任何帧，需在此补一帧。
+			terminated := false
+			emit := func(ev ai.Event) {
+				if ev.Type == "done" || ev.Type == "error" {
+					terminated = true
+				}
+				writeAIFrame(conn, ev)
+			}
+			if err := runner.Stream(ctx, userID, clusterID, in.ConversationID.String(), in.Text, emit); err != nil && !terminated {
+				// 归属校验失败：不区分「不存在」与「他人所有」，统一口径（镜像 REST 403 文案）。
+				msg := err.Error()
+				if errors.Is(err, ai.ErrConversationNotFound) {
+					msg = "无权访问该会话"
+				}
+				writeAIFrame(conn, ai.Event{Type: "error", Text: msg})
+			}
 		}
 	}
 }
@@ -89,5 +143,7 @@ func writeAIFrame(conn *websocket.Conn, ev ai.Event) {
 	if err != nil {
 		return
 	}
+	// 每帧写超时：死客户端不能无限期阻塞流式 goroutine。
+	_ = conn.SetWriteDeadline(time.Now().Add(aiWriteWait))
 	_ = conn.WriteMessage(websocket.TextMessage, payload)
 }

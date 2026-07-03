@@ -76,12 +76,13 @@ func newWSEnv(t *testing.T) (*httptest.Server, *gorm.DB, *Handler) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	h := &Handler{DB: db, JWT: jm, Pool: pool, RBAC: svc}
+	h := &Handler{DB: db, JWT: jm, Pool: pool, RBAC: svc, Cipher: ci}
 
 	r := gin.New()
 	api := r.Group("/api/v1")
 	api.GET("/exec", h.ExecHandler)
 	api.GET("/logs", h.LogHandler)
+	api.GET("/ai/chat", h.AIChatHandler)
 
 	srv := httptest.NewServer(r)
 	t.Cleanup(srv.Close)

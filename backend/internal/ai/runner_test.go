@@ -2,6 +2,7 @@ package ai
 
 import (
 	"context"
+	"errors"
 	"strconv"
 	"testing"
 
@@ -89,5 +90,110 @@ func TestRunnerStreamRejectsBadConvID(t *testing.T) {
 	err := r.Stream(context.Background(), 1, "c1", "0", "hi", func(Event) {})
 	if err == nil {
 		t.Fatal("expected error for conversation_id=0")
+	}
+}
+
+// TestRunnerStreamRejectsCrossUserConv 归属校验：user2 拿 user1 的会话 id 流式对话，
+// 必须被 ErrConversationNotFound 拒绝，且「什么都不落库」——不读历史、不追加用户消息、
+// 不跑 agent（newAgent 若被调用则测试失败）。
+func TestRunnerStreamRejectsCrossUserConv(t *testing.T) {
+	db, cipher := testDB(t), testCipher(t)
+	store := NewStore(db, cipher)
+	convs := NewConvStore(db)
+	guard := NewGuard(store, nil)
+
+	r := NewRunner(store, convs, nil, guard)
+	r.buildModel = func(ctx context.Context, cfg Config) (einomodel.ToolCallingChatModel, error) {
+		return nil, nil
+	}
+	// agent 绝不应被装配：越权应在读历史/落库之前短路。
+	r.newAgent = func(ctx context.Context, cm einomodel.ToolCallingChatModel, tools []tool.BaseTool, systemPrompt string, maxStep int) (streamFn, error) {
+		t.Fatal("newAgent must not be called for a cross-user conversation")
+		return nil, nil
+	}
+
+	// user1 拥有会话，user2 尝试借用它。
+	convID, err := convs.Create(1, "c1", "user1 的会话")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var events []Event
+	err = r.Stream(context.Background(), 2, "c1", strconv.FormatUint(uint64(convID), 10), "偷看历史", func(e Event) {
+		events = append(events, e)
+	})
+	if !errors.Is(err, ErrConversationNotFound) {
+		t.Fatalf("expected ErrConversationNotFound, got %v", err)
+	}
+	if len(events) != 0 {
+		t.Fatalf("expected no events emitted, got %+v", events)
+	}
+	// 什么都不该落库（连 user 提问都不该写入他人会话）。
+	msgs, err := convs.Messages(convID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(msgs) != 0 {
+		t.Fatalf("expected nothing persisted, got %d: %+v", len(msgs), msgs)
+	}
+}
+
+// TestRunnerStreamPersistsPartialOnMidStreamError 中途出错：流吐出一个 chunk 后返回
+// 非 EOF 错误。断言——已累计的助手文本被落库（带「已中断」标记），且 emit 收到终止帧
+// （error），Stream 返回该错误。
+func TestRunnerStreamPersistsPartialOnMidStreamError(t *testing.T) {
+	db, cipher := testDB(t), testCipher(t)
+	store := NewStore(db, cipher)
+	if err := store.SaveConfig(ConfigInput{Enabled: true, BaseURL: "https://x/v1", APIKey: "k", ModelID: "m", SystemPrompt: "你是 K8s 助手"}); err != nil {
+		t.Fatal(err)
+	}
+	convs := NewConvStore(db)
+	guard := NewGuard(store, nil)
+
+	r := NewRunner(store, convs, nil, guard)
+	r.buildModel = func(ctx context.Context, cfg Config) (einomodel.ToolCallingChatModel, error) {
+		return nil, nil
+	}
+	boom := errors.New("上游连接中断")
+	r.newAgent = func(ctx context.Context, cm einomodel.ToolCallingChatModel, tools []tool.BaseTool, systemPrompt string, maxStep int) (streamFn, error) {
+		return func(ctx context.Context, msgs []*schema.Message) (*schema.StreamReader[*schema.Message], error) {
+			sr, sw := schema.Pipe[*schema.Message](2)
+			go func() {
+				sw.Send(&schema.Message{Role: schema.Assistant, Content: "default 命名空间有 "}, nil)
+				sw.Send(nil, boom) // 中途注入非 EOF 错误。
+				sw.Close()
+			}()
+			return sr, nil
+		}, nil
+	}
+
+	convID, err := convs.Create(1, "c1", "对话")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var events []Event
+	err = r.Stream(context.Background(), 1, "c1", strconv.FormatUint(uint64(convID), 10), "列出部署", func(e Event) {
+		events = append(events, e)
+	})
+	if !errors.Is(err, boom) {
+		t.Fatalf("expected mid-stream error returned, got %v", err)
+	}
+
+	// 终止帧应为 error（而非 done）。
+	if len(events) == 0 || events[len(events)-1].Type != "error" {
+		t.Fatalf("expected terminal error frame, got %+v", events)
+	}
+
+	// 部分助手文本已落库（user + assistant 两条），且带「已中断」标记。
+	msgs, err := convs.Messages(convID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(msgs) != 2 || msgs[1].Role != "assistant" {
+		t.Fatalf("expected user+assistant persisted, got %d: %+v", len(msgs), msgs)
+	}
+	if want := "default 命名空间有 …（已中断）"; msgs[1].Content != want {
+		t.Fatalf("partial assistant content mismatch: got %q want %q", msgs[1].Content, want)
 	}
 }
