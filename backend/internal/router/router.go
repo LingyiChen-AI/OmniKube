@@ -55,6 +55,8 @@ func New(h *handler.Handler, jm *auth.JWTManager) *gin.Engine {
 			authed.GET("/ai/conversations", h.ListConversations)
 			authed.POST("/ai/conversations", h.CreateConversation)
 			authed.GET("/ai/conversations/:id", h.GetConversation)
+			// 确认/取消上一轮暂存的 AI 写操作（WS 断线兜底；handler 内强制归属校验）。
+			authed.POST("/ai/conversations/:id/confirm", h.ConfirmConversation)
 
 			// 集群管理：JWTAuth + per-端点 global-perm（admin 旁路；注意 /my/clusters 不在此组）
 			clusters := authed.Group("/clusters")

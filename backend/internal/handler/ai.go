@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -163,4 +164,41 @@ func (h *Handler) GetConversation(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"conversation": conv, "messages": msgs})
+}
+
+type confirmConvReq struct {
+	Approved bool `json:"approved"`
+}
+
+// ConfirmConversation POST /ai/conversations/:id/confirm —— WS 断线后的 REST 兜底：
+// 对上一轮暂存的写操作确认(approved=true)/取消(false)。Runner.Confirm 内部再做归属
+// 校验与二次过闸门；本处把逐帧 Event 收集进 JSON 数组一次性返回（重连客户端据此渲染）。
+func (h *Handler) ConfirmConversation(c *gin.Context) {
+	userID := c.MustGet("user_id").(uint)
+	if _, err := strconv.ParseUint(c.Param("id"), 10, 64); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的会话 id"})
+		return
+	}
+	var req confirmConvReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
+		return
+	}
+
+	store := h.aiStore()
+	runner := ai.NewRunner(store, h.aiConvStore(), h.Pool, ai.NewGuard(store, h.RBAC))
+	var events []ai.Event
+	err := runner.Confirm(c.Request.Context(), userID, "", c.Param("id"), req.Approved, func(e ai.Event) {
+		events = append(events, e)
+	})
+	if err != nil {
+		// 归属校验失败 → 403（不区分不存在/他人所有，统一口径）。
+		if errors.Is(err, ai.ErrConversationNotFound) {
+			c.JSON(http.StatusForbidden, gin.H{"code": 403, "message": "无权访问该会话"})
+			return
+		}
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"events": events})
 }

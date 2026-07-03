@@ -105,18 +105,16 @@ func (h *Handler) AIChatHandler(c *gin.Context) {
 				Type           string      `json:"type"`
 				ConversationID json.Number `json:"conversation_id"`
 				Text           string      `json:"text"`
+				Approved       bool        `json:"approved"`
 			}
 			if err := json.Unmarshal(data, &in); err != nil {
 				writeAIFrame(conn, ai.Event{Type: "error", Text: "消息格式错误"})
 				continue
 			}
-			if in.Type != "user_message" || in.Text == "" {
-				continue // 忽略非对话帧 / 空输入。
-			}
 
-			// terminated 记录 Stream 是否已自行下发终止帧（done/error）。中途出错时
-			// Runner.Stream 已发过 error 帧并落库，这里就不再重复补发，避免双重终止帧；
-			// 而握手前/流启动前的错误（归属、配置、装配失败）尚未发过任何帧，需在此补一帧。
+			// terminated 记录 Runner 是否已自行下发终止帧（done/error）。中途出错时
+			// Runner 已发过 error 帧并落库，这里就不再重复补发，避免双重终止帧；
+			// 而归属/装配等启动前错误尚未发过任何帧，需在此补一帧。
 			terminated := false
 			emit := func(ev ai.Event) {
 				if ev.Type == "done" || ev.Type == "error" {
@@ -124,7 +122,22 @@ func (h *Handler) AIChatHandler(c *gin.Context) {
 				}
 				writeAIFrame(conn, ev)
 			}
-			if err := runner.Stream(ctx, userID, clusterID, in.ConversationID.String(), in.Text, emit); err != nil && !terminated {
+
+			// 依据帧类型分派：user_message 走一轮对话；confirm 走暂存写操作的确认/取消。
+			// username 暂传空串：JWT 声明不含用户名，且审计表以数字 UserID 记 actor。
+			var err error
+			switch in.Type {
+			case "user_message":
+				if in.Text == "" {
+					continue // 忽略空输入。
+				}
+				err = runner.Stream(ctx, userID, clusterID, in.ConversationID.String(), in.Text, emit)
+			case "confirm":
+				err = runner.Confirm(ctx, userID, "", in.ConversationID.String(), in.Approved, emit)
+			default:
+				continue // 忽略未知帧类型。
+			}
+			if err != nil && !terminated {
 				// 归属校验失败：不区分「不存在」与「他人所有」，统一口径（镜像 REST 403 文案）。
 				msg := err.Error()
 				if errors.Is(err, ai.ErrConversationNotFound) {
