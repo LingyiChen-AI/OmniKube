@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { App as AntApp, Button, Card, Col, Form, Input, InputNumber, Row, Select, Switch } from 'antd';
+import { App as AntApp, Button, Card, Col, Collapse, Empty, Form, Input, InputNumber, Row, Skeleton, Switch } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { aiApi } from '../../api/ai';
 import { useClusterStore } from '../../store/clusters';
@@ -16,14 +16,65 @@ const DEFAULT_SYSTEM_PROMPT = `你是 OmniKube,一个 Kubernetes 多集群运维
 - 不确定现状时先查询再行动;优先用最小、安全的操作达成目标。
 - 回答简洁准确,使用中文;涉及资源时给出命名空间与名称。`;
 
+/** Per-cluster AI permission matrix: lazily loads that cluster's grants when the
+ *  panel is expanded, edits locally, and saves independently. */
+function ClusterGrantPanel({ clusterId }: { clusterId: string }) {
+  const { t } = useTranslation();
+  const { message } = AntApp.useApp();
+  const [ops, setOps] = useState<Operations>({});
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    aiApi
+      .getGrants(clusterId)
+      .then((o) => {
+        if (active) {
+          setOps(o);
+          setLoading(false);
+        }
+      })
+      .catch(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [clusterId]);
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      await aiApi.putGrants(clusterId, ops);
+      message.success(t('ai.saved'));
+    } catch {
+      /* interceptor toast */
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) return <Skeleton active paragraph={{ rows: 4 }} />;
+  return (
+    <>
+      <ResourceOpsMatrix operations={ops} onChange={setOps} />
+      <div style={{ marginTop: 12 }}>
+        <Button type="primary" loading={saving} onClick={save}>
+          {t('ai.save')}
+        </Button>
+      </div>
+    </>
+  );
+}
+
 export default function AiConfig() {
   const { t } = useTranslation();
   const { message } = AntApp.useApp();
   const [form] = Form.useForm();
   const [hasKey, setHasKey] = useState(false);
   const { clusters, load: loadClusters } = useClusterStore();
-  const [grantCluster, setGrantCluster] = useState<string>();
-  const [ops, setOps] = useState<Operations>({});
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -44,17 +95,6 @@ export default function AiConfig() {
       active = false;
     };
   }, [form]);
-  useEffect(() => {
-    if (!grantCluster) return;
-    let active = true;
-    setOps({});
-    aiApi.getGrants(grantCluster).then((o) => {
-      if (active) setOps(o);
-    });
-    return () => {
-      active = false;
-    };
-  }, [grantCluster]);
 
   const saveConfig = async () => {
     const v = await form.validateFields();
@@ -63,18 +103,6 @@ export default function AiConfig() {
       await aiApi.putConfig(v);
       message.success(t('ai.saved'));
       setHasKey(!!v.api_key || hasKey);
-    } catch {
-      /* interceptor toast */
-    } finally {
-      setSaving(false);
-    }
-  };
-  const saveGrants = async () => {
-    if (!grantCluster) return;
-    setSaving(true);
-    try {
-      await aiApi.putGrants(grantCluster, ops);
-      message.success(t('ai.saved'));
     } catch {
       /* interceptor toast */
     } finally {
@@ -126,22 +154,18 @@ export default function AiConfig() {
       </Card>
 
       <Card title={t('ai.permScope')}>
-        <Select
-          style={{ width: 280, marginBottom: 12 }}
-          placeholder={t('ai.selectCluster')}
-          value={grantCluster}
-          onChange={setGrantCluster}
-          options={clusters.map((c) => ({ value: c.id, label: c.name || c.id }))}
-        />
-        {grantCluster && (
-          <>
-            <ResourceOpsMatrix operations={ops} onChange={setOps} />
-            <div style={{ marginTop: 12 }}>
-              <Button type="primary" loading={saving} onClick={saveGrants}>
-                {t('ai.save')}
-              </Button>
-            </div>
-          </>
+        {clusters.length === 0 ? (
+          <Empty description={t('ai.noClusters')} />
+        ) : (
+          <Collapse
+            accordion
+            destroyInactivePanel
+            items={clusters.map((c) => ({
+              key: c.id,
+              label: c.name || c.id,
+              children: <ClusterGrantPanel clusterId={c.id} />,
+            }))}
+          />
         )}
       </Card>
     </div>

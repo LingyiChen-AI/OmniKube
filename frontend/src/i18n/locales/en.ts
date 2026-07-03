@@ -32,6 +32,7 @@ const en = {
     cluster: 'Cluster',
     namespace: 'Namespace',
     selectCluster: 'Select cluster',
+    noClusters: 'No clusters',
     allNamespaces: 'All namespaces',
     lightMode: 'Light mode',
     darkMode: 'Dark mode',

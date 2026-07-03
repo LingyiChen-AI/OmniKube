@@ -34,6 +34,7 @@ const fr: Resources = {
     cluster: 'Cluster',
     namespace: 'Espace de noms',
     selectCluster: 'Sélectionner un cluster',
+    noClusters: 'Aucun cluster',
     allNamespaces: 'Tous les namespaces',
     lightMode: 'Mode clair',
     darkMode: 'Mode sombre',

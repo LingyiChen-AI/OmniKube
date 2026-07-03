@@ -34,6 +34,7 @@ const ko: Resources = {
     cluster: '클러스터',
     namespace: '네임스페이스',
     selectCluster: '클러스터 선택',
+    noClusters: '클러스터 없음',
     allNamespaces: '모든 Namespace',
     lightMode: '라이트 모드',
     darkMode: '다크 모드',

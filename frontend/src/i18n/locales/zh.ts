@@ -34,6 +34,7 @@ const zh: Resources = {
     cluster: '集群',
     namespace: '命名空间',
     selectCluster: '选择集群',
+    noClusters: '暂无集群',
     allNamespaces: '全部命名空间',
     lightMode: '浅色模式',
     darkMode: '深色模式',

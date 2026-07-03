@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen, waitFor, fireEvent } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from './render';
 import { aiApi } from '../api/ai';
@@ -44,12 +44,13 @@ describe('AiConfig', () => {
     );
   });
 
-  it('loads grants when a cluster is selected', async () => {
+  it('loads grants when a cluster panel is expanded', async () => {
+    const user = userEvent.setup({ delay: null });
     renderWithProviders(<AiConfig />);
     await waitFor(() => expect(screen.getByLabelText(/base ?url/i)).toBeInTheDocument());
 
-    fireEvent.mouseDown(document.querySelector('.ant-select-selector')!);
-    fireEvent.click(await screen.findByText('C1'));
+    // Each cluster has its own collapsible panel; expanding one loads its grants.
+    await user.click(screen.getByText('C1'));
 
     await waitFor(() => expect(aiApi.getGrants).toHaveBeenCalledWith('c1'));
   });

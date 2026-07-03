@@ -34,6 +34,7 @@ const ja: Resources = {
     cluster: 'クラスター',
     namespace: 'ネームスペース',
     selectCluster: 'クラスターを選択',
+    noClusters: 'クラスタなし',
     allNamespaces: 'すべての Namespace',
     lightMode: 'ライトモード',
     darkMode: 'ダークモード',
