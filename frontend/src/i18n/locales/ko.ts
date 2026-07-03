@@ -685,6 +685,8 @@ const ko: Resources = {
     subtitle: '이 페이지를 볼 수 있는 권한이 없습니다.',
   },
   ai: {
+    executing: '실행 중…',
+    done: '완료',
     toolCall: '호출',
     history: '기록',
     followsUserPermsTitle: 'AI 권한은 사용자 따름',

@@ -283,6 +283,24 @@ describe('AiAssistant write confirmation card', () => {
     expect(confirmConversationMock).not.toHaveBeenCalled();
   });
 
+  it('streams the execution result into the same card (no new bubble)', async () => {
+    const { user, ws } = await stageConfirm();
+    const bubblesBefore = document.querySelectorAll('.ok-ai-bubble').length;
+
+    await user.click(await screen.findByRole('button', { name: /确认执行|^confirm$/i }));
+    // Backend streams the outcome as text (token) then done — no tool cards.
+    act(() => {
+      ws.emit({ type: 'token', text: '✅ 已执行 update deployments default/nginx' });
+      ws.emit({ type: 'done', text: '✅ 已执行 update deployments default/nginx' });
+    });
+
+    await waitFor(() =>
+      expect(screen.getByText(/已执行 update deployments default\/nginx/)).toBeInTheDocument(),
+    );
+    // The result renders inside the existing bubble — no extra bubble was opened.
+    expect(document.querySelectorAll('.ok-ai-bubble').length).toBe(bubblesBefore);
+  });
+
   it('sends approved:false on 取消', async () => {
     const { user, ws } = await stageConfirm();
 

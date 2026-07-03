@@ -685,6 +685,8 @@ const es: Resources = {
     subtitle: 'No tienes permiso para ver esta página.',
   },
   ai: {
+    executing: 'Ejecutando…',
+    done: 'Hecho',
     toolCall: 'Llamada',
     history: 'Historial',
     followsUserPermsTitle: 'La IA sigue los permisos del usuario',

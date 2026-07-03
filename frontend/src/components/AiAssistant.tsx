@@ -30,6 +30,8 @@ interface ToolStep {
 interface PendingConfirm {
   actions: StagedAction[];
   resolved: boolean; // true once the user clicked confirm/cancel (disables the buttons)
+  running?: boolean; // true while the confirmed action executes (shows a spinner)
+  result?: string; // execution outcome text, streamed into THIS card (not a new bubble)
 }
 
 interface ChatMessage {
@@ -330,7 +332,13 @@ export default function AiAssistant() {
       }
       switch (frame.type) {
         case 'token':
-          updateLastAssistant((m) => ({ ...m, content: m.content + (frame.text ?? '') }));
+          updateLastAssistant((m) =>
+            // While a confirmed write is executing, stream the outcome text into
+            // the confirm card (same bubble) rather than the message body.
+            m.confirm?.resolved
+              ? { ...m, confirm: { ...m.confirm, result: (m.confirm.result ?? '') + (frame.text ?? '') } }
+              : { ...m, content: m.content + (frame.text ?? '') },
+          );
           break;
         case 'tool_call':
           updateLastAssistant((m) => ({
@@ -351,11 +359,14 @@ export default function AiAssistant() {
           });
           break;
         case 'confirm_required':
+          // The turn is paused waiting for the user — stop the streaming spinner;
+          // the composer stays disabled via pendingConfirm until they resolve it.
           updateLastAssistant((m) => ({
             ...m,
             content: m.content || (frame.text ?? ''),
             confirm: { actions: frame.actions ?? [], resolved: false },
           }));
+          setStreaming(false);
           break;
         case 'error':
           updateLastAssistant((m) => ({
@@ -365,6 +376,7 @@ export default function AiAssistant() {
           setStreaming(false);
           break;
         case 'done':
+          updateLastAssistant((m) => (m.confirm?.running ? { ...m, confirm: { ...m.confirm, running: false } } : m));
           setStreaming(false);
           break;
       }
@@ -461,17 +473,11 @@ export default function AiAssistant() {
   const resolveConfirm = useCallback(
     async (approved: boolean) => {
       if (!activeConv) return;
-      // Freeze the confirm card on its bubble, then open a fresh assistant bubble
-      // for the execution result so it reads as a clear reply (not a buried tool
-      // card). Subsequent token/done frames stream into this new bubble.
-      setMessages((prev) => {
-        const copy = prev.slice();
-        const li = copy.length - 1;
-        if (li >= 0 && copy[li].role === 'assistant' && copy[li].confirm) {
-          copy[li] = { ...copy[li], confirm: { ...copy[li].confirm!, resolved: true } };
-        }
-        return [...copy, { role: 'assistant', content: '', tools: [] }];
-      });
+      // Mark the card resolved + running; the execution outcome streams as text
+      // INTO this same card (see handleFrame 'token'), not a separate bubble.
+      updateLastAssistant((m) =>
+        m.confirm ? { ...m, confirm: { ...m.confirm, resolved: true, running: true, result: '' } } : m,
+      );
       setStreaming(true);
       const payload = { type: 'confirm' as const, conversation_id: activeConv, approved };
       const ws = socketRef.current;
@@ -488,7 +494,7 @@ export default function AiAssistant() {
         message.error(t('ai.error'));
       }
     },
-    [activeConv, handleFrame, message, t],
+    [activeConv, handleFrame, updateLastAssistant, message, t],
   );
 
   // A reloaded (or just-staged) conversation may hold an unresolved write card;
@@ -892,14 +898,36 @@ function ConfirmCard({ confirm, onConfirm }: { confirm: PendingConfirm; onConfir
             </div>
           ))}
         </div>
-        <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-          <Button type="primary" size="small" disabled={confirm.resolved} onClick={() => onConfirm?.(true)}>
-            {t('ai.confirmRun')}
-          </Button>
-          <Button size="small" disabled={confirm.resolved} onClick={() => onConfirm?.(false)}>
-            {t('ai.cancel')}
-          </Button>
-        </div>
+        {!confirm.resolved && (
+          <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+            <Button type="primary" size="small" onClick={() => onConfirm?.(true)}>
+              {t('ai.confirmRun')}
+            </Button>
+            <Button size="small" onClick={() => onConfirm?.(false)}>
+              {t('ai.cancel')}
+            </Button>
+          </div>
+        )}
+        {/* Execution outcome streams into the card itself (proper ReAct: the new
+            state as text, not a tool-call trace). */}
+        {confirm.resolved && (
+          <div className="ok-ai-confirm__result">
+            {confirm.running && !confirm.result ? (
+              <Typography.Text type="secondary" style={{ fontSize: 12.5 }}>
+                <span className="ok-ai-thinking" style={{ marginRight: 6 }}>
+                  <span />
+                  <span />
+                  <span />
+                </span>
+                {t('ai.executing')}
+              </Typography.Text>
+            ) : (
+              <div className="ok-ai-md">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{confirm.result || t('ai.done')}</ReactMarkdown>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

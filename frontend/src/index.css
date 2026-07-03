@@ -936,6 +936,12 @@ body[data-theme='dark'] {
   font-size: 11.5px;
   font-weight: 600;
 }
+.ok-ai-confirm__result {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--ok-ai-warn-border);
+  font-size: 13px;
+}
 .ok-ai-tag--create { background: rgba(34, 197, 94, 0.15); color: #16a34a; }
 .ok-ai-tag--update { background: rgba(245, 158, 11, 0.15); color: #d97706; }
 .ok-ai-tag--delete { background: rgba(239, 68, 68, 0.15); color: #dc2626; }

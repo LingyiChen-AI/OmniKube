@@ -685,6 +685,8 @@ const ja: Resources = {
     subtitle: 'このページを表示する権限がありません。',
   },
   ai: {
+    executing: '実行中…',
+    done: '完了',
     toolCall: '呼び出し',
     history: '履歴',
     followsUserPermsTitle: 'AI 権限はユーザーに追従',

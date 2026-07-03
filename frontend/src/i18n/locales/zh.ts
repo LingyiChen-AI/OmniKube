@@ -685,6 +685,8 @@ const zh: Resources = {
     subtitle: '您没有权限查看此页面。',
   },
   ai: {
+    executing: '执行中…',
+    done: '已完成',
     toolCall: '调用',
     history: '历史记录',
     followsUserPermsTitle: 'AI 权限跟随用户',

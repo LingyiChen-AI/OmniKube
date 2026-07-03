@@ -685,6 +685,8 @@ const fr: Resources = {
     subtitle: "Vous n'avez pas l'autorisation de voir cette page.",
   },
   ai: {
+    executing: 'Exécution…',
+    done: 'Terminé',
     toolCall: 'Appel',
     history: 'Historique',
     followsUserPermsTitle: 'L’IA suit les permissions de l’utilisateur',

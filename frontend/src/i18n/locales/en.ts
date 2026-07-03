@@ -683,6 +683,8 @@ const en = {
     subtitle: "You don't have permission to view this page.",
   },
   ai: {
+    executing: 'Executing…',
+    done: 'Done',
     toolCall: 'Call',
     history: 'History',
     followsUserPermsTitle: 'AI follows user permissions',

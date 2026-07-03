@@ -685,6 +685,8 @@ const de: Resources = {
     subtitle: 'Sie haben keine Berechtigung, diese Seite anzuzeigen.',
   },
   ai: {
+    executing: 'Wird ausgeführt…',
+    done: 'Fertig',
     toolCall: 'Aufruf',
     history: 'Verlauf',
     followsUserPermsTitle: 'KI folgt Benutzerrechten',
