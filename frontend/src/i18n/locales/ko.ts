@@ -396,6 +396,7 @@ const ko: Resources = {
       networking: '네트워킹',
       storage: '스토리지',
       nodes: '노드',
+      cluster: '클러스터',
     },
     resource: {
       deployments: '디플로이먼트',
@@ -411,6 +412,8 @@ const ko: Resources = {
       persistentvolumeclaims: '영구 볼륨 클레임',
       persistentvolumes: '영구 볼륨',
       nodes: '노드',
+      namespaces: '네임스페이스',
+      events: '이벤트',
     },
     action: {
       view: '보기',

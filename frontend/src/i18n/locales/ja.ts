@@ -396,6 +396,7 @@ const ja: Resources = {
       networking: 'ネットワーク',
       storage: 'ストレージ',
       nodes: 'ノード',
+      cluster: 'クラスター',
     },
     resource: {
       deployments: 'デプロイメント',
@@ -411,6 +412,8 @@ const ja: Resources = {
       persistentvolumeclaims: '永続ボリューム要求',
       persistentvolumes: '永続ボリューム',
       nodes: 'ノード',
+      namespaces: 'ネームスペース',
+      events: 'イベント',
     },
     action: {
       view: '表示',

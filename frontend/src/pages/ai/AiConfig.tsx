@@ -5,7 +5,7 @@ import { aiApi } from '../../api/ai';
 import { useClusterStore } from '../../store/clusters';
 import { ResourceOpsMatrix } from '../roles/Roles';
 import CodeBox from '../../components/editor/CodeBox';
-import type { Operations } from '../../api/role';
+import { AI_EXTRA_RESOURCES, type Operations } from '../../api/role';
 
 /** Default OmniKube system prompt shown when none is configured yet. */
 const DEFAULT_SYSTEM_PROMPT = `你是 OmniKube,一个 Kubernetes 多集群运维助手。你在用户当前选中的集群里,按用户的自然语言帮助查询和操作资源(部署、Pod、服务、配置等)。
@@ -59,7 +59,7 @@ function ClusterGrantPanel({ clusterId }: { clusterId: string }) {
   if (loading) return <Skeleton active paragraph={{ rows: 4 }} />;
   return (
     <>
-      <ResourceOpsMatrix operations={ops} onChange={setOps} />
+      <ResourceOpsMatrix operations={ops} onChange={setOps} extraResources={AI_EXTRA_RESOURCES} />
       <div style={{ marginTop: 12 }}>
         <Button type="primary" loading={saving} onClick={save}>
           {t('ai.save')}

@@ -396,6 +396,7 @@ const de: Resources = {
       networking: 'Netzwerk',
       storage: 'Speicher',
       nodes: 'Knoten',
+      cluster: 'Cluster',
     },
     resource: {
       deployments: 'Deployments',
@@ -411,6 +412,8 @@ const de: Resources = {
       persistentvolumeclaims: 'PersistentVolumeClaims',
       persistentvolumes: 'PersistentVolumes',
       nodes: 'Knoten',
+      namespaces: 'Namespaces',
+      events: 'Ereignisse',
     },
     action: {
       view: 'Anzeigen',

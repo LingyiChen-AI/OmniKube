@@ -396,6 +396,7 @@ const fr: Resources = {
       networking: 'Réseau',
       storage: 'Stockage',
       nodes: 'Nœuds',
+      cluster: 'Cluster',
     },
     resource: {
       deployments: 'Déploiements',
@@ -411,6 +412,8 @@ const fr: Resources = {
       persistentvolumeclaims: 'PersistentVolumeClaims',
       persistentvolumes: 'PersistentVolumes',
       nodes: 'Nœuds',
+      namespaces: 'Namespaces',
+      events: 'Évènements',
     },
     action: {
       view: 'Voir',

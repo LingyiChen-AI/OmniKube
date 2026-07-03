@@ -59,6 +59,15 @@ export function isClusterScopedResource(resource: string): boolean {
   return CLUSTER_SCOPED_RESOURCES.includes(resource);
 }
 
+/**
+ * Extra cluster-level resources the AI assistant can be granted read access to,
+ * beyond the nav catalog. `namespaces`/`events` have no management page (so they
+ * aren't in MODULE_RESOURCES / nav), but the assistant genuinely needs to read
+ * them ("列出命名空间", "最近事件"). Rendered as an extra matrix group in the AI
+ * grant page only. Both are cluster-scoped and effectively read-only for the AI.
+ */
+export const AI_EXTRA_RESOURCES: readonly string[] = ['namespaces', 'events'];
+
 /** Drop grants for cluster-scoped resources (used when a rule becomes namespace-scoped). */
 export function stripClusterScopedOps(ops: Operations): Operations {
   const out: Operations = {};
@@ -82,6 +91,8 @@ export function moduleOfResource(resource: string): ModuleKey | undefined {
 export function actionAppliesToResource(resource: string, action: TreeAction): boolean {
   if (action === 'exec') return resource === 'pods';
   if (action === 'reveal') return resource === 'secrets';
+  // `events` are read-only for the AI: only `view` is meaningful.
+  if (resource === 'events') return action === 'view';
   return true;
 }
 
@@ -93,10 +104,14 @@ export function actionsForResource(resource: string): TreeAction[] {
 /** Per-resource operations matrix: resource → granted tree actions. */
 export type Operations = Record<string, TreeAction[]>;
 
-/** Drop empty resources and inapplicable actions from an operations matrix. */
-export function cleanOperations(ops: Operations): Operations {
+/**
+ * Drop empty resources and inapplicable actions from an operations matrix.
+ * `extra` lists resources outside the nav catalog (e.g. the AI grant's
+ * namespaces/events) that must be preserved rather than stripped.
+ */
+export function cleanOperations(ops: Operations, extra: readonly string[] = []): Operations {
   const out: Operations = {};
-  for (const res of ALL_RESOURCES) {
+  for (const res of [...ALL_RESOURCES, ...extra]) {
     const acts = (ops[res] ?? []).filter((a) => actionAppliesToResource(res, a));
     if (acts.length) out[res] = TREE_ACTIONS.filter((a) => acts.includes(a));
   }

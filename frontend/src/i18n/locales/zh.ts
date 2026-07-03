@@ -396,6 +396,7 @@ const zh: Resources = {
       networking: '网络',
       storage: '存储',
       nodes: '节点',
+      cluster: '集群',
     },
     resource: {
       deployments: '部署',
@@ -411,6 +412,8 @@ const zh: Resources = {
       persistentvolumeclaims: '存储卷声明',
       persistentvolumes: '持久卷',
       nodes: '节点',
+      namespaces: '命名空间',
+      events: '事件',
     },
     action: {
       view: '查看',

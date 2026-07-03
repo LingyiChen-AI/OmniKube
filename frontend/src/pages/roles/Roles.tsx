@@ -856,6 +856,9 @@ interface ResourceOpsMatrixProps {
    *  PVs) can't be granted, so their rows are disabled and excluded from
    *  bulk toggles. */
   nsScoped?: boolean;
+  /** Extra resources outside the nav catalog to render as a trailing group
+   *  (e.g. the AI grant's namespaces/events). Empty for the role editor. */
+  extraResources?: readonly string[];
 }
 
 /**
@@ -867,8 +870,17 @@ interface ResourceOpsMatrixProps {
  * row toggles every applicable action for it. Inapplicable cells (e.g. `exec`
  * on non-pods, `reveal` on non-secrets) show a disabled, muted checkbox.
  */
-export function ResourceOpsMatrix({ operations, onChange, disabled, nsScoped }: ResourceOpsMatrixProps) {
+export function ResourceOpsMatrix({
+  operations,
+  onChange,
+  disabled,
+  nsScoped,
+  extraResources = [],
+}: ResourceOpsMatrixProps) {
   const { t } = useTranslation();
+
+  // The full resource universe = nav catalog + any extra (AI-only) resources.
+  const allResources: readonly string[] = [...ALL_RESOURCES, ...extraResources];
 
   // A resource whose grant would silently do nothing under this rule's scope.
   const resBlocked = (res: string) => !!nsScoped && isClusterScopedResource(res);
@@ -883,7 +895,7 @@ export function ResourceOpsMatrix({ operations, onChange, disabled, nsScoped }: 
     const next: Operations = {};
     for (const [k, v] of Object.entries(operations)) next[k] = [...v];
     mutate(next);
-    onChange(cleanOperations(next));
+    onChange(cleanOperations(next, extraResources));
   };
   const setCell = (res: string, a: TreeAction, on: boolean) =>
     apply((next) => {
@@ -940,9 +952,9 @@ export function ResourceOpsMatrix({ operations, onChange, disabled, nsScoped }: 
             <Checkbox
               aria-label="op-all"
               disabled={disabled}
-              checked={groupState(usable(ALL_RESOURCES)).checked}
-              indeterminate={groupState(usable(ALL_RESOURCES)).indeterminate}
-              onChange={(e) => setResources(usable(ALL_RESOURCES), 'all', e.target.checked)}
+              checked={groupState(usable(allResources)).checked}
+              indeterminate={groupState(usable(allResources)).indeterminate}
+              onChange={(e) => setResources(usable(allResources), 'all', e.target.checked)}
             >
               <Text type="secondary" style={{ fontSize: 12 }}>
                 {t('role.allResources')}
@@ -950,7 +962,7 @@ export function ResourceOpsMatrix({ operations, onChange, disabled, nsScoped }: 
             </Checkbox>
           </th>
           {TREE_ACTIONS.map((a) => {
-            const cs = groupState(usable(ALL_RESOURCES), a);
+            const cs = groupState(usable(allResources), a);
             const label =
               a === 'reveal' ? (
                 <Tooltip title={t('role.action.revealHint')}>
@@ -969,7 +981,7 @@ export function ResourceOpsMatrix({ operations, onChange, disabled, nsScoped }: 
                     disabled={disabled}
                     checked={cs.checked}
                     indeterminate={cs.indeterminate}
-                    onChange={(e) => setResources(usable(ALL_RESOURCES), a, e.target.checked)}
+                    onChange={(e) => setResources(usable(allResources), a, e.target.checked)}
                   />
                   <span>{label}</span>
                 </div>
@@ -1044,6 +1056,56 @@ export function ResourceOpsMatrix({ operations, onChange, disabled, nsScoped }: 
             </Fragment>
           );
         })}
+        {extraResources.length > 0 && (
+          <Fragment key="__extra">
+            <tr className="ok-ops-group">
+              <td>
+                <Checkbox
+                  aria-label="op-module-cluster"
+                  disabled={disabled || usable(extraResources).length === 0}
+                  checked={groupState(usable(extraResources)).checked}
+                  indeterminate={groupState(usable(extraResources)).indeterminate}
+                  onChange={(e) => setResources(usable(extraResources), 'all', e.target.checked)}
+                >
+                  <Text strong>{t('role.module.cluster')}</Text>
+                </Checkbox>
+              </td>
+              <td colSpan={TREE_ACTIONS.length} />
+            </tr>
+            {extraResources.map((res) => {
+              const rs = rowState(res);
+              const blocked = resBlocked(res);
+              return (
+                <tr key={res} className="ok-ops-res">
+                  <td>
+                    <Checkbox
+                      aria-label={`op-row-${res}`}
+                      disabled={disabled || blocked}
+                      checked={!blocked && rs.checked}
+                      indeterminate={!blocked && rs.indeterminate}
+                      onChange={(e) => setRow(res, e.target.checked)}
+                    >
+                      {t(`role.resource.${res}`)}
+                    </Checkbox>
+                  </td>
+                  {TREE_ACTIONS.map((a) => {
+                    const applicable = actionAppliesToResource(res, a);
+                    return (
+                      <td key={a} className={applicable && !blocked ? undefined : 'ok-ops-na'}>
+                        <Checkbox
+                          aria-label={`op-${res}-${a}`}
+                          disabled={disabled || blocked || !applicable}
+                          checked={!blocked && applicable && has(res, a)}
+                          onChange={(e) => setCell(res, a, e.target.checked)}
+                        />
+                      </td>
+                    );
+                  })}
+                </tr>
+              );
+            })}
+          </Fragment>
+        )}
       </tbody>
     </table>
   );

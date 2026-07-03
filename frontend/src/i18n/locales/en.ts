@@ -394,6 +394,7 @@ const en = {
       networking: 'Networking',
       storage: 'Storage',
       nodes: 'Nodes',
+      cluster: 'Cluster',
     },
     resource: {
       deployments: 'Deployments',
@@ -409,6 +410,8 @@ const en = {
       persistentvolumeclaims: 'PersistentVolumeClaims',
       persistentvolumes: 'PersistentVolumes',
       nodes: 'Nodes',
+      namespaces: 'Namespaces',
+      events: 'Events',
     },
     action: {
       view: 'View',
