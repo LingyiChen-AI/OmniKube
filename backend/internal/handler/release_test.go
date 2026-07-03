@@ -166,6 +166,45 @@ func TestUpdateResource_NonImageChangeNoRecord(t *testing.T) {
 	}
 }
 
+// Every workload kind (incl. Job/CronJob) is captured for release records, and
+// container images are read from the right path for each (CronJob nests deeper).
+func TestReleaseWorkloadCoverage(t *testing.T) {
+	for _, res := range []string{"deployments", "statefulsets", "daemonsets", "jobs", "cronjobs"} {
+		if !isReleaseWorkload(res) {
+			t.Errorf("%s should be a release workload", res)
+		}
+	}
+	if isReleaseWorkload("pods") || isReleaseWorkload("services") {
+		t.Error("non-workloads must not be release workloads")
+	}
+
+	// CronJob: containers live under spec.jobTemplate.spec.template.spec.containers.
+	cj := &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "batch/v1", "kind": "CronJob",
+		"metadata": map[string]interface{}{"name": "cj", "namespace": "dev"},
+		"spec": map[string]interface{}{
+			"jobTemplate": map[string]interface{}{
+				"spec": map[string]interface{}{
+					"template": map[string]interface{}{
+						"spec": map[string]interface{}{
+							"containers": []interface{}{
+								map[string]interface{}{"name": "worker", "image": "busybox:1.36"},
+							},
+						},
+					},
+				},
+			},
+		},
+	}}
+	if got := containerImages(cj)["worker"]; got != "busybox:1.36" {
+		t.Fatalf("CronJob image extraction failed, got %q", got)
+	}
+	// Deployment-shaped (also covers Job): spec.template.spec.containers.
+	if got := containerImages(deployment("dev", "web", "nginx:1.28"))["app"]; got != "nginx:1.28" {
+		t.Fatalf("template image extraction failed, got %q", got)
+	}
+}
+
 // releasesApp wires GET /releases with a header-controlled user id injector.
 func releasesApp(t *testing.T) (*gin.Engine, *gorm.DB, *Handler) {
 	t.Helper()

@@ -16,5 +16,8 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: './src/test/setup.ts',
     css: false,
+    // userEvent types char-by-char; slower CI runners can exceed the 5s default
+    // on form-heavy tests. Raise the ceiling so they don't flake.
+    testTimeout: 20000,
   },
 });

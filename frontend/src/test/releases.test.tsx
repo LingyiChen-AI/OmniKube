@@ -94,7 +94,9 @@ describe('EditResourceDrawer — workload image change requires a release commen
   });
 
   it('opens a required release-note modal and threads the comment to update()', async () => {
-    const user = userEvent.setup();
+    // delay:null removes userEvent's per-keystroke delay (keeps typing fast on
+    // slower CI runners, where the default made this test flake past 5s).
+    const user = userEvent.setup({ delay: null });
     renderWithProviders(
       <EditResourceDrawer
         open

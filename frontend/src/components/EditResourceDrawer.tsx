@@ -28,12 +28,16 @@ const { Text } = Typography;
 type Mode = 'visual' | 'yaml';
 
 /** Workload kinds whose container-image changes require a release comment. */
-const WORKLOAD_KINDS = ['Deployment', 'StatefulSet', 'DaemonSet'];
+const WORKLOAD_KINDS = ['Deployment', 'StatefulSet', 'DaemonSet', 'Job', 'CronJob'];
 
-/** Extract a container→image map from a workload's pod template. */
+/** Extract a container→image map from a workload's pod template.
+ *  Most workloads live at spec.template.spec.containers; CronJob nests one more
+ *  level under spec.jobTemplate. */
 function containerImages(obj: K8sObject | null): Record<string, string> {
   const out: Record<string, string> = {};
-  const containers = obj?.spec?.template?.spec?.containers;
+  const containers =
+    obj?.spec?.template?.spec?.containers ??
+    obj?.spec?.jobTemplate?.spec?.template?.spec?.containers;
   if (Array.isArray(containers)) {
     for (const c of containers) {
       if (c && typeof c === 'object' && c.name) out[c.name] = c.image ?? '';

@@ -18,6 +18,8 @@ var workloadKind = map[string]string{
 	"deployments":  "Deployment",
 	"statefulsets": "StatefulSet",
 	"daemonsets":   "DaemonSet",
+	"jobs":         "Job",
+	"cronjobs":     "CronJob",
 }
 
 // isReleaseWorkload 判断资源是否属于「发布记录」捕获范围。
@@ -26,7 +28,8 @@ func isReleaseWorkload(resource string) bool {
 	return ok
 }
 
-// containerImages 抽取工作负载 spec.template.spec.containers 的 container→image 映射。
+// containerImages 抽取工作负载 Pod 模板里 container→image 的映射。多数工作负载在
+// spec.template.spec.containers；CronJob 多嵌一层 spec.jobTemplate.spec.template。
 func containerImages(obj *unstructured.Unstructured) map[string]string {
 	out := map[string]string{}
 	if obj == nil {
@@ -34,7 +37,11 @@ func containerImages(obj *unstructured.Unstructured) map[string]string {
 	}
 	containers, found, err := unstructured.NestedSlice(obj.Object, "spec", "template", "spec", "containers")
 	if err != nil || !found {
-		return out
+		// CronJob：容器在 jobTemplate 之下。
+		containers, found, err = unstructured.NestedSlice(obj.Object, "spec", "jobTemplate", "spec", "template", "spec", "containers")
+		if err != nil || !found {
+			return out
+		}
 	}
 	for _, c := range containers {
 		m, ok := c.(map[string]interface{})
