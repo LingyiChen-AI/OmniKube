@@ -46,7 +46,13 @@ export default function TopBar({ collapsed, onToggle }: Props) {
   const toggleMode = useUiStore((s) => s.toggleMode);
   const mode = useUiStore((s) => s.mode);
 
-  const { clusters, loading: clustersLoading, load: loadClusters } = useClusterStore();
+  const {
+    clusters,
+    loading: clustersLoading,
+    loaded: clustersLoaded,
+    error: clustersError,
+    load: loadClusters,
+  } = useClusterStore();
   const namespaces = useApi<string[]>(
     () => (currentCluster ? resourceApi.namespaces() : Promise.resolve([])),
     [currentCluster],
@@ -57,12 +63,17 @@ export default function TopBar({ collapsed, onToggle }: Props) {
     loadClusters();
   }, [loadClusters]);
 
-  // Auto-select the first cluster when none is chosen.
+  // Reconcile the selection with the accessible cluster list (only after a
+  // successful load, so transient errors don't wipe a valid choice):
+  //  - none chosen → auto-select the first;
+  //  - chosen cluster was removed → replace with the first, or clear it so we
+  //    stop sending a stale X-Cluster-ID that the API would reject.
   useEffect(() => {
-    if (!currentCluster && clusters.length > 0) {
-      setCluster(clusters[0].id);
-    }
-  }, [clusters, currentCluster, setCluster]);
+    if (!clustersLoaded || clustersError) return;
+    const stillExists = currentCluster && clusters.some((c) => c.id === currentCluster);
+    if (stillExists) return;
+    setCluster(clusters.length > 0 ? clusters[0].id : null);
+  }, [clusters, clustersLoaded, clustersError, currentCluster, setCluster]);
 
   const onLogout = () => {
     logout();
