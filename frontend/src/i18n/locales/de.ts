@@ -709,6 +709,7 @@ const de: Resources = {
     toolResult: 'Ergebnis',
     emptyChat: 'Fragen Sie nach Ihren Cluster-Ressourcen, um zu beginnen.',
     error: 'Etwas ist schiefgelaufen',
+    disconnected: 'Verbindung getrennt',
   },
   common: {
     cancel: 'Abbrechen',

@@ -707,6 +707,7 @@ const en = {
     toolResult: 'Result',
     emptyChat: 'Ask about your cluster resources to get started.',
     error: 'Something went wrong',
+    disconnected: 'Connection lost',
   },
   common: {
     cancel: 'Cancel',

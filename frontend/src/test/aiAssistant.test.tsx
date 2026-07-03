@@ -124,4 +124,46 @@ describe('AiAssistant streaming chat', () => {
     act(() => ws.emit({ type: 'done', text: 'Hello world' }));
     await waitFor(() => expect(screen.getByPlaceholderText(/ask omnikube|向 omnikube 提问/i)).not.toBeDisabled());
   });
+
+  it('re-enables the composer when the socket closes mid-stream', async () => {
+    const user = userEvent.setup({ delay: null });
+    renderWithProviders(<AiAssistant />);
+
+    await user.click(await screen.findByLabelText(/omnikube assistant/i));
+    const box = await screen.findByPlaceholderText(/ask omnikube|向 omnikube 提问/i);
+
+    await user.type(box, 'list pods');
+    await user.click(screen.getByRole('button', { name: /send|发送/i }));
+
+    // Turn is under way: WS open, composer disabled while streaming.
+    await waitFor(() => expect(FakeWebSocket.last).toBeTruthy());
+    const ws = FakeWebSocket.last;
+    await waitFor(() => expect(ws.sent.length).toBe(1));
+    await waitFor(() => expect(screen.getByPlaceholderText(/ask omnikube|向 omnikube 提问/i)).toBeDisabled());
+
+    // Socket drops mid-stream (no done/error frame arrives).
+    act(() => ws.onclose?.());
+
+    // Composer/send become usable again and a disconnect note is shown.
+    await waitFor(() => expect(screen.getByPlaceholderText(/ask omnikube|向 omnikube 提问/i)).not.toBeDisabled());
+    expect(screen.getByText(/connection lost|连接已断开/i)).toBeInTheDocument();
+  });
+
+  it('restores the typed text when creating the conversation fails', async () => {
+    createConversationMock.mockRejectedValue(new Error('boom'));
+    const user = userEvent.setup({ delay: null });
+    renderWithProviders(<AiAssistant />);
+
+    await user.click(await screen.findByLabelText(/omnikube assistant/i));
+    const box = await screen.findByPlaceholderText(/ask omnikube|向 omnikube 提问/i);
+
+    await user.type(box, 'list pods');
+    await user.click(screen.getByRole('button', { name: /send|发送/i }));
+
+    await waitFor(() => expect(createConversationMock).toHaveBeenCalled());
+
+    // Typed text is preserved and the composer is usable again for a retry.
+    await waitFor(() => expect(box).toHaveValue('list pods'));
+    expect(box).not.toBeDisabled();
+  });
 });

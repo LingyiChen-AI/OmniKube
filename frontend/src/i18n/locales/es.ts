@@ -709,6 +709,7 @@ const es: Resources = {
     toolResult: 'Resultado',
     emptyChat: 'Pregunta por los recursos de tu clúster para empezar.',
     error: 'Algo salió mal',
+    disconnected: 'Conexión perdida',
   },
   common: {
     cancel: 'Cancelar',

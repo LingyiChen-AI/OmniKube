@@ -709,6 +709,7 @@ const fr: Resources = {
     toolResult: 'Résultat',
     emptyChat: 'Posez une question sur les ressources de votre cluster pour commencer.',
     error: 'Une erreur est survenue',
+    disconnected: 'Connexion perdue',
   },
   common: {
     cancel: 'Annuler',

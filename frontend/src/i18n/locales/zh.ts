@@ -709,6 +709,7 @@ const zh: Resources = {
     toolResult: '结果',
     emptyChat: '试着询问集群资源，开始对话吧。',
     error: '出错了',
+    disconnected: '连接已断开',
   },
   common: {
     cancel: '取消',

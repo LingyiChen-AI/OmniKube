@@ -77,6 +77,14 @@ export default function AiAssistant() {
 
   const socketRef = useRef<WebSocket | null>(null);
   const listEndRef = useRef<HTMLDivElement>(null);
+  // Guards for async callbacks that may fire after unmount / after a turn ends.
+  const mountedRef = useRef(true);
+  const streamingRef = useRef(false);
+
+  // Mirror `streaming` into a ref so socket callbacks (stale closures) can read it.
+  useEffect(() => {
+    streamingRef.current = streaming;
+  }, [streaming]);
 
   // ---- launcher readiness (Phase-1 behaviour, unchanged) ----
   useEffect(() => {
@@ -106,8 +114,14 @@ export default function AiAssistant() {
     }
   }, []);
 
-  // Tear the socket down on unmount.
-  useEffect(() => () => closeSocket(), [closeSocket]);
+  // Tear the socket down on unmount and stop late setState from callbacks.
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      closeSocket();
+    };
+  }, [closeSocket]);
 
   // Changing cluster invalidates the current (cluster-scoped) session.
   useEffect(() => {
@@ -149,6 +163,7 @@ export default function AiAssistant() {
 
   // ---- streaming helpers (functional updates so stale closures are safe) ----
   const updateLastAssistant = useCallback((fn: (m: ChatMessage) => ChatMessage) => {
+    if (!mountedRef.current) return;
     setMessages((prev) => {
       if (prev.length === 0) return prev;
       const idx = prev.length - 1;
@@ -161,6 +176,7 @@ export default function AiAssistant() {
 
   const handleFrame = useCallback(
     (raw: string) => {
+      if (!mountedRef.current) return;
       let frame: AiChatEvent;
       try {
         frame = JSON.parse(raw) as AiChatEvent;
@@ -229,16 +245,27 @@ export default function AiAssistant() {
           if (typeof ev.data === 'string') handleFrame(ev.data);
         };
         ws.onclose = () => {
-          if (socketRef.current === ws) socketRef.current = null;
+          // Only an *unexpected* drop reaches here still owning socketRef; an
+          // intentional teardown (closeSocket / supersede) nulls/replaces it first.
+          if (socketRef.current !== ws) return;
+          socketRef.current = null;
+          if (!mountedRef.current) return;
+          // Mid-stream drop: re-enable the composer and note it on the last bubble.
+          if (streamingRef.current) {
+            setStreaming(false);
+            updateLastAssistant((m) => ({
+              ...m,
+              content: m.content ? `${m.content}\n\n${t('ai.disconnected')}` : t('ai.disconnected'),
+            }));
+          }
         };
       }),
-    [handleFrame],
+    [handleFrame, updateLastAssistant, t],
   );
 
   const send = async () => {
     const text = input.trim();
     if (!text || streaming || !currentCluster) return;
-    setInput('');
     try {
       let convId = activeConv;
       if (!convId) {
@@ -256,14 +283,20 @@ export default function AiAssistant() {
       setStreaming(true);
       const ws = await ensureSocket(currentCluster);
       ws.send(JSON.stringify({ type: 'user_message', conversation_id: convId, text }));
+      // The turn is under way — only now is it safe to clear the composer.
+      setInput('');
     } catch {
+      // Pre-stream failure (createConversation / ensureSocket reject): restore the
+      // typed text and re-enable the composer so the user can retry.
+      setInput(text);
       setStreaming(false);
-      updateLastAssistant((m) => ({ ...m, content: m.content || t('ai.error') }));
       message.error(t('ai.error'));
     }
   };
 
   const newChat = () => {
+    // Drop any in-flight socket so stale frames can't leak into the fresh chat.
+    closeSocket();
     setActiveConv(null);
     setMessages([]);
     setStreaming(false);
@@ -271,11 +304,14 @@ export default function AiAssistant() {
 
   const selectConversation = async (id: number) => {
     if (id === activeConv) return;
+    // Close first: in-flight frames for the old conversation must not append onto
+    // the history we are about to load.
+    closeSocket();
+    setStreaming(false);
     try {
       const { messages: msgs } = await aiApi.getConversation(id);
       setActiveConv(id);
       setMessages(toChatMessages(msgs));
-      setStreaming(false);
     } catch {
       message.error(t('ai.error'));
     }

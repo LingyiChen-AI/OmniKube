@@ -709,6 +709,7 @@ const ja: Resources = {
     toolResult: '結果',
     emptyChat: 'クラスターのリソースについて質問して始めましょう。',
     error: 'エラーが発生しました',
+    disconnected: '接続が切断されました',
   },
   common: {
     cancel: 'キャンセル',

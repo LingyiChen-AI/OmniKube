@@ -709,6 +709,7 @@ const ko: Resources = {
     toolResult: '결과',
     emptyChat: '클러스터 리소스에 대해 질문하며 시작하세요.',
     error: '문제가 발생했습니다',
+    disconnected: '연결이 끊어졌습니다',
   },
   common: {
     cancel: '취소',
