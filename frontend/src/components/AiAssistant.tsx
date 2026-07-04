@@ -17,7 +17,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { aiApi, type AiConversation, type AiMessage } from '../api/ai';
+import { aiApi, AI_STATUS_EVENT, type AiConversation, type AiMessage } from '../api/ai';
 import { aiChatUrl, type AiChatEvent, type StagedAction } from '../api/aiChat';
 import { useCtxStore } from '../store/ctx';
 import BrandMark from './BrandMark';
@@ -273,8 +273,15 @@ export default function AiAssistant() {
   useEffect(() => {
     void refreshStatus();
     const onFocus = () => void refreshStatus();
+    // The AI config page dispatches this after a save/enable toggle so the
+    // launcher readiness (⚠️) updates immediately, without a page refresh.
+    const onChanged = () => void refreshStatus();
     window.addEventListener('focus', onFocus);
-    return () => window.removeEventListener('focus', onFocus);
+    window.addEventListener(AI_STATUS_EVENT, onChanged);
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      window.removeEventListener(AI_STATUS_EVENT, onChanged);
+    };
   }, [refreshStatus]);
 
   const closeSocket = useCallback(() => {

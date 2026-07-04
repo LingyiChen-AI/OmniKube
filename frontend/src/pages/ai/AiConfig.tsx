@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Alert, App as AntApp, Button, Card, Col, Form, Input, InputNumber, Row, Switch, Tooltip } from 'antd';
 import { useTranslation } from 'react-i18next';
-import { aiApi } from '../../api/ai';
+import { aiApi, notifyAiStatusChanged } from '../../api/ai';
 import CodeBox from '../../components/editor/CodeBox';
 import { useAuthStore } from '../../store/auth';
 import { canGlobal } from '../../nav';
@@ -50,6 +50,7 @@ export default function AiConfig() {
     setEnabled(next); // optimistic
     try {
       await aiApi.setEnabled(next);
+      notifyAiStatusChanged(); // refresh the launcher's ⚠️ without a page reload
       message.success(t('ai.saved'));
     } catch {
       setEnabled(!next); // revert on failure
@@ -63,6 +64,7 @@ export default function AiConfig() {
     setSaving(true);
     try {
       await aiApi.putConfig(v);
+      notifyAiStatusChanged(); // refresh the launcher's ⚠️ without a page reload
       message.success(t('ai.saved'));
       setHasKey(!!v.api_key || hasKey);
     } catch {

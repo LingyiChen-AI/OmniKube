@@ -51,6 +51,16 @@ export interface AiMessage {
   created_at: string;
 }
 
+/** Fired on `window` after the AI config is saved / enabled toggled, so the
+ *  floating launcher can re-check `/ai/status` and update its ⚠️ readiness
+ *  immediately (no page refresh needed). */
+export const AI_STATUS_EVENT = 'omnikube:ai-status-changed';
+
+/** Notify the launcher that the AI config/enabled state changed. */
+export function notifyAiStatusChanged(): void {
+  window.dispatchEvent(new Event(AI_STATUS_EVENT));
+}
+
 export const aiApi = {
   status: () => client.get<AiStatus>('/ai/status').then((r) => r.data),
   getConfig: () => client.get<AiConfig>('/ai/config').then((r) => r.data),
