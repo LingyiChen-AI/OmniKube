@@ -63,8 +63,8 @@ var AllResources = func() []string {
 
 var validResources = setOf(AllResources...)
 var validResourceActions = setOf("view", "create", "edit", "delete", "exec", "reveal")
-var validGlobalAreas = setOf("clusters", "users", "roles", "releases", "audit", "ai")
-var validGlobalActions = setOf("view", "create", "edit", "delete")
+var validGlobalAreas = setOf("clusters", "users", "roles", "releases", "audit", "ai", "integrated_deploy")
+var validGlobalActions = setOf("view", "create", "edit", "delete", "publish")
 
 func ModuleOf(resource string) string     { return resourceModule[resource] }
 func IsValidResource(r string) bool       { return validResources[r] }

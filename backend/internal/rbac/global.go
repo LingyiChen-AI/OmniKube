@@ -50,5 +50,7 @@ func AllGlobalPerms() map[string][]string {
 		"audit":    {"view"},
 		// ai:create 语义为「AI 启用/停用开关」（与 edit=编辑模型配置 分离）。
 		"ai": {"view", "edit", "create"},
+		// 集成部署：工单的增删改查 + 发布（publish 为区域级发布门槛）。
+		"integrated_deploy": {"view", "create", "edit", "delete", "publish"},
 	}
 }
