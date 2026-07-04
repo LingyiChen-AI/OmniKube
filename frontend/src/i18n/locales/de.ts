@@ -780,6 +780,8 @@ const de: Resources = {
     hosts: 'Hosts',
     storage: 'Speicher',
     noVisualEditor: 'Kein visueller Editor für diesen Typ — bitte YAML verwenden',
+    kindMismatch: 'Der kind des Manifests stimmt nicht mit dem gewählten Ressourcentyp überein',
+    duplicateItem: 'Ein Eintrag mit gleichem Typ und Namen existiert bereits in diesem Auftrag',
   },
   common: {
     cancel: 'Abbrechen',

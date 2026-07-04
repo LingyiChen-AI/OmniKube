@@ -780,6 +780,8 @@ const ja: Resources = {
     hosts: 'ホスト',
     storage: 'ストレージ',
     noVisualEditor: 'この種別にはビジュアル編集がありません。YAML を使用してください',
+    kindMismatch: 'マニフェストの kind が選択したリソース種別と一致しません',
+    duplicateItem: 'この発注書には同じ種別・同じ名前のリソースが既に存在します',
   },
   common: {
     cancel: 'キャンセル',

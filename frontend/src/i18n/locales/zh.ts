@@ -780,6 +780,8 @@ const zh: Resources = {
     hosts: '域名',
     storage: '存储',
     noVisualEditor: '该类型暂无可视化编辑,请用 YAML',
+    kindMismatch: 'manifest 的 kind 与所选资源类型不一致',
+    duplicateItem: '工单中已存在同类型同名的资源',
   },
   common: {
     cancel: '取消',

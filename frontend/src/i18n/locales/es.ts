@@ -780,6 +780,8 @@ const es: Resources = {
     hosts: 'Hosts',
     storage: 'Almacenamiento',
     noVisualEditor: 'No hay editor visual para este tipo — usa YAML',
+    kindMismatch: 'El kind del manifiesto no coincide con el tipo de recurso seleccionado',
+    duplicateItem: 'Ya existe un elemento del mismo tipo y nombre en esta orden',
   },
   common: {
     cancel: 'Cancelar',

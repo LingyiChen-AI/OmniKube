@@ -780,6 +780,8 @@ const ko: Resources = {
     hosts: '호스트',
     storage: '스토리지',
     noVisualEditor: '이 종류는 비주얼 편집을 지원하지 않습니다. YAML을 사용하세요',
+    kindMismatch: '매니페스트의 kind가 선택한 리소스 종류와 일치하지 않습니다',
+    duplicateItem: '이 작업에는 이미 같은 종류와 이름의 리소스가 있습니다',
   },
   common: {
     cancel: '취소',

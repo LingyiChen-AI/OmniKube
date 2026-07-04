@@ -778,6 +778,8 @@ const en = {
     hosts: 'Hosts',
     storage: 'Storage',
     noVisualEditor: 'No visual editor for this kind — use YAML',
+    kindMismatch: "The manifest's kind doesn't match the selected resource type",
+    duplicateItem: 'An item with the same kind and name already exists in this order',
   },
   common: {
     cancel: 'Cancel',

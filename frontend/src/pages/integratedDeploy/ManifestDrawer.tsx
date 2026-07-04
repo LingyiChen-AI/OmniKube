@@ -104,6 +104,8 @@ export default function ManifestDrawer({
 
   const FormComp = useMemo(() => getResourceForm(kindFromResource(kind)), [kind]);
   const supportsVisual = !!FormComp;
+  // select-add shows only the kind+name picker until a resource is loaded.
+  const showEditor = !(mode === 'select-add' && !draft);
 
   const handleKindChangeNewAdd = (k: string) => {
     setKind(k);
@@ -152,15 +154,20 @@ export default function ManifestDrawer({
 
   const handleConfirm = () => {
     const finalYaml = viewMode === 'yaml' ? yamlText : draft ? toYAML(draft) : '';
-    let name = '';
+    let parsed: K8sObject | null = null;
     try {
-      const obj = fromYAML(finalYaml);
-      name = obj.metadata?.name ?? '';
+      parsed = fromYAML(finalYaml);
     } catch {
       /* handled below */
     }
+    const name = parsed?.metadata?.name ?? '';
     if (!name) {
       message.error(t('integratedDeploy.nameRequired'));
+      return;
+    }
+    const expectedKind = kindFromResource(kind);
+    if (parsed?.kind && expectedKind && parsed.kind !== expectedKind) {
+      message.error(t('integratedDeploy.kindMismatch'));
       return;
     }
     onConfirm({ kind, name, yaml: finalYaml });
@@ -189,21 +196,23 @@ export default function ManifestDrawer({
         </Space>
       }
       extra={
-        <Segmented<ViewMode>
-          value={viewMode}
-          onChange={(v) => switchMode(v)}
-          options={[
-            { label: t('editor.visual'), value: 'visual', disabled: !supportsVisual },
-            { label: t('editor.yaml'), value: 'yaml' },
-          ]}
-        />
+        showEditor ? (
+          <Segmented<ViewMode>
+            value={viewMode}
+            onChange={(v) => switchMode(v)}
+            options={[
+              { label: t('editor.visual'), value: 'visual', disabled: !supportsVisual },
+              { label: t('editor.yaml'), value: 'yaml' },
+            ]}
+          />
+        ) : undefined
       }
       footer={
         readOnly ? null : (
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
             <Space>
               <Button onClick={onClose}>{t('editor.cancel')}</Button>
-              <Button type="primary" onClick={handleConfirm}>
+              <Button type="primary" onClick={handleConfirm} disabled={!showEditor}>
                 {mode === 'edit' ? t('integratedDeploy.save') : t('integratedDeploy.addItem')}
               </Button>
             </Space>
@@ -241,24 +250,30 @@ export default function ManifestDrawer({
         )}
       </Space>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, flex: 1, minHeight: 0, marginTop: 12 }}>
-        {!supportsVisual && <Alert type="info" showIcon message={t('integratedDeploy.noVisualEditor')} />}
-        {viewMode === 'visual' && FormComp && draft ? (
-          <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
-            <ConfigProvider componentDisabled={readOnly}>
-              <FormComp draft={draft} onChange={setDraft} creating={mode === 'new-add'} />
-            </ConfigProvider>
-          </div>
-        ) : (
-          <CodeBox
-            value={yamlText}
-            onChange={readOnly ? undefined : setYamlText}
-            readOnly={readOnly}
-            label="YAML"
-            minHeight={480}
-          />
-        )}
-      </div>
+      {showEditor ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, flex: 1, minHeight: 0, marginTop: 12 }}>
+          {!supportsVisual && <Alert type="info" showIcon message={t('integratedDeploy.noVisualEditor')} />}
+          {viewMode === 'visual' && FormComp && draft ? (
+            <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+              <ConfigProvider componentDisabled={readOnly}>
+                <FormComp draft={draft} onChange={setDraft} creating={mode === 'new-add'} />
+              </ConfigProvider>
+            </div>
+          ) : (
+            <CodeBox
+              value={yamlText}
+              onChange={readOnly ? undefined : setYamlText}
+              readOnly={readOnly}
+              label="YAML"
+              minHeight={480}
+            />
+          )}
+        </div>
+      ) : (
+        <div style={{ marginTop: 12, color: token.colorTextSecondary }}>
+          {t('integratedDeploy.selectResource')}
+        </div>
+      )}
     </Drawer>
   );
 }

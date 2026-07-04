@@ -780,6 +780,8 @@ const fr: Resources = {
     hosts: 'Hôtes',
     storage: 'Stockage',
     noVisualEditor: 'Aucun éditeur visuel pour ce type — utilisez le YAML',
+    kindMismatch: 'Le kind du manifeste ne correspond pas au type de ressource sélectionné',
+    duplicateItem: 'Un élément du même type et du même nom existe déjà dans cet ordre',
   },
   common: {
     cancel: 'Annuler',

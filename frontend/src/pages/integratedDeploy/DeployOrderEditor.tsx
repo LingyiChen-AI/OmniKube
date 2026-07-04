@@ -116,8 +116,17 @@ export default function DeployOrderEditor() {
 
   const handleDrawerConfirm = ({ kind, name, yaml }: { kind: string; name: string; yaml: string }) => {
     if (drawerMode === 'edit' && drawerEditIdx !== null) {
+      // A rename must not collide with a DIFFERENT existing item.
+      if (items.some((i, idx) => idx !== drawerEditIdx && i.kind === kind && i.name === name)) {
+        message.error(t('integratedDeploy.duplicateItem'));
+        return;
+      }
       setItems(items.map((it, i) => (i === drawerEditIdx ? { ...it, name, manifest_yaml: yaml } : it)));
     } else {
+      if (items.some((i) => i.kind === kind && i.name === name)) {
+        message.error(t('integratedDeploy.duplicateItem'));
+        return;
+      }
       const source = drawerMode === 'select-add' ? 'selected' : 'authored';
       const nextIndex = items.filter((i) => DEPLOY_KIND_GROUP[i.kind] === DEPLOY_KIND_GROUP[kind]).length;
       setItems([...items, { kind, name, source, manifest_yaml: yaml, sort_index: nextIndex }]);
