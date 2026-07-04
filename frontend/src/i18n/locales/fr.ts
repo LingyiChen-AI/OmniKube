@@ -779,6 +779,7 @@ const fr: Resources = {
     noVisualEditor: 'Aucun éditeur visuel pour ce type — utilisez le YAML',
     kindMismatch: 'Le kind du manifeste ne correspond pas au type de ressource sélectionné',
     duplicateItem: 'Un élément du même type et du même nom existe déjà dans cet ordre',
+    mountsAutoAdded: '{{n}} ressource(s) montée(s) ajoutée(s) automatiquement',
     confirmPublish: 'Confirmer la publication',
     pending: 'En attente',
     publishing: 'Publication en cours',

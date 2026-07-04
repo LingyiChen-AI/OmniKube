@@ -779,6 +779,7 @@ const ja: Resources = {
     noVisualEditor: 'この種別にはビジュアル編集がありません。YAML を使用してください',
     kindMismatch: 'マニフェストの kind が選択したリソース種別と一致しません',
     duplicateItem: 'この発注書には同じ種別・同じ名前のリソースが既に存在します',
+    mountsAutoAdded: 'マウントされたリソースを {{n}} 件自動追加しました',
     confirmPublish: '公開を確定',
     pending: '未公開',
     publishing: '公開中',

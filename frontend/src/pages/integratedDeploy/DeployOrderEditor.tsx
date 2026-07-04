@@ -13,6 +13,8 @@ import { clusterApi } from '../../api/cluster';
 import { useAuthStore } from '../../store/auth';
 import { useCtxStore } from '../../store/ctx';
 import { canGlobal } from '../../nav';
+import { fromYAML } from '../../components/editor/util';
+import { extractMounts } from './mounts';
 import ManifestDrawer from './ManifestDrawer';
 import PublishDrawer from './PublishDrawer';
 import ResourceItemCard from './ResourceItemCard';
@@ -105,6 +107,30 @@ export default function DeployOrderEditor() {
     integratedDeployApi.selectable(clusterId, namespace, selKind).then(setSelectableNames).catch(() => setSelectableNames([]));
   }, [clusterId, namespace, selKind]);
 
+  // Given a just-added workload's manifest, snapshot + append any mounted
+  // configmaps/secrets not already in the order. Returns the new items array.
+  const withAutoMounts = async (manifestYaml: string, base: DeployItem[]): Promise<DeployItem[]> => {
+    let obj;
+    try {
+      obj = fromYAML(manifestYaml);
+    } catch {
+      return base;
+    }
+    const mounts = extractMounts(obj); // [] for non-workloads
+    let next = base;
+    for (const m of mounts) {
+      if (next.some((i) => i.kind === m.kind && i.name === m.name)) continue;
+      try {
+        const y = await integratedDeployApi.snapshot(clusterId, namespace, m.kind, m.name);
+        const idx = next.filter((i) => DEPLOY_KIND_GROUP[i.kind] === DEPLOY_KIND_GROUP[m.kind]).length;
+        next = [...next, { kind: m.kind, name: m.name, source: 'selected', manifest_yaml: y, sort_index: idx }];
+      } catch {
+        /* skip: no write perm / not found in cluster */
+      }
+    }
+    return next;
+  };
+
   const addSelected = async () => {
     if (!clusterId || !namespace || !selName) return;
     if (items.some((i) => i.kind === selKind && i.name === selName)) {
@@ -114,8 +140,12 @@ export default function DeployOrderEditor() {
     try {
       const yaml = await integratedDeployApi.snapshot(clusterId, namespace, selKind, selName);
       const nextIndex = items.filter((i) => DEPLOY_KIND_GROUP[i.kind] === DEPLOY_KIND_GROUP[selKind]).length;
-      setItems([...items, { kind: selKind, name: selName, source: 'selected', manifest_yaml: yaml, sort_index: nextIndex }]);
+      const withItem = [...items, { kind: selKind, name: selName, source: 'selected' as const, manifest_yaml: yaml, sort_index: nextIndex }];
+      const withMounts = await withAutoMounts(yaml, withItem);
+      setItems(withMounts);
       setSelName('');
+      const n = withMounts.length - withItem.length;
+      if (n > 0) message.success(t('integratedDeploy.mountsAutoAdded', { n }));
     } catch {
       /* axios interceptor already toasts */
     }
@@ -155,7 +185,7 @@ export default function DeployOrderEditor() {
     }
   };
 
-  const handleDrawerConfirm = ({ kind, name, yaml }: { kind: string; name: string; yaml: string }) => {
+  const handleDrawerConfirm = async ({ kind, name, yaml }: { kind: string; name: string; yaml: string }) => {
     if (drawerEditIdx !== null) {
       // 编辑既有条目:重命名不得与其他条目冲突。
       if (items.some((i, idx) => idx !== drawerEditIdx && i.kind === kind && i.name === name)) {
@@ -164,13 +194,17 @@ export default function DeployOrderEditor() {
       }
       setItems(items.map((it, i) => (i === drawerEditIdx ? { ...it, name, manifest_yaml: yaml } : it)));
     } else {
-      // 新增(mount-click 快照):去重后追加。
+      // 新增(mount-click 快照):去重后追加,并自动带上其挂载的 configmaps/secrets。
       if (items.some((i) => i.kind === kind && i.name === name)) {
         message.error(t('integratedDeploy.duplicateItem'));
         return;
       }
       const nextIndex = items.filter((i) => DEPLOY_KIND_GROUP[i.kind] === DEPLOY_KIND_GROUP[kind]).length;
-      setItems([...items, { kind, name, source: 'selected', manifest_yaml: yaml, sort_index: nextIndex }]);
+      const withItem = [...items, { kind, name, source: 'selected' as const, manifest_yaml: yaml, sort_index: nextIndex }];
+      const withMounts = await withAutoMounts(yaml, withItem);
+      setItems(withMounts);
+      const n = withMounts.length - withItem.length;
+      if (n > 0) message.success(t('integratedDeploy.mountsAutoAdded', { n }));
     }
     setDrawerOpen(false);
   };

@@ -779,6 +779,7 @@ const zh: Resources = {
     noVisualEditor: '该类型暂无可视化编辑,请用 YAML',
     kindMismatch: 'manifest 的 kind 与所选资源类型不一致',
     duplicateItem: '工单中已存在同类型同名的资源',
+    mountsAutoAdded: '已自动添加 {{n}} 个挂载资源',
     confirmPublish: '确认发布',
     pending: '待发布',
     publishing: '发布中',

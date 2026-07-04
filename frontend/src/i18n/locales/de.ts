@@ -779,6 +779,7 @@ const de: Resources = {
     noVisualEditor: 'Kein visueller Editor für diesen Typ — bitte YAML verwenden',
     kindMismatch: 'Der kind des Manifests stimmt nicht mit dem gewählten Ressourcentyp überein',
     duplicateItem: 'Ein Eintrag mit gleichem Typ und Namen existiert bereits in diesem Auftrag',
+    mountsAutoAdded: '{{n}} eingebundene Ressource(n) automatisch hinzugefügt',
     confirmPublish: 'Veröffentlichung bestätigen',
     pending: 'Ausstehend',
     publishing: 'Wird veröffentlicht',

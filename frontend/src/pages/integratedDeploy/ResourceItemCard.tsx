@@ -5,45 +5,13 @@ import { useTranslation } from 'react-i18next';
 import type { K8sObject } from '../../api/resource';
 import { fromYAML } from '../../components/editor/util';
 import type { DeployItem } from '../../api/integratedDeploy';
+import { extractMounts } from './mounts';
 
 const { Text } = Typography;
-
-interface Mount {
-  kind: 'configmaps' | 'secrets';
-  name: string;
-}
-
-/** Collect referenced ConfigMap/Secret names from a workload pod spec. */
-function extractMounts(spec: Record<string, any> | undefined): Mount[] {
-  const out: Mount[] = [];
-  const podSpec = spec?.template?.spec ?? spec?.jobTemplate?.spec?.template?.spec;
-  const push = (kind: Mount['kind'], name: string | undefined) => {
-    if (name) out.push({ kind, name });
-  };
-  for (const v of podSpec?.volumes ?? []) {
-    push('configmaps', v?.configMap?.name);
-    push('secrets', v?.secret?.secretName);
-  }
-  for (const c of podSpec?.containers ?? []) {
-    for (const e of c?.envFrom ?? []) {
-      push('configmaps', e?.configMapRef?.name);
-      push('secrets', e?.secretRef?.name);
-    }
-    for (const e of c?.env ?? []) {
-      push('configmaps', e?.valueFrom?.configMapKeyRef?.name);
-      push('secrets', e?.valueFrom?.secretKeyRef?.name);
-    }
-  }
-  return Array.from(new Map(out.map((m) => [`${m.kind}:${m.name}`, m])).values());
-}
 
 function containersOf(kind: string, obj: K8sObject): Array<{ name?: string; image?: string }> {
   if (kind === 'cronjobs') return obj.spec?.jobTemplate?.spec?.template?.spec?.containers ?? [];
   return obj.spec?.template?.spec?.containers ?? [];
-}
-
-function podSpecOf(kind: string, obj: K8sObject): Record<string, any> | undefined {
-  return kind === 'cronjobs' ? obj.spec?.jobTemplate?.spec : obj.spec;
 }
 
 export interface ResourceItemCardProps {
@@ -93,8 +61,7 @@ export default function ResourceItemCard({
     if (WORKLOAD_KINDS.has(kind)) {
       const containers = containersOf(kind, obj);
       const replicas = obj.spec?.replicas;
-      const podSpec = podSpecOf(kind, obj);
-      const mounts = extractMounts(podSpec);
+      const mounts = extractMounts(obj);
       return (
         <Space direction="vertical" size={6} style={{ width: '100%' }}>
           {typeof replicas === 'number' && (
