@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -9,10 +10,13 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/client-go/dynamic"
 	"sigs.k8s.io/yaml"
 
+	"omnikube/internal/cluster"
 	"omnikube/internal/model"
 )
 
@@ -316,4 +320,99 @@ func (h *Handler) ListSelectable(c *gin.Context) {
 		names = append(names, list.Items[i].GetName())
 	}
 	c.JSON(http.StatusOK, gin.H{"names": names})
+}
+
+// applyDeployItem 对一条资源做 upsert(存在则 Update 回填 resourceVersion,不存在则 Create)。
+// 返回 phase(created|updated|failed)+ message。
+func applyDeployItem(ctx context.Context, cc *cluster.ClusterClient, ns string, it DeployItem) (string, string) {
+	gvr, namespaced, gerr := resolveGVR(cc, it.Kind)
+	if gerr != nil {
+		return "failed", gerr.Error()
+	}
+	var m map[string]interface{}
+	if err := yaml.Unmarshal([]byte(it.ManifestYAML), &m); err != nil {
+		return "failed", "YAML 解析失败: " + err.Error()
+	}
+	obj := &unstructured.Unstructured{Object: m}
+	obj.SetName(it.Name)
+	ri := cc.Dynamic.Resource(gvr)
+	var dri dynamic.ResourceInterface = ri
+	if namespaced {
+		obj.SetNamespace(ns) // 强制覆盖 manifest 自带 namespace,封堵越权。
+		dri = ri.Namespace(ns)
+	}
+	current, gerr := dri.Get(ctx, it.Name, metav1.GetOptions{})
+	if apierrors.IsNotFound(gerr) {
+		if _, err := dri.Create(ctx, obj, metav1.CreateOptions{}); err != nil {
+			return "failed", err.Error()
+		}
+		return "created", ""
+	}
+	if gerr != nil {
+		return "failed", gerr.Error()
+	}
+	obj.SetResourceVersion(current.GetResourceVersion())
+	if _, err := dri.Update(ctx, obj, metav1.UpdateOptions{}); err != nil {
+		return "failed", err.Error()
+	}
+	return "updated", ""
+}
+
+// PublishDeployOrder POST /integrated-deploy/orders/:id/publish
+// 按固定顺序 upsert;遇错即停,余下标 skipped;写一条发布历史;回写工单 status。
+func (h *Handler) PublishDeployOrder(c *gin.Context) {
+	var o model.DeployOrder
+	if err := h.DB.First(&o, c.Param("id")).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"message": "工单不存在"})
+		return
+	}
+	var items []DeployItem
+	if o.Items != "" {
+		_ = json.Unmarshal([]byte(o.Items), &items)
+	}
+	if len(items) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "工单没有任何资源条目"})
+		return
+	}
+	uid := c.GetUint("user_id")
+	// 发布前二次权限校验(权限期间可能被收回)。
+	if msg, code := h.validateDeployItems(uid, o.ClusterID, o.Namespace, items); code != 0 {
+		c.JSON(code, gin.H{"message": msg})
+		return
+	}
+	cc, found := h.Pool.Get(o.ClusterID)
+	if !found {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "集群不可用"})
+		return
+	}
+	ordered := sortDeployItems(items)
+	results := make([]ItemResult, 0, len(ordered))
+	runStatus := "succeeded"
+	stopped := false
+	for _, it := range ordered {
+		if stopped {
+			results = append(results, ItemResult{Kind: it.Kind, Name: it.Name, Phase: "skipped"})
+			continue
+		}
+		phase, msg := applyDeployItem(c.Request.Context(), cc, o.Namespace, it)
+		results = append(results, ItemResult{Kind: it.Kind, Name: it.Name, Phase: phase, Message: msg})
+		if phase == "failed" {
+			runStatus = "failed"
+			stopped = true // 遇错即停。
+		}
+	}
+	resultsJSON, _ := json.Marshal(results)
+	run := model.DeployOrderRun{
+		OrderID: o.ID, UserID: uid, Username: h.currentUsername(uid),
+		Status: runStatus, Results: string(resultsJSON),
+	}
+	h.DB.Create(&run)
+	o.Status = runStatus
+	h.DB.Save(&o)
+	c.JSON(http.StatusOK, gin.H{
+		"run": gin.H{
+			"id": run.ID, "status": run.Status, "results": results,
+			"created_at": run.CreatedAt, "username": run.Username,
+		},
+	})
 }

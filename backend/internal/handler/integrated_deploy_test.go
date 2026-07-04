@@ -38,3 +38,14 @@ func TestSortDeployItems(t *testing.T) {
 		t.Fatal("sortDeployItems must not mutate input")
 	}
 }
+
+func TestSortThenSkipSemantics(t *testing.T) {
+	// 组序保证 configmap 先于 deployment;若 deployment 前的一条失败,deployment 应被 skip。
+	ordered := sortDeployItems([]DeployItem{
+		{Kind: "deployments", Name: "app", SortIndex: 0},
+		{Kind: "configmaps", Name: "cfg", SortIndex: 0},
+	})
+	if ordered[0].Kind != "configmaps" || ordered[1].Kind != "deployments" {
+		t.Fatalf("expected configmaps before deployments, got %+v", ordered)
+	}
+}
