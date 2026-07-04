@@ -768,12 +768,15 @@ const ja: Resources = {
     publishHistory: '公開履歴',
     saved: '保存しました',
     nameRequired: 'マニフェストに metadata.name がありません',
+    editItem: 'リソースを編集',
+    addItem: '追加',
   },
   common: {
     cancel: 'キャンセル',
     close: '閉じる',
     yes: 'はい',
     no: 'いいえ',
+    back: '戻る',
   },
 };
 

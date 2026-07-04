@@ -768,12 +768,15 @@ const es: Resources = {
     publishHistory: 'Historial de publicaciones',
     saved: 'Guardado',
     nameRequired: 'Al manifiesto le falta metadata.name',
+    editItem: 'Editar recurso',
+    addItem: 'Añadir',
   },
   common: {
     cancel: 'Cancelar',
     close: 'Cerrar',
     yes: 'Sí',
     no: 'No',
+    back: 'Volver',
   },
 };
 

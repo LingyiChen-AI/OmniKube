@@ -768,12 +768,15 @@ const zh: Resources = {
     publishHistory: '发布历史',
     saved: '已保存',
     nameRequired: 'YAML 缺少 metadata.name,请补全',
+    editItem: '编辑资源',
+    addItem: '添加',
   },
   common: {
     cancel: '取消',
     close: '关闭',
     yes: '是',
     no: '否',
+    back: '返回',
   },
 };
 

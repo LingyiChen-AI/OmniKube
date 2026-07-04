@@ -768,12 +768,15 @@ const ko: Resources = {
     publishHistory: '배포 기록',
     saved: '저장됨',
     nameRequired: '매니페스트에 metadata.name이 없습니다',
+    editItem: '리소스 편집',
+    addItem: '추가',
   },
   common: {
     cancel: '취소',
     close: '닫기',
     yes: '예',
     no: '아니오',
+    back: '뒤로',
   },
 };
 

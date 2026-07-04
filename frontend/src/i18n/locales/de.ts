@@ -768,12 +768,15 @@ const de: Resources = {
     publishHistory: 'Veröffentlichungsverlauf',
     saved: 'Gespeichert',
     nameRequired: 'Im Manifest fehlt metadata.name',
+    editItem: 'Ressource bearbeiten',
+    addItem: 'Hinzufügen',
   },
   common: {
     cancel: 'Abbrechen',
     close: 'Schließen',
     yes: 'Ja',
     no: 'Nein',
+    back: 'Zurück',
   },
 };
 

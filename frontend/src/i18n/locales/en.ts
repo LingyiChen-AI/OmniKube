@@ -766,12 +766,15 @@ const en = {
     publishHistory: 'Publish history',
     saved: 'Saved',
     nameRequired: 'The manifest is missing metadata.name',
+    editItem: 'Edit resource',
+    addItem: 'Add',
   },
   common: {
     cancel: 'Cancel',
     close: 'Close',
     yes: 'Yes',
     no: 'No',
+    back: 'Back',
   },
 };
 

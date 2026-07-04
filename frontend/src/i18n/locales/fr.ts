@@ -768,12 +768,15 @@ const fr: Resources = {
     publishHistory: 'Historique des publications',
     saved: 'Enregistré',
     nameRequired: 'Le manifeste ne contient pas metadata.name',
+    editItem: 'Modifier la ressource',
+    addItem: 'Ajouter',
   },
   common: {
     cancel: 'Annuler',
     close: 'Fermer',
     yes: 'Oui',
     no: 'Non',
+    back: 'Retour',
   },
 };
 
