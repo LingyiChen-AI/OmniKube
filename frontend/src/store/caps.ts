@@ -77,9 +77,10 @@ export function capabilityAllows(
 
 /**
  * Hook that keeps capabilities in sync with the current cluster + namespace and
- * exposes a `can(resource, action)` helper. When the resource is unknown the
- * helper returns false (callers should keep always-allowed actions like "view"
- * outside the gate).
+ * exposes a `can(resource, action)` helper. Built-in resources are gated by
+ * their own capability entry; unknown/CRD resources fall back to the coarse
+ * `customresources` grant (see `capabilityAllows`). Callers should keep
+ * always-allowed actions like "view" outside the gate.
  */
 export function useCapabilities(): Capabilities {
   const { currentCluster, currentNamespace } = useCtxStore();
