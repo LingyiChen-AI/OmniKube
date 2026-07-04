@@ -539,15 +539,17 @@ func (h *Handler) executePublish(ctx context.Context, o model.DeployOrder, uid u
 	for _, it := range ordered {
 		names = append(names, it.Kind+"/"+it.Name)
 	}
-	statusText := "成功"
+	// Release-note text is a locale-neutral audit string → English (mirrors the
+	// English "Release note" column header and stays stable across UI languages).
+	statusText := "succeeded"
 	if runStatus == "failed" {
-		statusText = "失败"
+		statusText = "failed"
 	}
 	rel := model.ReleaseRecord{
 		UserID: uid, Username: h.currentUsername(uid),
 		ClusterID: o.ClusterID, Namespace: o.Namespace,
 		Kind: "DeployOrder", Name: o.Title,
-		Comment: fmt.Sprintf("集成部署「%s」· %d 个资源(%s)· %s", o.Title, len(ordered), strings.Join(names, ", "), statusText),
+		Comment: fmt.Sprintf("Integrated deploy %q · %d resource(s) (%s) · %s", o.Title, len(ordered), strings.Join(names, ", "), statusText),
 		Source:  "integrated_deploy",
 	}
 	if err := h.DB.Create(&rel).Error; err != nil {
