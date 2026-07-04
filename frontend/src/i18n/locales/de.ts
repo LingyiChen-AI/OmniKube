@@ -770,7 +770,6 @@ const de: Resources = {
     nameRequired: 'Im Manifest fehlt metadata.name',
     editItem: 'Ressource bearbeiten',
     addItem: 'Hinzufügen',
-    newResource: 'Neue Ressource',
     mounts: 'Mounts',
     replicas: 'Replikate',
     images: 'Images',

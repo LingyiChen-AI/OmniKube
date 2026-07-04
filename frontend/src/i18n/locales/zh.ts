@@ -770,7 +770,6 @@ const zh: Resources = {
     nameRequired: 'YAML 缺少 metadata.name,请补全',
     editItem: '编辑资源',
     addItem: '添加',
-    newResource: '新建资源',
     mounts: '挂载',
     replicas: '副本',
     images: '镜像',

@@ -2,13 +2,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { App as AntApp, Alert, Button, ConfigProvider, Drawer, Segmented, Select, Space, Tag, theme } from 'antd';
 import { useTranslation } from 'react-i18next';
 import type { K8sObject } from '../../api/resource';
-import { getResourceForm, kindFromResource, createTemplate } from '../../components/editor/forms';
-import { clone, toYAML, fromYAML } from '../../components/editor/util';
+import { getResourceForm, kindFromResource } from '../../components/editor/forms';
+import { toYAML, fromYAML } from '../../components/editor/util';
 import CodeBox from '../../components/editor/CodeBox';
 import { integratedDeployApi, DEPLOY_KINDS } from '../../api/integratedDeploy';
 
 type ViewMode = 'visual' | 'yaml';
-export type ManifestDrawerMode = 'select-add' | 'new-add' | 'edit';
+export type ManifestDrawerMode = 'select-add' | 'edit';
 
 export interface ManifestDrawerResult {
   kind: string;
@@ -73,24 +73,13 @@ export default function ManifestDrawer({
       }
       return;
     }
-    if (mode === 'new-add') {
-      const k = 'configmaps';
-      setKind(k);
-      setSelName('');
-      setSelectableNames([]);
-      const tpl = createTemplate(k, namespace) as K8sObject;
-      setDraft(clone(tpl));
-      setYamlText(toYAML(tpl));
-      setViewMode(getResourceForm(kindFromResource(k)) ? 'visual' : 'yaml');
-      return;
-    }
     // select-add
     setKind('configmaps');
     setSelName('');
     setDraft(null);
     setYamlText('');
     setViewMode('visual');
-  }, [open, mode, initialKind, initialYaml, namespace]);
+  }, [open, mode, initialKind, initialYaml]);
 
   // select-add: load selectable names whenever kind changes (while open).
   useEffect(() => {
@@ -106,14 +95,6 @@ export default function ManifestDrawer({
   const supportsVisual = !!FormComp;
   // select-add shows only the kind+name picker until a resource is loaded.
   const showEditor = !(mode === 'select-add' && !draft);
-
-  const handleKindChangeNewAdd = (k: string) => {
-    setKind(k);
-    const tpl = createTemplate(k, namespace) as K8sObject;
-    setDraft(clone(tpl));
-    setYamlText(toYAML(tpl));
-    setViewMode(getResourceForm(kindFromResource(k)) ? 'visual' : 'yaml');
-  };
 
   const handleKindChangeSelectAdd = (k: string) => {
     setKind(k);
@@ -173,12 +154,7 @@ export default function ManifestDrawer({
     onConfirm({ kind, name, yaml: finalYaml });
   };
 
-  const title =
-    mode === 'select-add'
-      ? t('integratedDeploy.addSelected')
-      : mode === 'new-add'
-        ? t('integratedDeploy.newResource')
-        : t('integratedDeploy.editItem');
+  const title = mode === 'select-add' ? t('integratedDeploy.addSelected') : t('integratedDeploy.editItem');
 
   return (
     <Drawer
@@ -240,14 +216,6 @@ export default function ManifestDrawer({
             />
           </Space>
         )}
-        {mode === 'new-add' && (
-          <Select
-            style={{ width: 240 }}
-            value={kind}
-            onChange={handleKindChangeNewAdd}
-            options={DEPLOY_KINDS.map((k) => ({ value: k, label: k }))}
-          />
-        )}
       </Space>
 
       {showEditor ? (
@@ -256,7 +224,7 @@ export default function ManifestDrawer({
           {viewMode === 'visual' && FormComp && draft ? (
             <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
               <ConfigProvider componentDisabled={readOnly}>
-                <FormComp draft={draft} onChange={setDraft} creating={mode === 'new-add'} />
+                <FormComp draft={draft} onChange={setDraft} creating={false} />
               </ConfigProvider>
             </div>
           ) : (

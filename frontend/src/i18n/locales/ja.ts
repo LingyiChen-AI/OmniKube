@@ -770,7 +770,6 @@ const ja: Resources = {
     nameRequired: 'マニフェストに metadata.name がありません',
     editItem: 'リソースを編集',
     addItem: '追加',
-    newResource: '新規リソース',
     mounts: 'マウント',
     replicas: 'レプリカ',
     images: 'イメージ',

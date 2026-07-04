@@ -770,7 +770,6 @@ const es: Resources = {
     nameRequired: 'Al manifiesto le falta metadata.name',
     editItem: 'Editar recurso',
     addItem: 'Añadir',
-    newResource: 'Nuevo recurso',
     mounts: 'Montajes',
     replicas: 'Réplicas',
     images: 'Imágenes',

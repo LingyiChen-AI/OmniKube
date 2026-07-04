@@ -770,7 +770,6 @@ const ko: Resources = {
     nameRequired: '매니페스트에 metadata.name이 없습니다',
     editItem: '리소스 편집',
     addItem: '추가',
-    newResource: '새 리소스',
     mounts: '마운트',
     replicas: '레플리카',
     images: '이미지',

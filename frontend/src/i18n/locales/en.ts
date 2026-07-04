@@ -768,7 +768,6 @@ const en = {
     nameRequired: 'The manifest is missing metadata.name',
     editItem: 'Edit resource',
     addItem: 'Add',
-    newResource: 'New resource',
     mounts: 'Mounts',
     replicas: 'Replicas',
     images: 'Images',

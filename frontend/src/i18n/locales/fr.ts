@@ -770,7 +770,6 @@ const fr: Resources = {
     nameRequired: 'Le manifeste ne contient pas metadata.name',
     editItem: 'Modifier la ressource',
     addItem: 'Ajouter',
-    newResource: 'Nouvelle ressource',
     mounts: 'Montages',
     replicas: 'Répliques',
     images: 'Images',

@@ -97,12 +97,6 @@ export default function DeployOrderEditor() {
     setDrawerOpen(true);
   };
 
-  const openNewAdd = () => {
-    setDrawerMode('new-add');
-    setDrawerEditIdx(null);
-    setDrawerOpen(true);
-  };
-
   const openEditByIdx = (idx: number) => {
     setDrawerMode('edit');
     setDrawerEditIdx(idx);
@@ -127,9 +121,8 @@ export default function DeployOrderEditor() {
         message.error(t('integratedDeploy.duplicateItem'));
         return;
       }
-      const source = drawerMode === 'select-add' ? 'selected' : 'authored';
       const nextIndex = items.filter((i) => DEPLOY_KIND_GROUP[i.kind] === DEPLOY_KIND_GROUP[kind]).length;
-      setItems([...items, { kind, name, source, manifest_yaml: yaml, sort_index: nextIndex }]);
+      setItems([...items, { kind, name, source: 'selected', manifest_yaml: yaml, sort_index: nextIndex }]);
     }
     setDrawerOpen(false);
   };
@@ -229,17 +222,9 @@ export default function DeployOrderEditor() {
         title={t('integratedDeploy.items')}
         extra={
           canEdit && (
-            <Space>
-              <Button
-                onClick={openSelectAdd}
-                disabled={!clusterId || !namespace}
-              >
-                {t('integratedDeploy.addSelected')}
-              </Button>
-              <Button onClick={openNewAdd} disabled={!clusterId || !namespace}>
-                {t('integratedDeploy.newResource')}
-              </Button>
-            </Space>
+            <Button onClick={openSelectAdd} disabled={!clusterId || !namespace}>
+              {t('integratedDeploy.addSelected')}
+            </Button>
           )
         }
       >
