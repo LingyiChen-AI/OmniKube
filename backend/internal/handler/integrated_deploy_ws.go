@@ -69,6 +69,11 @@ func (h *Handler) PublishDeployOrderWS(c *gin.Context) {
 
 	emit := func(ev publishEvent) { writePublishFrame(conn, ev) }
 
+	// 有意为之(与 ai_chat.go 不同):这里没有读泵、也不监听客户端断开做取消。
+	// 一次发布是一个短暂且不可取消的集群写操作——executePublish 会把整个有序清单跑完,
+	// 并无条件持久化 DeployOrderRun / 回写工单状态 / 写 ReleaseRecord,无论客户端是否
+	// 还在观看。若客户端中途离开,下发帧的阻塞由每帧 10s 写超时(publishWriteWait)兜底,
+	// 不会拖住发布本身。故此处直接同步跑完即可,无需 ai_chat 那套 ctx cancel 机制。
 	run, msg, code := h.executePublish(c.Request.Context(), o, uid, emit)
 	if code != 0 {
 		writePublishFrame(conn, publishEvent{Type: "error", Message: msg})
