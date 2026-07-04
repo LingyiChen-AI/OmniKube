@@ -27,6 +27,7 @@ const en = {
     ai: 'AI assistant',
     aiConfig: 'AI Config',
     integrated_deploy: 'Integrated Deploy',
+    apiResources: 'API Resources',
   },
   topbar: {
     toggleSidebar: 'Toggle sidebar',
@@ -390,6 +391,7 @@ const en = {
     globalSection: 'Global permissions',
     clusterSection: 'Cluster permissions',
     systemMgmt: 'System management',
+    customResources: 'Other / Custom Resources',
     module: {
       workloads: 'Workloads',
       networking: 'Networking',
@@ -782,6 +784,12 @@ const en = {
     pending: 'Pending',
     publishing: 'Publishing',
     publishGenericError: 'The publish connection was interrupted, please retry',
+  },
+  apiResources: {
+    title: 'API Resources',
+    desc: 'Browse and manage any resource type in the cluster, including CRDs and built-ins without a dedicated page.',
+    pickType: 'Select a resource type',
+    hideBuiltin: 'Hide built-in resources that have a dedicated page',
   },
   common: {
     cancel: 'Cancel',

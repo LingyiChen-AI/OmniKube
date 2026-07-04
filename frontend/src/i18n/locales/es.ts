@@ -29,6 +29,7 @@ const es: Resources = {
     ai: 'Asistente de IA',
     aiConfig: 'Configuración de IA',
     integrated_deploy: 'Despliegue integrado',
+    apiResources: 'Recursos API',
   },
   topbar: {
     toggleSidebar: 'Alternar barra lateral',
@@ -392,6 +393,7 @@ const es: Resources = {
     globalSection: 'Permisos globales',
     clusterSection: 'Permisos del clúster',
     systemMgmt: 'Gestión del sistema',
+    customResources: 'Otros / Recursos personalizados',
     module: {
       workloads: 'Cargas de trabajo',
       networking: 'Red',
@@ -784,6 +786,12 @@ const es: Resources = {
     pending: 'Pendiente',
     publishing: 'Publicando',
     publishGenericError: 'La conexión de publicación se interrumpió, inténtelo de nuevo',
+  },
+  apiResources: {
+    title: 'Recursos API',
+    desc: 'Explore y gestione cualquier tipo de recurso del clúster, incluidos los CRD y los recursos integrados sin página dedicada.',
+    pickType: 'Seleccione un tipo de recurso',
+    hideBuiltin: 'Ocultar recursos integrados que tienen página dedicada',
   },
   common: {
     cancel: 'Cancelar',

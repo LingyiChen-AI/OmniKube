@@ -29,6 +29,7 @@ const ko: Resources = {
     ai: 'AI 어시스턴트',
     aiConfig: 'AI 설정',
     integrated_deploy: '통합 배포',
+    apiResources: 'API 리소스',
   },
   topbar: {
     toggleSidebar: '사이드바 토글',
@@ -392,6 +393,7 @@ const ko: Resources = {
     globalSection: '글로벌 권한',
     clusterSection: '클러스터 권한',
     systemMgmt: '시스템 관리',
+    customResources: '기타 / 사용자 정의 리소스',
     module: {
       workloads: '워크로드',
       networking: '네트워킹',
@@ -784,6 +786,12 @@ const ko: Resources = {
     pending: '배포 대기',
     publishing: '배포 중',
     publishGenericError: '배포 연결이 끊어졌습니다. 다시 시도해 주세요',
+  },
+  apiResources: {
+    title: 'API 리소스',
+    desc: 'CRD 및 전용 페이지가 없는 기본 리소스를 포함하여 클러스터의 모든 리소스 유형을 탐색하고 관리합니다.',
+    pickType: '리소스 유형 선택',
+    hideBuiltin: '전용 페이지가 있는 기본 리소스 숨기기',
   },
   common: {
     cancel: '취소',
