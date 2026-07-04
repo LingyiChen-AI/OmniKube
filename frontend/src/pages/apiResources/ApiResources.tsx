@@ -23,6 +23,7 @@ export default function ApiResources() {
     if (!currentCluster) {
       setTypes([]);
       setSelected(null);
+      setLoading(false); // clear any in-flight spinner when the cluster is lost
       return;
     }
     let active = true;
