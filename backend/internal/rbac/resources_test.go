@@ -58,3 +58,33 @@ func TestGlobalAreas(t *testing.T) {
 		t.Fatal("bogus area")
 	}
 }
+
+func TestCustomResourcesIsValid(t *testing.T) {
+	if !IsValidResource(CustomResource) {
+		t.Fatalf("customresources 应为合法资源")
+	}
+	if CustomResource != "customresources" {
+		t.Fatalf("CustomResource = %q, want customresources", CustomResource)
+	}
+}
+
+func TestCustomResourcesActions(t *testing.T) {
+	for _, a := range []string{"view", "create", "edit", "delete"} {
+		if !ResourceActionApplies(CustomResource, a) {
+			t.Fatalf("customresources 应适用动作 %s", a)
+		}
+	}
+	for _, a := range []string{"exec", "reveal"} {
+		if ResourceActionApplies(CustomResource, a) {
+			t.Fatalf("customresources 不应适用动作 %s", a)
+		}
+	}
+}
+
+func TestCustomResourcesNotInAllResources(t *testing.T) {
+	for _, r := range AllResources {
+		if r == CustomResource {
+			t.Fatalf("customresources 不应出现在 AllResources")
+		}
+	}
+}
