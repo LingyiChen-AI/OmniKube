@@ -6,14 +6,14 @@ import {
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
-  integratedDeployApi, orderedItems, DEPLOY_KIND_GROUP,
+  integratedDeployApi, orderedItems, DEPLOY_KINDS, DEPLOY_KIND_GROUP,
   type DeployItem, type DeployRun, type ItemResult,
 } from '../../api/integratedDeploy';
 import { clusterApi } from '../../api/cluster';
 import { useAuthStore } from '../../store/auth';
 import { useCtxStore } from '../../store/ctx';
 import { canGlobal } from '../../nav';
-import ManifestDrawer, { type ManifestDrawerMode } from './ManifestDrawer';
+import ManifestDrawer from './ManifestDrawer';
 import ResourceItemCard from './ResourceItemCard';
 
 const GROUP_KEY: Record<number, string> = {
@@ -86,44 +86,58 @@ export default function DeployOrderEditor() {
   const preview = useMemo(() => orderedItems(items), [items]);
   const inOrder = useMemo(() => new Set(items.map((i) => `${i.kind}:${i.name}`)), [items]);
 
-  // —— 资源条目 Drawer:从集群选取 / 新建资源 / 编辑 ——
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [drawerMode, setDrawerMode] = useState<ManifestDrawerMode>('select-add');
-  const [drawerEditIdx, setDrawerEditIdx] = useState<number | null>(null);
+  // —— 从集群选取:内联在条目卡片顶部 ——
+  const [selKind, setSelKind] = useState('configmaps');
+  const [selName, setSelName] = useState('');
+  const [selectableNames, setSelectableNames] = useState<string[]>([]);
 
-  const openSelectAdd = () => {
-    setDrawerMode('select-add');
-    setDrawerEditIdx(null);
-    setDrawerOpen(true);
+  // 拉可选资源名单(按写权限过滤;走工单所属 clusterId,而非全局当前集群)。
+  useEffect(() => {
+    if (!clusterId || !namespace) {
+      setSelectableNames([]);
+      return;
+    }
+    integratedDeployApi.selectable(clusterId, namespace, selKind).then(setSelectableNames).catch(() => setSelectableNames([]));
+  }, [clusterId, namespace, selKind]);
+
+  const addSelected = async () => {
+    if (!clusterId || !namespace || !selName) return;
+    if (items.some((i) => i.kind === selKind && i.name === selName)) {
+      message.error(t('integratedDeploy.duplicateItem'));
+      return;
+    }
+    try {
+      const yaml = await integratedDeployApi.snapshot(clusterId, namespace, selKind, selName);
+      const nextIndex = items.filter((i) => DEPLOY_KIND_GROUP[i.kind] === DEPLOY_KIND_GROUP[selKind]).length;
+      setItems([...items, { kind: selKind, name: selName, source: 'selected', manifest_yaml: yaml, sort_index: nextIndex }]);
+      setSelName('');
+    } catch {
+      /* axios interceptor already toasts */
+    }
   };
 
-  const openEditByIdx = (idx: number) => {
-    setDrawerMode('edit');
+  // —— 编辑条目:Drawer(仅编辑已有条目的内容) ——
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerEditIdx, setDrawerEditIdx] = useState<number | null>(null);
+
+  const openEditDrawer = (idx: number) => {
     setDrawerEditIdx(idx);
     setDrawerOpen(true);
   };
 
   const openEditMount = (kind: string, name: string) => {
     const idx = items.findIndex((i) => i.kind === kind && i.name === name);
-    if (idx >= 0) openEditByIdx(idx);
+    if (idx >= 0) openEditDrawer(idx);
   };
 
   const handleDrawerConfirm = ({ kind, name, yaml }: { kind: string; name: string; yaml: string }) => {
-    if (drawerMode === 'edit' && drawerEditIdx !== null) {
-      // A rename must not collide with a DIFFERENT existing item.
-      if (items.some((i, idx) => idx !== drawerEditIdx && i.kind === kind && i.name === name)) {
-        message.error(t('integratedDeploy.duplicateItem'));
-        return;
-      }
-      setItems(items.map((it, i) => (i === drawerEditIdx ? { ...it, name, manifest_yaml: yaml } : it)));
-    } else {
-      if (items.some((i) => i.kind === kind && i.name === name)) {
-        message.error(t('integratedDeploy.duplicateItem'));
-        return;
-      }
-      const nextIndex = items.filter((i) => DEPLOY_KIND_GROUP[i.kind] === DEPLOY_KIND_GROUP[kind]).length;
-      setItems([...items, { kind, name, source: 'selected', manifest_yaml: yaml, sort_index: nextIndex }]);
+    if (drawerEditIdx === null) return;
+    // A rename must not collide with a DIFFERENT existing item.
+    if (items.some((i, idx) => idx !== drawerEditIdx && i.kind === kind && i.name === name)) {
+      message.error(t('integratedDeploy.duplicateItem'));
+      return;
     }
+    setItems(items.map((it, i) => (i === drawerEditIdx ? { ...it, name, manifest_yaml: yaml } : it)));
     setDrawerOpen(false);
   };
 
@@ -168,7 +182,7 @@ export default function DeployOrderEditor() {
     });
   };
 
-  const drawerEditItem = drawerMode === 'edit' && drawerEditIdx !== null ? items[drawerEditIdx] : null;
+  const drawerEditItem = drawerEditIdx !== null ? items[drawerEditIdx] : null;
 
   return (
     <Space direction="vertical" style={{ width: '100%' }} size={16}>
@@ -218,16 +232,32 @@ export default function DeployOrderEditor() {
         </Form>
       </Card>
 
-      <Card
-        title={t('integratedDeploy.items')}
-        extra={
-          canEdit && (
-            <Button onClick={openSelectAdd} disabled={!clusterId || !namespace}>
-              {t('integratedDeploy.addSelected')}
+      <Card title={t('integratedDeploy.items')}>
+        {canEdit && (
+          <Space wrap style={{ marginBottom: 16 }}>
+            <Select
+              style={{ width: 200 }}
+              value={selKind}
+              onChange={(v) => {
+                setSelKind(v);
+                setSelName('');
+              }}
+              options={DEPLOY_KINDS.map((k) => ({ value: k, label: k }))}
+            />
+            <Select
+              style={{ width: 280 }}
+              showSearch
+              placeholder={t('integratedDeploy.selectResource')}
+              value={selName || undefined}
+              onChange={setSelName}
+              options={selectableNames.map((n) => ({ value: n, label: n }))}
+              notFoundContent={t('integratedDeploy.noSelectable')}
+            />
+            <Button type="primary" onClick={addSelected} disabled={!clusterId || !namespace || !selName}>
+              {t('integratedDeploy.addItem')}
             </Button>
-          )
-        }
-      >
+          </Space>
+        )}
         {items.length === 0 ? (
           <Empty />
         ) : (
@@ -245,7 +275,7 @@ export default function DeployOrderEditor() {
                 groupLabel={t(GROUP_KEY[DEPLOY_KIND_GROUP[item.kind] ?? 3])}
                 inOrder={inOrder}
                 canEdit={canEdit}
-                onEdit={() => openEditByIdx(idx)}
+                onEdit={() => openEditDrawer(idx)}
                 onDelete={() => removeItem(idx)}
                 onOpenMount={openEditMount}
               />
@@ -302,10 +332,7 @@ export default function DeployOrderEditor() {
 
       <ManifestDrawer
         open={drawerOpen}
-        mode={drawerMode}
-        clusterId={clusterId}
-        namespace={namespace}
-        initialKind={drawerEditItem?.kind}
+        kind={drawerEditItem?.kind ?? ''}
         initialYaml={drawerEditItem?.manifest_yaml}
         readOnly={!canEdit}
         onClose={() => setDrawerOpen(false)}
