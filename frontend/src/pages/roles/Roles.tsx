@@ -40,7 +40,7 @@ import {
   actionsForGlobalArea,
   ALL_RESOURCES,
   TREE_ACTIONS,
-  BASE_ACTIONS,
+  GLOBAL_MATRIX_ACTIONS,
   MODULE_KEYS,
   MODULE_RESOURCES,
   isClusterScopedResource,
@@ -568,7 +568,7 @@ export function GlobalPermsMatrix({ value = {}, onChange, disabled }: GlobalPerm
             {t(`nav.${area}`)}
           </Checkbox>
         </td>
-        {BASE_ACTIONS.map((a) => {
+        {GLOBAL_MATRIX_ACTIONS.map((a) => {
           const ok = applies(area, a);
           // For the `ai` area the `create` column means the AI enable/disable switch,
           // not a generic 'create' — clarify with a tooltip.
@@ -608,7 +608,7 @@ export function GlobalPermsMatrix({ value = {}, onChange, disabled }: GlobalPerm
               </Text>
             </Checkbox>
           </th>
-          {BASE_ACTIONS.map((a) => {
+          {GLOBAL_MATRIX_ACTIONS.map((a) => {
             const cs = groupState(allAreas, a);
             return (
               <th key={a}>
@@ -641,7 +641,7 @@ export function GlobalPermsMatrix({ value = {}, onChange, disabled }: GlobalPerm
               <Text strong>{t('role.systemMgmt')}</Text>
             </Checkbox>
           </td>
-          <td colSpan={BASE_ACTIONS.length} />
+          <td colSpan={GLOBAL_MATRIX_ACTIONS.length} />
         </tr>
         {SYSTEM_AREAS.map((area) => areaRow(area))}
         {areaRow('integrated_deploy')}

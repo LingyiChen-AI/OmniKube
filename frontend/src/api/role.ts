@@ -14,6 +14,9 @@ export type TreeAction = 'view' | 'create' | 'edit' | 'delete' | 'exec' | 'revea
 export const BASE_ACTIONS: TreeAction[] = ['view', 'create', 'edit', 'delete'];
 /** All tree actions, in canonical display order. */
 export const TREE_ACTIONS: TreeAction[] = ['view', 'create', 'edit', 'delete', 'exec', 'reveal', 'publish'];
+/** Columns shown in the GLOBAL permission matrix. Includes `publish` (only the
+ *  integrated_deploy area uses it); non-applicable cells render greyed/disabled. */
+export const GLOBAL_MATRIX_ACTIONS: TreeAction[] = ['view', 'create', 'edit', 'delete', 'publish'];
 
 /** Concrete k8s resources, grouped by display module. */
 export type ModuleKey = 'workloads' | 'networking' | 'storage' | 'nodes';

@@ -421,6 +421,7 @@ const zh: Resources = {
       exec: '终端',
       reveal: '揭示明文',
       revealHint: '允许查看 Secret 的明文值',
+      publish: '发布',
     },
     systemTag: '系统',
     systemNoDelete: '系统角色不可删除',

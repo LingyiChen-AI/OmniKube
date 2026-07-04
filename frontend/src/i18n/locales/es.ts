@@ -421,6 +421,7 @@ const es: Resources = {
       exec: 'Terminal',
       reveal: 'Revelar',
       revealHint: 'Permite ver los valores en texto plano de los Secret',
+      publish: 'Publicar',
     },
     systemTag: 'Sistema',
     systemNoDelete: 'Los roles del sistema no se pueden eliminar',

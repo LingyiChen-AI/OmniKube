@@ -421,6 +421,7 @@ const ko: Resources = {
       exec: '터미널',
       reveal: '표시',
       revealHint: 'Secret 평문 값 보기를 허용합니다',
+      publish: '배포',
     },
     systemTag: '시스템',
     systemNoDelete: '시스템 역할은 삭제할 수 없습니다',

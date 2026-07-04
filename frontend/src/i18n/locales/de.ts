@@ -421,6 +421,7 @@ const de: Resources = {
       exec: 'Terminal',
       reveal: 'Anzeigen',
       revealHint: 'Erlaubt das Anzeigen von Secret-Klartextwerten',
+      publish: 'Veröffentlichen',
     },
     systemTag: 'System',
     systemNoDelete: 'Systemrollen können nicht gelöscht werden',

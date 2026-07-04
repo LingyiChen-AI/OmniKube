@@ -419,6 +419,7 @@ const en = {
       exec: 'Terminal',
       reveal: 'Reveal',
       revealHint: 'Allows viewing Secret plaintext values',
+      publish: 'Publish',
     },
     systemTag: 'System',
     systemNoDelete: 'System roles cannot be deleted',

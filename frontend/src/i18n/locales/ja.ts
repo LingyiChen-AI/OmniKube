@@ -421,6 +421,7 @@ const ja: Resources = {
       exec: 'ターミナル',
       reveal: '平文表示',
       revealHint: 'Secret の平文値の表示を許可します',
+      publish: '公開',
     },
     systemTag: 'システム',
     systemNoDelete: 'システムロールは削除できません',
