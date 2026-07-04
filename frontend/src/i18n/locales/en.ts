@@ -765,6 +765,7 @@ const en = {
     noSelectable: 'No resources of this kind in this namespace that you have write access to',
     publishHistory: 'Publish history',
     saved: 'Saved',
+    nameRequired: 'The manifest is missing metadata.name',
   },
   common: {
     cancel: 'Cancel',

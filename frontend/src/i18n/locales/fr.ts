@@ -767,6 +767,7 @@ const fr: Resources = {
     noSelectable: 'Aucune ressource de ce type dans cet espace de noms pour laquelle vous avez un accès en écriture',
     publishHistory: 'Historique des publications',
     saved: 'Enregistré',
+    nameRequired: 'Le manifeste ne contient pas metadata.name',
   },
   common: {
     cancel: 'Annuler',

@@ -767,6 +767,7 @@ const ja: Resources = {
     noSelectable: 'この名前空間には書き込み権限があるこの種別のリソースがありません',
     publishHistory: '公開履歴',
     saved: '保存しました',
+    nameRequired: 'マニフェストに metadata.name がありません',
   },
   common: {
     cancel: 'キャンセル',

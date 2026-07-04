@@ -767,6 +767,7 @@ const zh: Resources = {
     noSelectable: '该命名空间下没有你有写权限的此类资源',
     publishHistory: '发布历史',
     saved: '已保存',
+    nameRequired: 'YAML 缺少 metadata.name,请补全',
   },
   common: {
     cancel: '取消',

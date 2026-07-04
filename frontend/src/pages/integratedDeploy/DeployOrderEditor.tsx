@@ -3,7 +3,6 @@ import {
   App as AntApp, Button, Card, Descriptions, Divider, Form, Input, Modal, Select,
   Space, Steps, Table, Tag, Timeline,
 } from 'antd';
-import yaml from 'js-yaml';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
@@ -13,6 +12,7 @@ import {
 import { clusterApi } from '../../api/cluster';
 import { resourceApi } from '../../api/resource';
 import CodeBox from '../../components/editor/CodeBox';
+import { toYAML, fromYAML } from '../../components/editor/util';
 import { useAuthStore } from '../../store/auth';
 import { canGlobal } from '../../nav';
 
@@ -45,7 +45,7 @@ export default function DeployOrderEditor() {
 
   const [form] = Form.useForm();
   const [clusters, setClusters] = useState<{ id: string; name: string }[]>([]);
-  const [locked] = useState(!isNew); // 已存在的工单:集群/命名空间锁定
+  const locked = !isNew; // 已存在的工单:集群/命名空间锁定(随路由重算)
   const [clusterId, setClusterId] = useState('');
   const [namespace, setNamespace] = useState('');
   const [items, setItems] = useState<DeployItem[]>([]);
@@ -96,7 +96,7 @@ export default function DeployOrderEditor() {
 
   const confirmAdd = async () => {
     let yamlText = addYaml;
-    const name = addName;
+    let name = addName;
     if (addMode === 'selected') {
       if (!name) {
         message.error(t('integratedDeploy.selectResource'));
@@ -105,9 +105,23 @@ export default function DeployOrderEditor() {
       // 快照选中资源当前 YAML。
       try {
         const obj = await resourceApi.get(namespace, addKind, name);
-        yamlText = yaml.dump(obj);
+        yamlText = toYAML(obj);
       } catch {
         message.error(t('integratedDeploy.selectResource'));
+        return;
+      }
+    } else {
+      // 手写模式:从 YAML 解析出 metadata.name,立即用于表格/预览显示。
+      try {
+        const obj = fromYAML(addYaml);
+        const parsedName = obj.metadata?.name;
+        if (!parsedName) {
+          message.error(t('integratedDeploy.nameRequired'));
+          return;
+        }
+        name = parsedName;
+      } catch {
+        message.error(t('integratedDeploy.nameRequired'));
         return;
       }
     }
@@ -253,7 +267,10 @@ export default function DeployOrderEditor() {
           {runs.map((r) => (
             <Descriptions key={r.id} size="small" column={1} style={{ marginBottom: 12 }}>
               <Descriptions.Item label={r.created_at}>
-                {r.status === 'failed' ? phaseTag('failed', t) : phaseTag('created', t)} — {r.username}
+                <Tag color={r.status === 'failed' ? 'error' : 'success'}>
+                  {r.status === 'failed' ? t('integratedDeploy.statusFailed') : t('integratedDeploy.statusSucceeded')}
+                </Tag>
+                {' — '}{r.username}
               </Descriptions.Item>
             </Descriptions>
           ))}

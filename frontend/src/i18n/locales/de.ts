@@ -767,6 +767,7 @@ const de: Resources = {
     noSelectable: 'In diesem Namespace gibt es keine Ressourcen dieses Typs, für die Sie Schreibzugriff haben',
     publishHistory: 'Veröffentlichungsverlauf',
     saved: 'Gespeichert',
+    nameRequired: 'Im Manifest fehlt metadata.name',
   },
   common: {
     cancel: 'Abbrechen',

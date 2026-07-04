@@ -767,6 +767,7 @@ const es: Resources = {
     noSelectable: 'No hay recursos de este tipo en este espacio de nombres a los que tengas acceso de escritura',
     publishHistory: 'Historial de publicaciones',
     saved: 'Guardado',
+    nameRequired: 'Al manifiesto le falta metadata.name',
   },
   common: {
     cancel: 'Cancelar',
