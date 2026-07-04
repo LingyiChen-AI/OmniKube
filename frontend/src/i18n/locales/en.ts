@@ -780,6 +780,10 @@ const en = {
     noVisualEditor: 'No visual editor for this kind — use YAML',
     kindMismatch: "The manifest's kind doesn't match the selected resource type",
     duplicateItem: 'An item with the same kind and name already exists in this order',
+    confirmPublish: 'Confirm publish',
+    pending: 'Pending',
+    publishing: 'Publishing',
+    publishGenericError: 'The publish connection was interrupted, please retry',
   },
   common: {
     cancel: 'Cancel',

@@ -782,6 +782,10 @@ const ja: Resources = {
     noVisualEditor: 'この種別にはビジュアル編集がありません。YAML を使用してください',
     kindMismatch: 'マニフェストの kind が選択したリソース種別と一致しません',
     duplicateItem: 'この発注書には同じ種別・同じ名前のリソースが既に存在します',
+    confirmPublish: '公開を確定',
+    pending: '未公開',
+    publishing: '公開中',
+    publishGenericError: '公開接続が中断されました。再試行してください',
   },
   common: {
     cancel: 'キャンセル',

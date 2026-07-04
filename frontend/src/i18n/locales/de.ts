@@ -782,6 +782,10 @@ const de: Resources = {
     noVisualEditor: 'Kein visueller Editor für diesen Typ — bitte YAML verwenden',
     kindMismatch: 'Der kind des Manifests stimmt nicht mit dem gewählten Ressourcentyp überein',
     duplicateItem: 'Ein Eintrag mit gleichem Typ und Namen existiert bereits in diesem Auftrag',
+    confirmPublish: 'Veröffentlichung bestätigen',
+    pending: 'Ausstehend',
+    publishing: 'Wird veröffentlicht',
+    publishGenericError: 'Die Veröffentlichungsverbindung wurde unterbrochen, bitte erneut versuchen',
   },
   common: {
     cancel: 'Abbrechen',

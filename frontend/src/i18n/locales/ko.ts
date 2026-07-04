@@ -782,6 +782,10 @@ const ko: Resources = {
     noVisualEditor: '이 종류는 비주얼 편집을 지원하지 않습니다. YAML을 사용하세요',
     kindMismatch: '매니페스트의 kind가 선택한 리소스 종류와 일치하지 않습니다',
     duplicateItem: '이 작업에는 이미 같은 종류와 이름의 리소스가 있습니다',
+    confirmPublish: '배포 확인',
+    pending: '배포 대기',
+    publishing: '배포 중',
+    publishGenericError: '배포 연결이 끊어졌습니다. 다시 시도해 주세요',
   },
   common: {
     cancel: '취소',

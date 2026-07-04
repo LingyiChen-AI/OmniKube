@@ -1,19 +1,20 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  App as AntApp, Button, Card, Col, Descriptions, Divider, Empty, Form, Input, Modal, Row, Select,
-  Space, Steps, Tag, Timeline,
+  App as AntApp, Button, Card, Col, Descriptions, Divider, Empty, Form, Input, Row, Select,
+  Space, Steps, Tag,
 } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   integratedDeployApi, orderedItems, DEPLOY_KINDS, DEPLOY_KIND_GROUP,
-  type DeployItem, type DeployRun, type ItemResult,
+  type DeployItem, type DeployRun,
 } from '../../api/integratedDeploy';
 import { clusterApi } from '../../api/cluster';
 import { useAuthStore } from '../../store/auth';
 import { useCtxStore } from '../../store/ctx';
 import { canGlobal } from '../../nav';
 import ManifestDrawer from './ManifestDrawer';
+import PublishDrawer from './PublishDrawer';
 import ResourceItemCard from './ResourceItemCard';
 import { formatTime } from '../../utils';
 
@@ -22,17 +23,6 @@ const GROUP_KEY: Record<number, string> = {
   2: 'integratedDeploy.group2',
   3: 'integratedDeploy.group3',
 };
-
-function phaseTag(phase: string, t: (k: string) => string) {
-  const map: Record<string, { color: string; key: string }> = {
-    created: { color: 'success', key: 'integratedDeploy.phaseCreated' },
-    updated: { color: 'processing', key: 'integratedDeploy.phaseUpdated' },
-    failed: { color: 'error', key: 'integratedDeploy.phaseFailed' },
-    skipped: { color: 'default', key: 'integratedDeploy.phaseSkipped' },
-  };
-  const m = map[phase] ?? map.skipped;
-  return <Tag color={m.color}>{t(m.key)}</Tag>;
-}
 
 export default function DeployOrderEditor() {
   const { t } = useTranslation();
@@ -61,7 +51,7 @@ export default function DeployOrderEditor() {
   const [nsOptions, setNsOptions] = useState<string[]>([]);
   const [items, setItems] = useState<DeployItem[]>([]);
   const [runs, setRuns] = useState<DeployRun[]>([]);
-  const [lastRun, setLastRun] = useState<DeployRun | null>(null);
+  const [publishOpen, setPublishOpen] = useState(false);
 
   // 加载集群列表(用于新建时选择)。
   useEffect(() => {
@@ -77,7 +67,7 @@ export default function DeployOrderEditor() {
     integratedDeployApi.namespaces(clusterId).then(setNsOptions).catch(() => setNsOptions([]));
   }, [clusterId]);
 
-  // 编辑:加载工单。
+  // 编辑:加载工单(发布完成后也用它刷新 runs/orderStatus,使工单转为只读)。
   useEffect(() => {
     if (!id) return;
     integratedDeployApi.get(Number(id)).then((d) => {
@@ -89,6 +79,14 @@ export default function DeployOrderEditor() {
       form.setFieldsValue({ title: d.order.title, description: d.order.description });
     }).catch(() => undefined);
   }, [id, form]);
+
+  const refetchOrder = () => {
+    if (!id) return;
+    integratedDeployApi.get(Number(id)).then((d) => {
+      setRuns(d.runs ?? []);
+      setOrderStatus(d.order.status);
+    }).catch(() => undefined);
+  };
 
   const preview = useMemo(() => orderedItems(items), [items]);
   const inOrder = useMemo(() => new Set(items.map((i) => `${i.kind}:${i.name}`)), [items]);
@@ -194,28 +192,6 @@ export default function DeployOrderEditor() {
     } catch {
       /* interceptor toast */
     }
-  };
-
-  const doPublish = () => {
-    Modal.confirm({
-      title: t('integratedDeploy.publishConfirmTitle'),
-      width: 560,
-      content: (
-        <div>
-          <p>{t('integratedDeploy.publishConfirmDesc')}</p>
-          <Steps
-            direction="vertical"
-            size="small"
-            items={preview.map((it) => ({ title: `${it.kind}/${it.name}`, status: 'wait' }))}
-          />
-        </div>
-      ),
-      onOk: async () => {
-        const run = await integratedDeployApi.publish(Number(id));
-        setLastRun(run);
-        setRuns([run, ...runs]);
-      },
-    });
   };
 
   return (
@@ -327,24 +303,9 @@ export default function DeployOrderEditor() {
 
       <Space>
         {canEdit && <Button type="primary" onClick={save}>{t('integratedDeploy.save')}</Button>}
-        {!isNew && canPublish && <Button onClick={doPublish}>{t('integratedDeploy.publish')}</Button>}
+        {!isNew && canPublish && <Button onClick={() => setPublishOpen(true)}>{t('integratedDeploy.publish')}</Button>}
         <Button onClick={() => navigate('/integrated-deploy')}>{t('common.back')}</Button>
       </Space>
-
-      {lastRun && (
-        <Card title={t('integratedDeploy.publishResult')}>
-          <Timeline
-            items={lastRun.results.map((r: ItemResult) => ({
-              color: r.phase === 'failed' ? 'red' : r.phase === 'skipped' ? 'gray' : 'green',
-              children: (
-                <span>
-                  {r.kind}/{r.name} {phaseTag(r.phase, t)} {r.message && <span style={{ color: '#cf1322' }}>{r.message}</span>}
-                </span>
-              ),
-            }))}
-          />
-        </Card>
-      )}
 
       {!isNew && runs.length > 0 && (
         <Card title={t('integratedDeploy.publishHistory')}>
@@ -369,6 +330,16 @@ export default function DeployOrderEditor() {
         onClose={() => setDrawerOpen(false)}
         onConfirm={handleDrawerConfirm}
       />
+
+      {!isNew && (
+        <PublishDrawer
+          open={publishOpen}
+          orderId={Number(id)}
+          items={preview}
+          onClose={() => setPublishOpen(false)}
+          onDone={refetchOrder}
+        />
+      )}
     </Space>
   );
 }

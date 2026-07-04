@@ -1,4 +1,6 @@
 import client from './client';
+import { wsBase } from './ws';
+import { getToken } from '../store/auth';
 
 export type DeploySource = 'selected' | 'authored';
 export type ItemPhase = 'created' | 'updated' | 'failed' | 'skipped';
@@ -111,3 +113,28 @@ export const integratedDeployApi = {
       })
       .then((r) => r.data.manifest_yaml),
 };
+
+/** A single server → client frame from the `/integrated-deploy/publish` WebSocket. */
+export interface PublishEvent {
+  type: 'item' | 'done' | 'error';
+  index?: number;
+  total?: number;
+  kind?: string;
+  name?: string;
+  phase?: 'running' | 'created' | 'updated' | 'failed' | 'skipped';
+  message?: string;
+  status?: string;
+}
+
+/**
+ * Build the `/integrated-deploy/publish` WebSocket URL. Browsers can't set headers on a
+ * WS handshake, so the JWT rides in the query string (same pattern as exec/logs/ai/chat);
+ * `id` (the order id) is validated by the backend before the upgrade.
+ */
+export function publishWsUrl(orderId: number): string {
+  const q = new URLSearchParams({
+    id: String(orderId),
+    token: getToken() || '',
+  });
+  return `${wsBase()}/integrated-deploy/publish?${q.toString()}`;
+}

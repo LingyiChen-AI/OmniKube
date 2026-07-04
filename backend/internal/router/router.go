@@ -25,6 +25,10 @@ func New(h *handler.Handler, jm *auth.JWTManager) *gin.Engine {
 		api.GET("/logs", wsh.LogHandler)
 		// AI 助手流式对话：同为 query-token 鉴权的 WebSocket，不挂 Header 中间件。
 		api.GET("/ai/chat", wsh.AIChatHandler)
+		// 集成部署发布进度流：同为 query-token 鉴权的 WebSocket；用 ?id=&token=（而非
+		// authed 组的 :id 路径参数）避免与其路由冲突。挂在 Handler 上（非 ws.Handler），
+		// 复用 executePublish。
+		api.GET("/integrated-deploy/publish", h.PublishDeployOrderWS)
 
 		authed := api.Group("")
 		authed.Use(middleware.JWTAuth(jm))

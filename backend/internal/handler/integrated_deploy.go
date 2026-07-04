@@ -463,44 +463,58 @@ func applyDeployItem(ctx context.Context, cc *cluster.ClusterClient, ns string, 
 	return "updated", ""
 }
 
-// PublishDeployOrder POST /integrated-deploy/orders/:id/publish
-// 按固定顺序 upsert;遇错即停,余下标 skipped;写一条发布历史;回写工单 status。
-func (h *Handler) PublishDeployOrder(c *gin.Context) {
-	var o model.DeployOrder
-	if err := h.DB.First(&o, c.Param("id")).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"message": "工单不存在"})
-		return
-	}
+// publishEvent 是发布过程中下发的一帧进度事件(WS 用;REST 同步发布调用方传 no-op emit)。
+type publishEvent struct {
+	Type    string `json:"type"` // "item" | "done" | "error"
+	Index   int    `json:"index,omitempty"`
+	Total   int    `json:"total,omitempty"`
+	Kind    string `json:"kind,omitempty"`
+	Name    string `json:"name,omitempty"`
+	Phase   string `json:"phase,omitempty"` // running|created|updated|failed|skipped
+	Message string `json:"message,omitempty"`
+	Status  string `json:"status,omitempty"` // done: succeeded|failed
+}
+
+// executePublish 是发布核心逻辑,被同步 REST 与流式 WS 共用。
+// 前置校验(条目非空、工单必须是 draft、逐条权限、集群可用)失败时返回 (msg, httpCode)
+// 且不会调用 emit;调用方据此原样回 JSON 错误(REST)或包一层 error 帧(WS)。
+// 前置校验通过后,按固定顺序逐条 apply:每条 apply 前 emit 一帧 running,apply 后 emit
+// 一帧结果(created|updated|failed);一旦失败,后续条目直接标 skipped 并各 emit 一帧。
+// 最终持久化 DeployOrderRun + 回写 o.Status + 写一条 ReleaseRecord,返回 run。
+func (h *Handler) executePublish(ctx context.Context, o model.DeployOrder, uid uint, emit func(publishEvent)) (model.DeployOrderRun, string, int) {
 	var items []DeployItem
 	if o.Items != "" {
 		_ = json.Unmarshal([]byte(o.Items), &items)
 	}
 	if len(items) == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "工单没有任何资源条目"})
-		return
+		return model.DeployOrderRun{}, "工单没有任何资源条目", http.StatusBadRequest
 	}
-	uid := c.GetUint("user_id")
+	if o.Status != "draft" {
+		return model.DeployOrderRun{}, "已发布的工单不可重复发布,请复制后再发布", http.StatusForbidden
+	}
 	// 发布前二次权限校验(权限期间可能被收回)。
 	if msg, code := h.validateDeployItems(uid, o.ClusterID, o.Namespace, items); code != 0 {
-		c.JSON(code, gin.H{"message": msg})
-		return
+		return model.DeployOrderRun{}, msg, code
 	}
 	cc, found := h.Pool.Get(o.ClusterID)
 	if !found {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "集群不可用"})
-		return
+		return model.DeployOrderRun{}, "集群不可用", http.StatusBadRequest
 	}
 	ordered := sortDeployItems(items)
-	results := make([]ItemResult, 0, len(ordered))
+	total := len(ordered)
+	results := make([]ItemResult, 0, total)
 	runStatus := "succeeded"
 	stopped := false
-	for _, it := range ordered {
+	for i, it := range ordered {
 		if stopped {
 			results = append(results, ItemResult{Kind: it.Kind, Name: it.Name, Phase: "skipped"})
+			emit(publishEvent{Type: "item", Index: i, Total: total, Kind: it.Kind, Name: it.Name, Phase: "skipped"})
 			continue
 		}
-		phase, msg := applyDeployItem(c.Request.Context(), cc, o.Namespace, it)
+		emit(publishEvent{Type: "item", Index: i, Total: total, Kind: it.Kind, Name: it.Name, Phase: "running"})
+		phase, msg := applyDeployItem(ctx, cc, o.Namespace, it)
 		results = append(results, ItemResult{Kind: it.Kind, Name: it.Name, Phase: phase, Message: msg})
+		emit(publishEvent{Type: "item", Index: i, Total: total, Kind: it.Kind, Name: it.Name, Phase: phase, Message: msg})
 		if phase == "failed" {
 			runStatus = "failed"
 			stopped = true // 遇错即停。
@@ -511,7 +525,7 @@ func (h *Handler) PublishDeployOrder(c *gin.Context) {
 		OrderID: o.ID, UserID: uid, Username: h.currentUsername(uid),
 		Status: runStatus, Results: string(resultsJSON),
 	}
-	// 集群变更已发生:即便历史/状态持久化失败,也要返回 200 让用户看到逐条结果,
+	// 集群变更已发生:即便历史/状态持久化失败,也要让调用方看到逐条结果,
 	// 但不能静默吞掉错误——落日志以便排查(否则 run.ID=0,发布历史丢失且无从追溯)。
 	if err := h.DB.Create(&run).Error; err != nil {
 		log.Printf("publish run 持久化失败: cluster changes applied but history not recorded (order=%d): %v", o.ID, err)
@@ -538,6 +552,27 @@ func (h *Handler) PublishDeployOrder(c *gin.Context) {
 	}
 	if err := h.DB.Create(&rel).Error; err != nil {
 		log.Printf("release record for deploy order %d failed: %v", o.ID, err)
+	}
+	return run, "", 0
+}
+
+// PublishDeployOrder POST /integrated-deploy/orders/:id/publish
+// 同步发布(REST 兜底路径):委托 executePublish,不消费逐条进度事件。
+func (h *Handler) PublishDeployOrder(c *gin.Context) {
+	var o model.DeployOrder
+	if err := h.DB.First(&o, c.Param("id")).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"message": "工单不存在"})
+		return
+	}
+	uid := c.GetUint("user_id")
+	run, msg, code := h.executePublish(c.Request.Context(), o, uid, func(publishEvent) {})
+	if code != 0 {
+		c.JSON(code, gin.H{"message": msg})
+		return
+	}
+	var results []ItemResult
+	if run.Results != "" {
+		_ = json.Unmarshal([]byte(run.Results), &results)
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"run": gin.H{
