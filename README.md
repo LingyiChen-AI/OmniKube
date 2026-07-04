@@ -48,7 +48,7 @@
 
 **集群权限(细粒度授权)**
 - 每个角色包含两部分:
-  - **全局权限**(平台级):`clusters / users / roles / releases / audit` × `view/create/edit/delete`(releases、audit 仅 view)。
+  - **全局权限**(平台级):`clusters / users / roles / releases / audit / ai / integrated_deploy` × `view/create/edit/delete`(releases、audit 仅 view;集成部署另含 `publish` 发布动作)。
   - **集群规则**(数据面):每条规则 = **某集群(或 `*` 全部)+ 范围(整集群 / 指定命名空间)+ 「每资源 × 操作」矩阵**,操作含 `view / create / edit / delete / exec(仅 Pod)/ reveal(仅 Secret)`。
 - 前端用**权限矩阵**直观勾选(而非深层树);角色规则可跨多集群配置、复用首条配置。
 - 底层经 `rbac.SyncUserGrants` 把角色**物化**成 Casbin `g/p` 策略,鉴权走 domain 域隔离;删除集群时级联清理规则并重物化受影响用户。
@@ -60,6 +60,13 @@
 - **审计中心**:中间件统一给所有写操作(含登录、伸缩、回滚、权限变更)埋点,**显示操作者用户名**,多维下拉筛选 + 分页 + **CSV 导出**。
 - **发布记录**:工作负载改镜像自动记录发布人 / 前后镜像 / 更改原因。
 - **发布通知机器人**:每集群可配 **钉钉 / 飞书 / 企业微信** webhook(支持**加签密钥**),发布时自动推送格式化消息。
+
+### 集成部署(批量协同发布)
+- 把 Deployment / ConfigMap / Secret / Service 等**一组资源打包成工单**,按**固定类型优先级**(配置 → 工作负载 → 暴露)一次性、有序发布,天然解决「ConfigMap 先于 Deployment 生效」的依赖顺序。
+- **从集群选取**已有资源(快照当前 YAML),复用平台**可视化 + YAML 编辑器**暂存编辑、发布时才下发;添加工作负载时**自动识别并拉入其挂载的 ConfigMap / Secret**,一并协同发布。
+- 点「发布」开**侧边栏 WebSocket 实时流**,逐资源展示 已创建 / 已更新 / 失败 / 跳过,**遇错即停**。
+- 工单可**复制**;已发布工单只读(仅查看 + 复制);每次发布只写**一条**发布记录。
+- 独立权限区域 `integrated_deploy`(`view / create / edit / delete / **publish**`),且每条资源**二次经用户自身的资源级 RBAC** 校验,可选资源按写权限过滤。
 
 ### 体验
 - **国际化**:中 / 英 / 日 / 韩 / 法 / 德 / 西 共 **7 种语言**。
@@ -75,7 +82,7 @@
 | 前端 | React 18 · TypeScript · Vite · Ant Design 5 · Zustand · react-i18next · react-markdown |
 | AI | Eino ReAct agent · OpenAI 兼容大模型(baseURL / apiKey / modelId) |
 | 观测 | metrics-server(节点 / Pod 用量) |
-| 实时 | WebSocket(WebSSH 终端 · 日志流 · AI 对话) |
+| 实时 | WebSocket(WebSSH 终端 · 日志流 · AI 对话 · 集成部署发布进度流) |
 | 交付 | 单二进制内嵌 SPA(`go:embed`)或 nginx + API 双镜像 · GitHub Actions → Docker Hub |
 
 ---
@@ -234,6 +241,14 @@ cd frontend && npm run lint && npm test && npm run build
 | 集群管理 | 发布记录 |
 |---|---|
 | ![clusters](images/19-clusters.png) | ![releases](images/15-releases.png) |
+
+### 集成部署
+
+把一组资源打包成工单,按「配置 → 工作负载 → 暴露」固定顺序一次性、有序发布;点发布侧边栏 **WebSocket 实时**逐资源展示结果(已创建 / 已更新 / 失败 / 跳过)。已发布工单只读(仅查看 + 复制)。
+
+| 工单列表 | 工单编辑(资源卡片) | 实时发布 |
+|---|---|---|
+| ![integrated-deploy](images/21-integrated-deploy.png) | ![integrated-deploy-editor](images/22-integrated-deploy-editor.png) | ![integrated-deploy-publish](images/23-integrated-deploy-publish.png) |
 
 ### AI 助手
 
