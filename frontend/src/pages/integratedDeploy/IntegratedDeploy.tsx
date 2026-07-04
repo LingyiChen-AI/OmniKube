@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { integratedDeployApi, type DeployOrder } from '../../api/integratedDeploy';
 import { useAuthStore } from '../../store/auth';
 import { canGlobal } from '../../nav';
+import { formatTime } from '../../utils';
 
 function statusTag(status: string, t: (k: string) => string) {
   if (status === 'succeeded') return <Tag color="success">{t('integratedDeploy.statusSucceeded')}</Tag>;
@@ -63,29 +64,43 @@ export default function IntegratedDeploy() {
       render: (s: string) => statusTag(s, t),
     },
     { title: t('integratedDeploy.creator'), dataIndex: 'username' },
-    { title: t('integratedDeploy.updatedAt'), dataIndex: 'updated_at' },
+    {
+      title: t('integratedDeploy.updatedAt'),
+      dataIndex: 'updated_at',
+      render: (ts: string) => formatTime(ts),
+    },
     {
       title: t('integratedDeploy.actions'),
       key: 'actions',
-      render: (_: unknown, r: DeployOrder) => (
-        <Space>
-          <Button size="small" onClick={() => navigate(`/integrated-deploy/orders/${r.id}`)}>
-            {canEdit ? t('integratedDeploy.edit') : t('integratedDeploy.publish')}
-          </Button>
-          {canCreate && (
-            <Button size="small" onClick={() => doCopy(r.id)}>
-              {t('integratedDeploy.copy')}
-            </Button>
-          )}
-          {canDelete && (
-            <Popconfirm title={t('integratedDeploy.deleteConfirm')} onConfirm={() => doDelete(r.id)}>
-              <Button size="small" danger>
-                {t('integratedDeploy.delete')}
+      render: (_: unknown, r: DeployOrder) => {
+        const published = r.status !== 'draft';
+        return (
+          <Space>
+            {!published && canEdit && (
+              <Button size="small" onClick={() => navigate(`/integrated-deploy/orders/${r.id}`)}>
+                {t('integratedDeploy.edit')}
               </Button>
-            </Popconfirm>
-          )}
-        </Space>
-      ),
+            )}
+            {published && (
+              <Button size="small" onClick={() => navigate(`/integrated-deploy/orders/${r.id}`)}>
+                {t('integratedDeploy.view')}
+              </Button>
+            )}
+            {canCreate && (
+              <Button size="small" onClick={() => doCopy(r.id)}>
+                {t('integratedDeploy.copy')}
+              </Button>
+            )}
+            {!published && canDelete && (
+              <Popconfirm title={t('integratedDeploy.deleteConfirm')} onConfirm={() => doDelete(r.id)}>
+                <Button size="small" danger>
+                  {t('integratedDeploy.delete')}
+                </Button>
+              </Popconfirm>
+            )}
+          </Space>
+        );
+      },
     },
   ];
 

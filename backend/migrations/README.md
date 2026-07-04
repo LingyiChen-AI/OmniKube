@@ -31,3 +31,4 @@ NNN_<简短描述>.sql      # 例：001_ai_assistant_tables.sql
 | 003 | `003_drop_ai_grants.sql` | 删除废弃的 `ok_ai_grants`（AI 权限改为跟随用户 RBAC） |
 | 004 | `004_release_record_via_ai.sql` | `ok_release_records` 增加 `via_ai` 列（区分 AI 发布），并回填历史 |
 | 005 | `005_integrated_deploy.sql` | 集成部署工单表 ok_deploy_orders + 发布历史表 ok_deploy_order_runs |
+| 006 | `006_release_record_source.sql` | `ok_release_records` 增加 `source` 列（区分集成部署发布 vs 单资源发布） |

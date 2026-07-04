@@ -145,8 +145,11 @@ export default function Releases() {
       width: 170,
       render: (v: string, r) => {
         // Tag AI-initiated releases (dedicated via_ai column) so the manual vs.
-        // assistant distinction is obvious.
+        // assistant distinction is obvious. Also tag integrated-deploy releases
+        // (dedicated source column) so they're visually distinct from single-
+        // resource releases.
         const viaAI = r.via_ai;
+        const viaIntegratedDeploy = r.source === 'integrated_deploy';
         return (
           <Space size={4} wrap>
             {v ? <Tag color="cyan">{v}</Tag> : <Text type="secondary">—</Text>}
@@ -154,6 +157,11 @@ export default function Releases() {
               <Tag color="purple" style={{ marginInlineEnd: 0 }}>
                 <ThunderboltFilled style={{ marginInlineEnd: 3 }} />
                 AI
+              </Tag>
+            )}
+            {viaIntegratedDeploy && (
+              <Tag color="blue" style={{ marginInlineEnd: 0 }}>
+                {t('nav.integrated_deploy')}
               </Tag>
             )}
           </Space>

@@ -734,6 +734,7 @@ const zh: Resources = {
     creator: '创建人',
     actions: '操作',
     edit: '编辑',
+    view: '查看',
     copy: '复制',
     delete: '删除',
     publish: '发布',

@@ -15,6 +15,7 @@ import { useCtxStore } from '../../store/ctx';
 import { canGlobal } from '../../nav';
 import ManifestDrawer from './ManifestDrawer';
 import ResourceItemCard from './ResourceItemCard';
+import { formatTime } from '../../utils';
 
 const GROUP_KEY: Record<number, string> = {
   1: 'integratedDeploy.group1',
@@ -40,8 +41,13 @@ export default function DeployOrderEditor() {
   const { id } = useParams();
   const isNew = !id;
   const me = useAuthStore((s) => s.user);
-  const canEdit = canGlobal('integrated_deploy', 'edit', me) || (isNew && canGlobal('integrated_deploy', 'create', me));
-  const canPublish = canGlobal('integrated_deploy', 'publish', me);
+  const hasEditPerm = canGlobal('integrated_deploy', 'edit', me) || (isNew && canGlobal('integrated_deploy', 'create', me));
+  const hasPublishPerm = canGlobal('integrated_deploy', 'publish', me);
+  const [orderStatus, setOrderStatus] = useState<string>('draft');
+  // 已发布的工单(非草稿)只读:仅可查看 + 复制,不可编辑/发布,直到复制为新草稿。
+  const published = !isNew && orderStatus !== 'draft';
+  const canEdit = hasEditPerm && !published;
+  const canPublish = hasPublishPerm && !published;
 
   const [form] = Form.useForm();
   const [clusters, setClusters] = useState<{ id: string; name: string }[]>([]);
@@ -79,6 +85,7 @@ export default function DeployOrderEditor() {
       setNamespace(d.order.namespace);
       setItems(d.order.items ?? []);
       setRuns(d.runs ?? []);
+      setOrderStatus(d.order.status);
       form.setFieldsValue({ title: d.order.title, description: d.order.description });
     }).catch(() => undefined);
   }, [id, form]);
@@ -343,7 +350,7 @@ export default function DeployOrderEditor() {
         <Card title={t('integratedDeploy.publishHistory')}>
           {runs.map((r) => (
             <Descriptions key={r.id} size="small" column={1} style={{ marginBottom: 12 }}>
-              <Descriptions.Item label={r.created_at}>
+              <Descriptions.Item label={formatTime(r.created_at)}>
                 <Tag color={r.status === 'failed' ? 'error' : 'success'}>
                   {r.status === 'failed' ? t('integratedDeploy.statusFailed') : t('integratedDeploy.statusSucceeded')}
                 </Tag>

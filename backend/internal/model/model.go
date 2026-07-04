@@ -111,6 +111,7 @@ type ReleaseRecord struct {
 	ImageAfter  string    `gorm:"type:text" json:"image_after"`
 	Comment     string    `gorm:"type:text" json:"comment"`         // 发布说明(必填)
 	ViaAI       bool      `gorm:"default:false" json:"via_ai"`      // 是否由 AI 助手确认执行的发布
+	Source      string    `gorm:"size:30;default:resource" json:"source"` // 记录来源: resource(单资源发布) / integrated_deploy(集成部署)
 	CreatedAt   time.Time `gorm:"index" json:"created_at"`
 }
 

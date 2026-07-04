@@ -734,6 +734,7 @@ const de: Resources = {
     creator: 'Ersteller',
     actions: 'Aktionen',
     edit: 'Bearbeiten',
+    view: 'Ansehen',
     copy: 'Kopieren',
     delete: 'Löschen',
     publish: 'Veröffentlichen',

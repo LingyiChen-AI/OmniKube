@@ -14,6 +14,7 @@ export interface ReleaseRecord {
   image_after: string;
   comment: string;
   via_ai?: boolean; // 由 AI 助手确认执行的发布
+  source?: string; // 记录来源: resource(单资源发布) / integrated_deploy(集成部署)
   created_at: string;
 }
 

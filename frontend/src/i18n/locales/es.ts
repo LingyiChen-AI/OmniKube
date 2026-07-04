@@ -734,6 +734,7 @@ const es: Resources = {
     creator: 'Creador',
     actions: 'Acciones',
     edit: 'Editar',
+    view: 'Ver',
     copy: 'Copiar',
     delete: 'Eliminar',
     publish: 'Publicar',

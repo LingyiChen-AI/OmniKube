@@ -734,6 +734,7 @@ const fr: Resources = {
     creator: 'Créateur',
     actions: 'Actions',
     edit: 'Modifier',
+    view: 'Voir',
     copy: 'Copier',
     delete: 'Supprimer',
     publish: 'Publier',

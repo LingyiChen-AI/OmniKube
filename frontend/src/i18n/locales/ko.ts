@@ -734,6 +734,7 @@ const ko: Resources = {
     creator: '작성자',
     actions: '작업',
     edit: '편집',
+    view: '보기',
     copy: '복제',
     delete: '삭제',
     publish: '배포',

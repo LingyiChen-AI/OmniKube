@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -219,6 +220,10 @@ func (h *Handler) UpdateDeployOrder(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"message": "工单不存在"})
 		return
 	}
+	if o.Status != "draft" {
+		c.JSON(http.StatusForbidden, gin.H{"message": "已发布的工单不可修改,请复制后再编辑"})
+		return
+	}
 	var req deployOrderReq
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "请求体格式错误"})
@@ -248,6 +253,15 @@ func (h *Handler) UpdateDeployOrder(c *gin.Context) {
 // DeleteDeployOrder DELETE /integrated-deploy/orders/:id(连带删发布历史)。
 func (h *Handler) DeleteDeployOrder(c *gin.Context) {
 	id := c.Param("id")
+	var o model.DeployOrder
+	if err := h.DB.First(&o, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"message": "工单不存在"})
+		return
+	}
+	if o.Status != "draft" {
+		c.JSON(http.StatusForbidden, gin.H{"message": "已发布的工单不可删除"})
+		return
+	}
 	if err := h.DB.Delete(&model.DeployOrder{}, id).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return
@@ -505,6 +519,25 @@ func (h *Handler) PublishDeployOrder(c *gin.Context) {
 	o.Status = runStatus
 	if err := h.DB.Save(&o).Error; err != nil {
 		log.Printf("publish order 状态回写失败 (order=%d, status=%s): %v", o.ID, runStatus, err)
+	}
+	// 一次发布只写一条发布记录(审计用),而非逐资源一条。best-effort:失败不影响响应。
+	names := make([]string, 0, len(ordered))
+	for _, it := range ordered {
+		names = append(names, it.Kind+"/"+it.Name)
+	}
+	statusText := "成功"
+	if runStatus == "failed" {
+		statusText = "失败"
+	}
+	rel := model.ReleaseRecord{
+		UserID: uid, Username: h.currentUsername(uid),
+		ClusterID: o.ClusterID, Namespace: o.Namespace,
+		Kind: "DeployOrder", Name: o.Title,
+		Comment: fmt.Sprintf("集成部署「%s」· %d 个资源(%s)· %s", o.Title, len(ordered), strings.Join(names, ", "), statusText),
+		Source:  "integrated_deploy",
+	}
+	if err := h.DB.Create(&rel).Error; err != nil {
+		log.Printf("release record for deploy order %d failed: %v", o.ID, err)
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"run": gin.H{

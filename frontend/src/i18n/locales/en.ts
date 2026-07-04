@@ -732,6 +732,7 @@ const en = {
     creator: 'Creator',
     actions: 'Actions',
     edit: 'Edit',
+    view: 'View',
     copy: 'Copy',
     delete: 'Delete',
     publish: 'Publish',

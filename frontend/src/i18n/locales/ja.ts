@@ -734,6 +734,7 @@ const ja: Resources = {
     creator: '作成者',
     actions: '操作',
     edit: '編集',
+    view: '表示',
     copy: '複製',
     delete: '削除',
     publish: '公開',
