@@ -76,6 +76,13 @@ export const integratedDeployApi = {
         params: clusterId ? { cluster_id: clusterId } : undefined,
       })
       .then((r) => r.data.orders ?? []),
+  /** Server-side paginated list (newest-updated first), returning the page + total count. */
+  listPaged: (clusterId: string | undefined, limit: number, offset: number) =>
+    client
+      .get<{ orders: DeployOrder[]; total: number }>('/integrated-deploy/orders', {
+        params: { cluster_id: clusterId || undefined, limit, offset },
+      })
+      .then((r) => ({ orders: r.data.orders ?? [], total: r.data.total ?? 0 })),
   get: (id: number) =>
     client
       .get<{ order: DeployOrder; runs: DeployRun[] }>(`/integrated-deploy/orders/${id}`)

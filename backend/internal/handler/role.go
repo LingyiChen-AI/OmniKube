@@ -179,10 +179,20 @@ func (h *Handler) CreateRole(c *gin.Context) {
 	c.JSON(http.StatusOK, h.buildRoleView(role))
 }
 
-// ListRoles GET /api/v1/roles —— 列出全部角色（规则按角色分组，含绑定用户数）。
+// ListRoles GET /api/v1/roles?limit=&offset= —— 列出角色（规则按角色分组，含绑定用户数）。
+// 无 limit 返回全部(兼容既有调用方,如角色下拉);有 limit 则分页并带 total。
 func (h *Handler) ListRoles(c *gin.Context) {
+	var total int64
+	h.DB.Model(&model.Role{}).Count(&total)
+
+	limit, offset, paged := pageParams(c)
+
 	var roles []model.Role
-	if err := h.DB.Order("id asc").Find(&roles).Error; err != nil {
+	q := h.DB.Order("id asc")
+	if paged {
+		q = q.Limit(limit).Offset(offset)
+	}
+	if err := q.Find(&roles).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "内部错误"})
 		return
 	}
@@ -190,7 +200,7 @@ func (h *Handler) ListRoles(c *gin.Context) {
 	for _, r := range roles {
 		views = append(views, h.buildRoleView(r))
 	}
-	c.JSON(http.StatusOK, gin.H{"roles": views})
+	c.JSON(http.StatusOK, gin.H{"roles": views, "total": total})
 }
 
 // GetRole GET /api/v1/roles/:id

@@ -18,8 +18,19 @@ export interface CreatedUser {
   must_reset: boolean;
 }
 
+export interface UserListPagedParams {
+  limit?: number;
+  offset?: number;
+}
+
 export const userApi = {
   list: () => client.get('/users').then((r) => unwrapList<ManagedUser>(r.data)),
+
+  /** Server-side paginated list, returning the page + total count. */
+  listPaged: (params: UserListPagedParams = {}) =>
+    client
+      .get<{ users: ManagedUser[]; total: number }>('/users', { params })
+      .then((r) => ({ users: r.data.users ?? [], total: r.data.total ?? 0 })),
 
   create: (username: string, role_ids: number[]) =>
     client.post<CreatedUser>('/users', { username, role_ids }).then((r) => r.data),

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   Button,
   Card,
@@ -54,11 +54,43 @@ export default function Clusters() {
   const [testMsg, setTestMsg] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const { clusters, loading, load, refresh } = useClusterStore();
+  // The shared store loads ALL clusters (every cluster selector across the app
+  // depends on it) — keep using it for `refresh()` so those selectors stay
+  // fresh after CRUD, but do NOT use its list for this page's table.
+  const { load: loadShared, refresh: refreshShared } = useClusterStore();
+
+  // This page's table is decoupled from the shared store: it fetches its own
+  // server-side paginated page via /my/clusters?limit=&offset=.
+  const [clusters, setClusters] = useState<Cluster[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+
+  const loadPage = useCallback(() => {
+    setLoading(true);
+    clusterApi
+      .listPaged({ limit: pageSize, offset: (page - 1) * pageSize })
+      .then(({ clusters, total }) => {
+        setClusters(clusters);
+        setTotal(total);
+      })
+      .catch(() => undefined)
+      .finally(() => setLoading(false));
+  }, [page, pageSize]);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    loadShared();
+  }, [loadShared]);
+  useEffect(() => {
+    loadPage();
+  }, [loadPage]);
+
+  // Keep both the shared store (selectors) and this page's local page fresh after CRUD.
+  const refresh = () => {
+    refreshShared();
+    loadPage();
+  };
 
   const resetDrawer = () => {
     form.resetFields();
@@ -273,7 +305,17 @@ export default function Clusters() {
           loading={loading}
           {...defaultTableProps}
           scroll={tableScrollX(columns)}
-          pagination={defaultPagination}
+          pagination={{
+            ...defaultPagination,
+            current: page,
+            pageSize,
+            total,
+            showSizeChanger: true,
+            onChange: (p, ps) => {
+              setPage(p);
+              setPageSize(ps);
+            },
+          }}
         />
       </Card>
 

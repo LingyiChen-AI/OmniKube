@@ -265,8 +265,19 @@ export interface RolePayload {
   rules: RoleRulePayload[];
 }
 
+export interface RoleListPagedParams {
+  limit?: number;
+  offset?: number;
+}
+
 export const roleApi = {
   list: () => client.get('/roles').then((r) => unwrapList<RoleView>(r.data)),
+
+  /** Server-side paginated list, returning the page + total count. */
+  listPaged: (params: RoleListPagedParams = {}) =>
+    client
+      .get<{ roles: RoleView[]; total: number }>('/roles', { params })
+      .then((r) => ({ roles: r.data.roles ?? [], total: r.data.total ?? 0 })),
 
   get: (id: number) => client.get<RoleView>(`/roles/${id}`).then((r) => r.data),
 

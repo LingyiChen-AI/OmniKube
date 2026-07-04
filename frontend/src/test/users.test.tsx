@@ -10,6 +10,7 @@ import { useAuthStore } from '../store/auth';
 vi.mock('../api/user', () => ({
   userApi: {
     list: vi.fn().mockResolvedValue([]),
+    listPaged: vi.fn().mockResolvedValue({ users: [], total: 0 }),
     create: vi.fn().mockResolvedValue({
       id: 5,
       username: 'jane',
@@ -43,6 +44,7 @@ describe('create user with roles', () => {
       { id: 2, name: 'Viewer', description: '', rules: [], user_count: 0 },
     ]);
     (userApi.list as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+    (userApi.listPaged as ReturnType<typeof vi.fn>).mockResolvedValue({ users: [], total: 0 });
     (userApi.create as ReturnType<typeof vi.fn>).mockResolvedValue({
       id: 5,
       username: 'jane',

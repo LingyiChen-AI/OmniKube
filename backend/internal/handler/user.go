@@ -129,10 +129,20 @@ func (h *Handler) CreateUser(c *gin.Context) {
 	})
 }
 
-// ListUsers GET /api/v1/users —— 列表（不含密码哈希，含角色标签）。
+// ListUsers GET /api/v1/users?limit=&offset= —— 列表（不含密码哈希，含角色标签）。
+// 无 limit 返回全部(兼容既有调用方);有 limit 则分页并带 total。
 func (h *Handler) ListUsers(c *gin.Context) {
+	var total int64
+	h.DB.Model(&model.User{}).Count(&total)
+
+	limit, offset, paged := pageParams(c)
+
 	var users []model.User
-	if err := h.DB.Order("id asc").Find(&users).Error; err != nil {
+	q := h.DB.Order("id asc")
+	if paged {
+		q = q.Limit(limit).Offset(offset)
+	}
+	if err := q.Find(&users).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "内部错误"})
 		return
 	}
@@ -145,7 +155,7 @@ func (h *Handler) ListUsers(c *gin.Context) {
 	for _, u := range users {
 		views = append(views, toUserView(u, rolesByUser[u.ID]))
 	}
-	c.JSON(http.StatusOK, gin.H{"users": views})
+	c.JSON(http.StatusOK, gin.H{"users": views, "total": total})
 }
 
 // rolesByUser 一次性加载全部用户的角色标签，避免 N+1。

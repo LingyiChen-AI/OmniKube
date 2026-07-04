@@ -56,7 +56,19 @@ export default function Users() {
   const [tempReset, setTempReset] = useState(false);
   const [rolesUser, setRolesUser] = useState<ManagedUser | null>(null);
 
-  const users = useApi<ManagedUser[]>(() => userApi.list(), [], { initial: [] });
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const usersPaged = useApi(
+    () => userApi.listPaged({ limit: pageSize, offset: (page - 1) * pageSize }),
+    [page, pageSize],
+    { initial: { users: [], total: 0 } },
+  );
+  const users = {
+    data: usersPaged.data?.users ?? [],
+    loading: usersPaged.loading,
+    reload: usersPaged.reload,
+  };
+  // Role-assignment dropdown keeps the full unpaged list (all roles).
   const roles = useApi<RoleView[]>(() => roleApi.list(), [], { initial: [] });
 
   const roleOptions = (roles.data ?? []).map((r) => ({ value: r.id, label: roleName(t, r) }));
@@ -262,7 +274,17 @@ export default function Users() {
           loading={users.loading}
           {...defaultTableProps}
           scroll={tableScrollX(columns)}
-          pagination={defaultPagination}
+          pagination={{
+            ...defaultPagination,
+            current: page,
+            pageSize,
+            total: usersPaged.data?.total ?? 0,
+            showSizeChanger: true,
+            onChange: (p, ps) => {
+              setPage(p);
+              setPageSize(ps);
+            },
+          }}
         />
       </Card>
 

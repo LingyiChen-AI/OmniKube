@@ -34,6 +34,7 @@ vi.mock('../api/role', async (importOriginal) => {
     ...actual,
     roleApi: {
       list: vi.fn().mockResolvedValue([]),
+      listPaged: vi.fn().mockResolvedValue({ roles: [], total: 0 }),
       get: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
@@ -182,6 +183,10 @@ describe('roles table — system roles', () => {
   beforeEach(() => {
     useAuthStore.setState({ user: ADMIN });
     (roleApi.list as ReturnType<typeof vi.fn>).mockResolvedValue([SYSTEM_ROLE, CUSTOM_ROLE]);
+    (roleApi.listPaged as ReturnType<typeof vi.fn>).mockResolvedValue({
+      roles: [SYSTEM_ROLE, CUSTOM_ROLE],
+      total: 2,
+    });
   });
 
   it('disables delete for system roles but not custom ones (admin)', async () => {

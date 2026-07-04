@@ -6,6 +6,7 @@ import { renderWithProviders } from './render';
 vi.mock('../api/cluster', () => ({
   clusterApi: {
     list: vi.fn(),
+    listPaged: vi.fn(),
     create: vi.fn(),
     remove: vi.fn(),
     test: vi.fn(),
@@ -23,6 +24,7 @@ describe('Clusters — test-connection gates submit', () => {
       user: { id: 1, username: 'admin', is_admin: true, must_reset: false, nav: { submenus: [] }, global: {} },
     });
     (clusterApi.list as any).mockResolvedValue([]);
+    (clusterApi.listPaged as any).mockResolvedValue({ clusters: [], total: 0 });
   });
 
   it('disables Save until the connection test passes', async () => {

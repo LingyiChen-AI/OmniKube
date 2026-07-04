@@ -138,7 +138,18 @@ export default function Roles() {
   const canEdit = canGlobal('roles', 'edit', me);
   const canDelete = canGlobal('roles', 'delete', me);
 
-  const roles = useApi<RoleView[]>(() => roleApi.list(), [], { initial: [] });
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const rolesPaged = useApi(
+    () => roleApi.listPaged({ limit: pageSize, offset: (page - 1) * pageSize }),
+    [page, pageSize],
+    { initial: { roles: [], total: 0 } },
+  );
+  const roles = {
+    data: rolesPaged.data?.roles ?? [],
+    loading: rolesPaged.loading,
+    reload: rolesPaged.reload,
+  };
   const { clusters, load: loadClusters } = useClusterStore();
 
   useEffect(() => {
@@ -393,7 +404,17 @@ export default function Roles() {
           loading={roles.loading}
           {...defaultTableProps}
           scroll={tableScrollX(columns)}
-          pagination={defaultPagination}
+          pagination={{
+            ...defaultPagination,
+            current: page,
+            pageSize,
+            total: rolesPaged.data?.total ?? 0,
+            showSizeChanger: true,
+            onChange: (p, ps) => {
+              setPage(p);
+              setPageSize(ps);
+            },
+          }}
         />
       </Card>
 

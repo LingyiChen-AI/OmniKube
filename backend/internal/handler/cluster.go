@@ -73,8 +73,10 @@ func (h *Handler) ListClusters(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"clusters": views})
 }
 
-// MyClusters GET /api/v1/my/clusters — 当前用户可访问的集群（驱动顶栏集群下拉）。
-// 管理员返回全部；普通用户按其角色规则的 cluster_id（含 "*"=全部）过滤。
+// MyClusters GET /api/v1/my/clusters?limit=&offset= — 当前用户可访问的集群（驱动顶栏
+// 集群下拉，也供集群管理页表格分页）。管理员返回全部；普通用户按其角色规则的
+// cluster_id（含 "*"=全部）过滤。过滤是内存中做的(RBAC 结果非 SQL 谓词)，故分页也在
+// 内存里对最终结果切片，而非下推到 DB 层 LIMIT/OFFSET。无 limit 返回全部(兼容顶栏下拉)。
 func (h *Handler) MyClusters(c *gin.Context) {
 	userID := c.MustGet("user_id").(uint)
 	isAdmin := c.GetBool("is_admin")
@@ -106,11 +108,23 @@ func (h *Handler) MyClusters(c *gin.Context) {
 		}
 	}
 
+	total := len(clusters)
+	if limit, offset, paged := pageParams(c); paged {
+		if offset > total {
+			offset = total
+		}
+		end := offset + limit
+		if end > total {
+			end = total
+		}
+		clusters = clusters[offset:end]
+	}
+
 	views := make([]clusterView, 0, len(clusters))
 	for _, cl := range clusters {
 		views = append(views, toView(cl))
 	}
-	c.JSON(http.StatusOK, gin.H{"clusters": views})
+	c.JSON(http.StatusOK, gin.H{"clusters": views, "total": total})
 }
 
 // DeleteCluster DELETE /api/v1/clusters/:id

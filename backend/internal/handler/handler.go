@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -30,6 +31,27 @@ func (h *Handler) GlobalPermCheck(userID uint, area, action string) bool {
 		return false
 	}
 	return perms[area][action]
+}
+
+// pageParams 解析 ?limit=&offset=。paged=false 表示未传 limit——按既有语义返回全部
+// (保护依赖"无 limit 即拿全量"的下拉框/store 调用方)。
+func pageParams(c *gin.Context) (limit, offset int, paged bool) {
+	l := c.Query("limit")
+	if l == "" {
+		return 0, 0, false
+	}
+	n, err := strconv.Atoi(l)
+	if err != nil || n <= 0 {
+		n = 20
+	}
+	if n > 500 {
+		n = 500
+	}
+	o, _ := strconv.Atoi(c.Query("offset"))
+	if o < 0 {
+		o = 0
+	}
+	return n, o, true
 }
 
 func (h *Handler) Healthz(c *gin.Context) {

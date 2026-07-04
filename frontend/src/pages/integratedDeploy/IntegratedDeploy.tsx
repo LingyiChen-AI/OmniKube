@@ -8,6 +8,7 @@ import { useAuthStore } from '../../store/auth';
 import { useCtxStore } from '../../store/ctx';
 import { canGlobal } from '../../nav';
 import { formatTime } from '../../utils';
+import { defaultPagination } from '../../components/tableConfig';
 
 function statusTag(status: string, t: (k: string) => string) {
   if (status === 'succeeded') return <Tag color="success">{t('integratedDeploy.statusSucceeded')}</Tag>;
@@ -23,7 +24,10 @@ export default function IntegratedDeploy() {
   // 跟随顶部选中的集群过滤工单列表(与其它资源页一致);集群切换自动重载。
   const currentCluster = useCtxStore((s) => s.currentCluster);
   const [orders, setOrders] = useState<DeployOrder[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
 
   const canCreate = canGlobal('integrated_deploy', 'create', me);
   const canEdit = canGlobal('integrated_deploy', 'edit', me);
@@ -32,14 +36,22 @@ export default function IntegratedDeploy() {
   const load = useCallback(() => {
     setLoading(true);
     integratedDeployApi
-      .list(currentCluster ?? undefined)
-      .then(setOrders)
+      .listPaged(currentCluster ?? undefined, pageSize, (page - 1) * pageSize)
+      .then(({ orders, total }) => {
+        setOrders(orders);
+        setTotal(total);
+      })
       .catch(() => undefined)
       .finally(() => setLoading(false));
-  }, [currentCluster]);
+  }, [currentCluster, page, pageSize]);
   useEffect(() => {
     load();
   }, [load]);
+  // Reset to page 1 whenever the cluster filter changes.
+  useEffect(() => {
+    setPage(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentCluster]);
 
   const doCopy = async (id: number) => {
     try {
@@ -126,6 +138,17 @@ export default function IntegratedDeploy() {
         columns={columns}
         dataSource={orders}
         locale={{ emptyText: t('integratedDeploy.empty') }}
+        pagination={{
+          ...defaultPagination,
+          current: page,
+          pageSize,
+          total,
+          showSizeChanger: true,
+          onChange: (p, ps) => {
+            setPage(p);
+            setPageSize(ps);
+          },
+        }}
       />
     </Card>
   );

@@ -11,6 +11,12 @@ vi.mock('../api/integratedDeploy', () => ({
     list: vi.fn().mockResolvedValue([
       { id: 1, title: '工单A', cluster_id: 'test', namespace: 'default', status: 'draft', username: 'admin', updated_at: '2026-07-04' },
     ]),
+    listPaged: vi.fn().mockResolvedValue({
+      orders: [
+        { id: 1, title: '工单A', cluster_id: 'test', namespace: 'default', status: 'draft', username: 'admin', updated_at: '2026-07-04' },
+      ],
+      total: 1,
+    }),
     copy: vi.fn(),
     remove: vi.fn(),
   },

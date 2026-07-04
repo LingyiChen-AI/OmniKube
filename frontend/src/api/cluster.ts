@@ -27,10 +27,21 @@ export interface TestResult {
   server_version?: string;
 }
 
+export interface ClusterListPagedParams {
+  limit?: number;
+  offset?: number;
+}
+
 export const clusterApi = {
   // Clusters the current user can access (admin → all). Drives the top-bar
   // selector + management table; non-admins get only their granted clusters.
   list: () => client.get('/my/clusters').then((r) => unwrapList<Cluster>(r.data)),
+
+  /** Server-side paginated list of accessible clusters, returning the page + total count. */
+  listPaged: (params: ClusterListPagedParams = {}) =>
+    client
+      .get<{ clusters: Cluster[]; total: number }>('/my/clusters', { params })
+      .then((r) => ({ clusters: r.data.clusters ?? [], total: r.data.total ?? 0 })),
 
   create: (payload: { id: string; name: string; kubeconfig: string }) =>
     client.post('/clusters', payload).then((r) => r.data),

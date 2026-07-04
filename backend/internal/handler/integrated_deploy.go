@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -142,12 +143,27 @@ func (h *Handler) currentUsername(uid uint) string {
 	return ""
 }
 
-// ListDeployOrders GET /integrated-deploy/orders — 可选 cluster_id 过滤,新到旧。
-func (h *Handler) ListDeployOrders(c *gin.Context) {
-	var orders []model.DeployOrder
-	q := h.DB.Order("updated_at desc")
+// deployOrderFilter 按 query 参数构造过滤后的 *gorm.DB（不含分页/排序）。
+func deployOrderFilter(db *gorm.DB, c *gin.Context) *gorm.DB {
+	q := db.Model(&model.DeployOrder{})
 	if cid := c.Query("cluster_id"); cid != "" {
 		q = q.Where("cluster_id = ?", cid)
+	}
+	return q
+}
+
+// ListDeployOrders GET /integrated-deploy/orders?cluster_id=&limit=&offset= — 可选
+// cluster_id 过滤,新到旧;无 limit 返回全部(兼容既有调用方),有 limit 则分页并带 total。
+func (h *Handler) ListDeployOrders(c *gin.Context) {
+	var total int64
+	deployOrderFilter(h.DB, c).Count(&total)
+
+	limit, offset, paged := pageParams(c)
+
+	var orders []model.DeployOrder
+	q := deployOrderFilter(h.DB, c).Order("updated_at desc")
+	if paged {
+		q = q.Limit(limit).Offset(offset)
 	}
 	if err := q.Find(&orders).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
@@ -157,7 +173,7 @@ func (h *Handler) ListDeployOrders(c *gin.Context) {
 	for _, o := range orders {
 		out = append(out, toDeployOrderResp(o))
 	}
-	c.JSON(http.StatusOK, gin.H{"orders": out})
+	c.JSON(http.StatusOK, gin.H{"orders": out, "total": total})
 }
 
 // GetDeployOrder GET /integrated-deploy/orders/:id — 详情 + 发布历史。
