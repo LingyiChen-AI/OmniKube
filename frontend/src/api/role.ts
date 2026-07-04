@@ -85,6 +85,7 @@ export function moduleOfResource(resource: string): ModuleKey | undefined {
 export function actionAppliesToResource(resource: string, action: TreeAction): boolean {
   if (action === 'exec') return resource === 'pods';
   if (action === 'reveal') return resource === 'secrets';
+  if (action === 'publish') return false; // global-only, via actionsForGlobalArea('integrated_deploy')
   return true;
 }
 
