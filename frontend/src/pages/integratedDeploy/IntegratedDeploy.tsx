@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { App as AntApp, Button, Card, Popconfirm, Space, Table, Tag } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { integratedDeployApi, type DeployOrder } from '../../api/integratedDeploy';
 import { useAuthStore } from '../../store/auth';
+import { useCtxStore } from '../../store/ctx';
 import { canGlobal } from '../../nav';
 import { formatTime } from '../../utils';
 
@@ -19,6 +20,8 @@ export default function IntegratedDeploy() {
   const { message } = AntApp.useApp();
   const navigate = useNavigate();
   const me = useAuthStore((s) => s.user);
+  // 跟随顶部选中的集群过滤工单列表(与其它资源页一致);集群切换自动重载。
+  const currentCluster = useCtxStore((s) => s.currentCluster);
   const [orders, setOrders] = useState<DeployOrder[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -26,15 +29,17 @@ export default function IntegratedDeploy() {
   const canEdit = canGlobal('integrated_deploy', 'edit', me);
   const canDelete = canGlobal('integrated_deploy', 'delete', me);
 
-  const load = () => {
+  const load = useCallback(() => {
     setLoading(true);
     integratedDeployApi
-      .list()
+      .list(currentCluster ?? undefined)
       .then(setOrders)
       .catch(() => undefined)
       .finally(() => setLoading(false));
-  };
-  useEffect(load, []);
+  }, [currentCluster]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const doCopy = async (id: number) => {
     try {
