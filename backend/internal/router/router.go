@@ -48,6 +48,7 @@ func New(h *handler.Handler, jm *auth.JWTManager) *gin.Engine {
 			authed.DELETE("/integrated-deploy/orders/:id", middleware.RequireGlobalPerm(h.GlobalPermCheck, "integrated_deploy", "delete"), h.DeleteDeployOrder)
 			authed.POST("/integrated-deploy/orders/:id/copy", middleware.RequireGlobalPerm(h.GlobalPermCheck, "integrated_deploy", "create"), h.CopyDeployOrder)
 			authed.POST("/integrated-deploy/orders/:id/publish", middleware.RequireGlobalPerm(h.GlobalPermCheck, "integrated_deploy", "publish"), h.PublishDeployOrder)
+			authed.GET("/integrated-deploy/namespaces", middleware.RequireGlobalPerm(h.GlobalPermCheck, "integrated_deploy", "view"), h.ListDeployNamespaces)
 			authed.GET("/integrated-deploy/selectable", middleware.RequireGlobalPerm(h.GlobalPermCheck, "integrated_deploy", "view"), h.ListSelectable)
 			authed.GET("/integrated-deploy/snapshot", middleware.RequireGlobalPerm(h.GlobalPermCheck, "integrated_deploy", "view"), h.SnapshotResource)
 

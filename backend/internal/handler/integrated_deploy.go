@@ -277,6 +277,40 @@ func (h *Handler) CopyDeployOrder(c *gin.Context) {
 	c.JSON(http.StatusOK, toDeployOrderResp(dup))
 }
 
+// ListDeployNamespaces GET /integrated-deploy/namespaces?cluster_id=
+// 工单编辑器的命名空间下拉数据,按「指定集群」返回(不依赖全局 X-Cluster-ID 头),
+// 可见性规则与 ListNamespaces 一致:admin → 该集群全部 NS;否则 → 用户可见 NS。
+func (h *Handler) ListDeployNamespaces(c *gin.Context) {
+	clusterID := c.Query("cluster_id")
+	cc, ok := h.Pool.Get(clusterID)
+	if clusterID == "" || !ok {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "缺少或无效的集群"})
+		return
+	}
+	if c.GetBool("is_admin") {
+		list, err := cc.Typed.CoreV1().Namespaces().List(c.Request.Context(), metav1.ListOptions{})
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"message": "命名空间列举失败"})
+			return
+		}
+		names := make([]string, 0, len(list.Items))
+		for i := range list.Items {
+			names = append(names, list.Items[i].Name)
+		}
+		sort.Strings(names)
+		c.JSON(http.StatusOK, gin.H{"namespaces": names})
+		return
+	}
+	uid := c.GetUint("user_id")
+	sid := strconv.FormatUint(uint64(uid), 10)
+	names, err := h.RBAC.ListVisibleNamespaces(sid, clusterID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "命名空间列举失败"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"namespaces": names})
+}
+
 // ListSelectable GET /integrated-deploy/selectable?cluster_id=&ns=&kind=
 // 返回该 ns 下用户对该 kind 有 write 权限时的对象名单;无权限返回空名单。
 func (h *Handler) ListSelectable(c *gin.Context) {

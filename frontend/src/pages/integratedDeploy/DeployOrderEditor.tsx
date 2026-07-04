@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  App as AntApp, Button, Card, Descriptions, Divider, Form, Input, Modal, Select,
+  App as AntApp, Button, Card, Col, Descriptions, Divider, Form, Input, Modal, Row, Select,
   Space, Steps, Table, Tag, Timeline,
 } from 'antd';
 import { useTranslation } from 'react-i18next';
@@ -13,6 +13,7 @@ import { clusterApi } from '../../api/cluster';
 import CodeBox from '../../components/editor/CodeBox';
 import { fromYAML } from '../../components/editor/util';
 import { useAuthStore } from '../../store/auth';
+import { useCtxStore } from '../../store/ctx';
 import { canGlobal } from '../../nav';
 
 const GROUP_KEY: Record<number, string> = {
@@ -45,8 +46,13 @@ export default function DeployOrderEditor() {
   const [form] = Form.useForm();
   const [clusters, setClusters] = useState<{ id: string; name: string }[]>([]);
   const locked = !isNew; // 已存在的工单:集群/命名空间锁定(随路由重算)
-  const [clusterId, setClusterId] = useState('');
-  const [namespace, setNamespace] = useState('');
+  // 新建工单默认跟随顶部全局选择:集群取当前集群,命名空间取当前 NS(未选/全部时留空,
+  // 让用户在本卡片里选)。编辑已有工单时由下方 effect 从工单本身回填。
+  const globalCluster = useCtxStore((s) => s.currentCluster);
+  const globalNamespace = useCtxStore((s) => s.currentNamespace);
+  const [clusterId, setClusterId] = useState(isNew ? globalCluster ?? '' : '');
+  const [namespace, setNamespace] = useState(isNew ? globalNamespace ?? '' : '');
+  const [nsOptions, setNsOptions] = useState<string[]>([]);
   const [items, setItems] = useState<DeployItem[]>([]);
   const [runs, setRuns] = useState<DeployRun[]>([]);
   const [lastRun, setLastRun] = useState<DeployRun | null>(null);
@@ -55,6 +61,15 @@ export default function DeployOrderEditor() {
   useEffect(() => {
     clusterApi.list().then((cs) => setClusters(cs.map((c) => ({ id: c.id, name: c.name })))).catch(() => undefined);
   }, []);
+
+  // 命名空间下拉:按当前选中集群拉取(不依赖全局 X-Cluster-ID 头)。
+  useEffect(() => {
+    if (!clusterId) {
+      setNsOptions([]);
+      return;
+    }
+    integratedDeployApi.namespaces(clusterId).then(setNsOptions).catch(() => setNsOptions([]));
+  }, [clusterId]);
 
   // 编辑:加载工单。
   useEffect(() => {
@@ -189,25 +204,46 @@ export default function DeployOrderEditor() {
     <Space direction="vertical" style={{ width: '100%' }} size={16}>
       <Card title={t('integratedDeploy.title')}>
         <Form form={form} layout="vertical" disabled={!canEdit}>
-          <Space size={16} wrap>
-            <Form.Item label={t('integratedDeploy.cluster')} required>
-              <Select
-                style={{ width: 200 }}
-                value={clusterId || undefined}
-                disabled={locked}
-                onChange={setClusterId}
-                options={clusters.map((c) => ({ value: c.id, label: c.name }))}
-              />
-            </Form.Item>
-            <Form.Item label={t('integratedDeploy.namespace')} required>
-              <Input style={{ width: 200 }} value={namespace} disabled={locked} onChange={(e) => setNamespace(e.target.value)} />
-            </Form.Item>
-          </Space>
-          <Form.Item name="title" label={t('integratedDeploy.orderTitle')} rules={[{ required: true }]}>
-            <Input style={{ maxWidth: 420 }} />
-          </Form.Item>
+          <Row gutter={16}>
+            <Col xs={24} md={8}>
+              <Form.Item label={t('integratedDeploy.cluster')} required>
+                <Select
+                  style={{ width: '100%' }}
+                  value={clusterId || undefined}
+                  disabled={locked}
+                  placeholder={t('integratedDeploy.cluster')}
+                  showSearch
+                  optionFilterProp="label"
+                  onChange={(v) => {
+                    setClusterId(v);
+                    setNamespace(''); // 换集群后命名空间失效,需重选
+                  }}
+                  options={clusters.map((c) => ({ value: c.id, label: c.name }))}
+                />
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={8}>
+              <Form.Item label={t('integratedDeploy.namespace')} required>
+                <Select
+                  style={{ width: '100%' }}
+                  value={namespace || undefined}
+                  disabled={locked || !clusterId}
+                  placeholder={t('integratedDeploy.namespace')}
+                  showSearch
+                  optionFilterProp="label"
+                  onChange={setNamespace}
+                  options={nsOptions.map((n) => ({ value: n, label: n }))}
+                />
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={8}>
+              <Form.Item name="title" label={t('integratedDeploy.orderTitle')} rules={[{ required: true }]}>
+                <Input />
+              </Form.Item>
+            </Col>
+          </Row>
           <Form.Item name="description" label={t('integratedDeploy.description')}>
-            <Input.TextArea rows={2} style={{ maxWidth: 640 }} />
+            <Input.TextArea rows={2} />
           </Form.Item>
         </Form>
       </Card>

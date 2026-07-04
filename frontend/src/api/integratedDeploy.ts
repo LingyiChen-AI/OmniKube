@@ -90,6 +90,14 @@ export const integratedDeployApi = {
     client
       .post<{ run: DeployRun }>(`/integrated-deploy/orders/${id}/publish`)
       .then((r) => r.data.run),
+  // Namespace options for the editor, scoped to the SELECTED cluster (not the
+  // global X-Cluster-ID header) so the order's cluster can differ from the topbar.
+  namespaces: (clusterId: string) =>
+    client
+      .get<{ namespaces: string[] }>('/integrated-deploy/namespaces', {
+        params: { cluster_id: clusterId },
+      })
+      .then((r) => r.data.namespaces ?? []),
   selectable: (clusterId: string, ns: string, kind: string) =>
     client
       .get<{ names: string[] }>('/integrated-deploy/selectable', {
