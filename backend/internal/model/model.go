@@ -159,3 +159,33 @@ type AIMessage struct {
 }
 
 func (AIMessage) TableName() string { return "ok_ai_messages" }
+
+// DeployOrder 集成部署工单:绑定单集群单命名空间的一组资源清单,整体编辑、反复发布。
+type DeployOrder struct {
+	ID          uint      `gorm:"primaryKey" json:"id"`
+	UserID      uint      `gorm:"index" json:"user_id"`
+	Username    string    `gorm:"size:50" json:"username"`
+	ClusterID   string    `gorm:"size:50;index" json:"cluster_id"`
+	Namespace   string    `gorm:"size:100" json:"namespace"`
+	Title       string    `gorm:"size:200" json:"title"`
+	Description string    `gorm:"type:text" json:"description"`
+	Items       string    `gorm:"type:text" json:"-"` // JSON []DeployItem;经 handler DTO 暴露
+	Status      string    `gorm:"size:20;default:draft" json:"status"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+func (DeployOrder) TableName() string { return "ok_deploy_orders" }
+
+// DeployOrderRun 一次发布的历史记录。
+type DeployOrderRun struct {
+	ID        uint      `gorm:"primaryKey" json:"id"`
+	OrderID   uint      `gorm:"index" json:"order_id"`
+	UserID    uint      `json:"user_id"`
+	Username  string    `gorm:"size:50" json:"username"`
+	Status    string    `gorm:"size:20" json:"status"` // succeeded | failed
+	Results   string    `gorm:"type:text" json:"-"`    // JSON []ItemResult;经 handler DTO 暴露
+	CreatedAt time.Time `gorm:"index" json:"created_at"`
+}
+
+func (DeployOrderRun) TableName() string { return "ok_deploy_order_runs" }

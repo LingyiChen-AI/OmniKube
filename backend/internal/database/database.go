@@ -29,6 +29,8 @@ func Migrate(db *gorm.DB) error {
 		&model.AIConfig{},
 		&model.AIConversation{},
 		&model.AIMessage{},
+		&model.DeployOrder{},
+		&model.DeployOrderRun{},
 	); err != nil {
 		return err
 	}
