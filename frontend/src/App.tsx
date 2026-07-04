@@ -36,6 +36,8 @@ import PVCs from './pages/storage/PVCs';
 import Nodes from './pages/cluster/Nodes';
 import PersistentVolumes from './pages/cluster/PersistentVolumes';
 import Releases from './pages/releases/Releases';
+import IntegratedDeploy from './pages/integratedDeploy/IntegratedDeploy';
+import DeployOrderEditor from './pages/integratedDeploy/DeployOrderEditor';
 import AuditLogs from './pages/audit/AuditLogs';
 import AiConfig from './pages/ai/AiConfig';
 import AiAssistant from './components/AiAssistant';
@@ -120,6 +122,9 @@ function AppRoutes() {
         <Route path="/storage/persistentvolumes" element={<ResourceRoute resource="persistentvolumes"><PersistentVolumes /></ResourceRoute>} />
         <Route path="/cluster/nodes" element={<ResourceRoute resource="nodes"><Nodes /></ResourceRoute>} />
         <Route path="/releases" element={<GlobalRoute area="releases"><Releases /></GlobalRoute>} />
+        <Route path="/integrated-deploy" element={<GlobalRoute area="integrated_deploy"><IntegratedDeploy /></GlobalRoute>} />
+        <Route path="/integrated-deploy/orders/:id" element={<GlobalRoute area="integrated_deploy"><DeployOrderEditor /></GlobalRoute>} />
+        <Route path="/integrated-deploy/new" element={<GlobalRoute area="integrated_deploy"><DeployOrderEditor /></GlobalRoute>} />
 
         <Route
           path="/clusters"

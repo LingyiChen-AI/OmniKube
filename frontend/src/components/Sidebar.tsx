@@ -94,6 +94,11 @@ export default function Sidebar({ collapsed }: Props) {
       base.push({ key: '/cluster/nodes', icon: <NodeIndexOutlined />, label: t('nav.nodes') });
     }
 
+    // 集成部署: gated by integrated_deploy:view。
+    if (canGlobal('integrated_deploy', 'view', user)) {
+      base.push({ key: '/integrated-deploy', icon: <DeploymentUnitOutlined />, label: t('nav.integrated_deploy') });
+    }
+
     // 发布记录: gated by the releases global perm (view).
     if (canGlobal('releases', 'view', user)) {
       base.push({ key: '/releases', icon: <RocketOutlined />, label: t('nav.releases') });
