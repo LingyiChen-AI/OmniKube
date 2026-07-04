@@ -50,6 +50,17 @@ export const MODULE_KEYS: ModuleKey[] = ['workloads', 'networking', 'storage', '
 /** All concrete resources, in canonical order. */
 export const ALL_RESOURCES: ResourceKey[] = MODULE_KEYS.flatMap((m) => MODULE_RESOURCES[m]);
 
+/** 粗粒度伪资源:承载所有非内置资源(CRD 等)的权限。与后端 rbac.CustomResource 对齐。 */
+export const CUSTOM_RESOURCE = 'customresources';
+
+/** 判断是否为内置(有专页)的具体资源。 */
+export function isBuiltinResource(resource: string): boolean {
+  return (ALL_RESOURCES as string[]).includes(resource);
+}
+
+/** 角色资源矩阵要渲染/持久化的资源:内置资源 + customresources 行。 */
+export const MATRIX_RESOURCES: string[] = [...ALL_RESOURCES, CUSTOM_RESOURCE];
+
 /**
  * Cluster-scoped k8s resources (no namespace). A namespace-scoped rule cannot
  * grant these — access is evaluated at the cluster domain, which a
@@ -100,7 +111,7 @@ export type Operations = Record<string, TreeAction[]>;
 /** Drop empty resources and inapplicable actions from an operations matrix. */
 export function cleanOperations(ops: Operations): Operations {
   const out: Operations = {};
-  for (const res of ALL_RESOURCES) {
+  for (const res of MATRIX_RESOURCES) {
     const acts = (ops[res] ?? []).filter((a) => actionAppliesToResource(res, a));
     if (acts.length) out[res] = TREE_ACTIONS.filter((a) => acts.includes(a));
   }
@@ -165,7 +176,7 @@ export function moduleNodeKey(module: ModuleKey): string {
 /** Leaf-action keys representing an operations matrix (for Tree `checkedKeys`). */
 export function operationsToCheckedKeys(operations: Operations): string[] {
   const keys: string[] = [];
-  for (const res of ALL_RESOURCES) {
+  for (const res of MATRIX_RESOURCES) {
     for (const a of operations[res] ?? []) {
       if (actionAppliesToResource(res, a)) keys.push(resActionKey(res, a));
     }
