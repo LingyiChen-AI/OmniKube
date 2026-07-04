@@ -40,6 +40,16 @@ func New(h *handler.Handler, jm *auth.JWTManager) *gin.Engine {
 			// 发布记录：JWTAuth + global-perm releases:view（admin 旁路）。
 			authed.GET("/releases", middleware.RequireGlobalPerm(h.GlobalPermCheck, "releases", "view"), h.ListReleases)
 
+			// 集成部署:JWTAuth + global-perm integrated_deploy:<action>(admin 旁路)。
+			authed.GET("/integrated-deploy/orders", middleware.RequireGlobalPerm(h.GlobalPermCheck, "integrated_deploy", "view"), h.ListDeployOrders)
+			authed.POST("/integrated-deploy/orders", middleware.RequireGlobalPerm(h.GlobalPermCheck, "integrated_deploy", "create"), h.CreateDeployOrder)
+			authed.GET("/integrated-deploy/orders/:id", middleware.RequireGlobalPerm(h.GlobalPermCheck, "integrated_deploy", "view"), h.GetDeployOrder)
+			authed.PUT("/integrated-deploy/orders/:id", middleware.RequireGlobalPerm(h.GlobalPermCheck, "integrated_deploy", "edit"), h.UpdateDeployOrder)
+			authed.DELETE("/integrated-deploy/orders/:id", middleware.RequireGlobalPerm(h.GlobalPermCheck, "integrated_deploy", "delete"), h.DeleteDeployOrder)
+			authed.POST("/integrated-deploy/orders/:id/copy", middleware.RequireGlobalPerm(h.GlobalPermCheck, "integrated_deploy", "create"), h.CopyDeployOrder)
+			authed.POST("/integrated-deploy/orders/:id/publish", middleware.RequireGlobalPerm(h.GlobalPermCheck, "integrated_deploy", "publish"), h.PublishDeployOrder)
+			authed.GET("/integrated-deploy/selectable", middleware.RequireGlobalPerm(h.GlobalPermCheck, "integrated_deploy", "view"), h.ListSelectable)
+
 			// 审计日志：JWTAuth + global-perm audit:view（admin 旁路）。
 			authed.GET("/audit-logs", middleware.RequireGlobalPerm(h.GlobalPermCheck, "audit", "view"), h.ListAuditLogs)
 			authed.GET("/audit-logs/export", middleware.RequireGlobalPerm(h.GlobalPermCheck, "audit", "view"), h.ExportAuditLogs)
