@@ -636,14 +636,18 @@ export default function AiAssistant() {
                 zIndex={POPUP_Z}
                 styles={{ body: { padding: 0 } }}
                 content={
-                  <HistoryList
-                    conversations={clusterConversations}
-                    activeConv={activeConv}
-                    onPick={(id) => {
-                      setHistoryOpen(false);
-                      void selectConversation(id);
-                    }}
-                  />
+                  // Popover renders in a portal outside the window, so re-apply the
+                  // theme CSS vars here or the list colours (hover/time) won't resolve.
+                  <div style={{ ...vars, background: token.colorBgElevated, borderRadius: 8 }}>
+                    <HistoryList
+                      conversations={clusterConversations}
+                      activeConv={activeConv}
+                      onPick={(id) => {
+                        setHistoryOpen(false);
+                        void selectConversation(id);
+                      }}
+                    />
+                  </div>
                 }
               >
                 <Tooltip title={t('ai.history')} zIndex={POPUP_Z}>

@@ -1090,10 +1090,11 @@ body[data-theme='dark'] {
   transition: background 0.12s ease;
 }
 .ok-ai-histitem:hover {
-  background: var(--ok-ai-bar);
+  background: rgba(14, 165, 233, 0.12);
 }
 .ok-ai-histitem.is-active {
-  background: rgba(14, 165, 233, 0.12);
+  background: rgba(14, 165, 233, 0.2);
+  box-shadow: inset 3px 0 0 #0ea5e9;
 }
 .ok-ai-histicon {
   display: inline-flex;
