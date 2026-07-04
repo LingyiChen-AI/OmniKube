@@ -116,28 +116,57 @@ export default function DeployOrderEditor() {
     }
   };
 
-  // —— 编辑条目:Drawer(仅编辑已有条目的内容) ——
+  // —— Drawer:编辑已有条目,或编辑一份来自集群的快照(挂载点点击时新增) ——
+  // drawerEditIdx !== null → 编辑既有条目;=== null → 新增(mount-click 快照)。
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerEditIdx, setDrawerEditIdx] = useState<number | null>(null);
+  const [drawerKind, setDrawerKind] = useState('');
+  const [drawerYaml, setDrawerYaml] = useState('');
 
   const openEditDrawer = (idx: number) => {
     setDrawerEditIdx(idx);
+    setDrawerKind(items[idx].kind);
+    setDrawerYaml(items[idx].manifest_yaml);
     setDrawerOpen(true);
   };
 
-  const openEditMount = (kind: string, name: string) => {
+  // 点击挂载点:已在工单里则打开其编辑;否则从集群快照后以"新增"模式打开,
+  // 确认时追加到工单(排序会把 configmaps/secrets 排在工作负载之前,一起发布)。
+  const openEditMount = async (kind: string, name: string) => {
     const idx = items.findIndex((i) => i.kind === kind && i.name === name);
-    if (idx >= 0) openEditDrawer(idx);
+    if (idx >= 0) {
+      openEditDrawer(idx);
+      return;
+    }
+    if (!clusterId || !namespace) return;
+    try {
+      const yaml = await integratedDeployApi.snapshot(clusterId, namespace, kind, name);
+      setDrawerEditIdx(null);
+      setDrawerKind(kind);
+      setDrawerYaml(yaml);
+      setDrawerOpen(true);
+    } catch {
+      /* axios interceptor already toasts (e.g. 403/404) */
+    }
   };
 
   const handleDrawerConfirm = ({ kind, name, yaml }: { kind: string; name: string; yaml: string }) => {
-    if (drawerEditIdx === null) return;
-    // A rename must not collide with a DIFFERENT existing item.
-    if (items.some((i, idx) => idx !== drawerEditIdx && i.kind === kind && i.name === name)) {
-      message.error(t('integratedDeploy.duplicateItem'));
-      return;
+    if (drawerEditIdx !== null) {
+      // 编辑既有条目:重命名不得与其他条目冲突。
+      if (items.some((i, idx) => idx !== drawerEditIdx && i.kind === kind && i.name === name)) {
+        message.error(t('integratedDeploy.duplicateItem'));
+        return;
+      }
+      setItems(items.map((it, i) => (i === drawerEditIdx ? { ...it, name, manifest_yaml: yaml } : it)));
+    } else {
+      // 新增(mount-click 快照):去重后追加。
+      if (items.some((i) => i.kind === kind && i.name === name)) {
+        message.error(t('integratedDeploy.duplicateItem'));
+        return;
+      }
+      const nextIndex = items.filter((i) => DEPLOY_KIND_GROUP[i.kind] === DEPLOY_KIND_GROUP[kind]).length;
+      setItems([...items, { kind, name, source: 'selected', manifest_yaml: yaml, sort_index: nextIndex }]);
     }
-    setItems(items.map((it, i) => (i === drawerEditIdx ? { ...it, name, manifest_yaml: yaml } : it)));
     setDrawerOpen(false);
   };
 
@@ -181,8 +210,6 @@ export default function DeployOrderEditor() {
       },
     });
   };
-
-  const drawerEditItem = drawerEditIdx !== null ? items[drawerEditIdx] : null;
 
   return (
     <Space direction="vertical" style={{ width: '100%' }} size={16}>
@@ -264,13 +291,7 @@ export default function DeployOrderEditor() {
         {items.length === 0 ? (
           <Empty />
         ) : (
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
-              gap: 16,
-            }}
-          >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {items.map((item, idx) => (
               <ResourceItemCard
                 key={`${item.kind}:${item.name}:${idx}`}
@@ -335,8 +356,8 @@ export default function DeployOrderEditor() {
 
       <ManifestDrawer
         open={drawerOpen}
-        kind={drawerEditItem?.kind ?? ''}
-        initialYaml={drawerEditItem?.manifest_yaml}
+        kind={drawerKind}
+        initialYaml={drawerYaml}
         readOnly={!canEdit}
         onClose={() => setDrawerOpen(false)}
         onConfirm={handleDrawerConfirm}

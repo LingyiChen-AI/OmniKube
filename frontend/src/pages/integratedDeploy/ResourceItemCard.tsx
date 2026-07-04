@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Button, Card, Space, Tag, Typography } from 'antd';
-import { DeleteOutlined } from '@ant-design/icons';
+import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import type { K8sObject } from '../../api/resource';
 import { fromYAML } from '../../components/editor/util';
@@ -119,17 +119,19 @@ export default function ResourceItemCard({
                 {mounts.map((m) => {
                   const key = `${m.kind}:${m.name}`;
                   const label = `${m.kind}/${m.name}`;
-                  return inOrder.has(key) ? (
+                  const added = inOrder.has(key);
+                  // Every mount is clickable. In-order → solid colored Tag; not yet
+                  // in order → a "+"-prefixed Tag hinting it will be added on click.
+                  return (
                     <Tag
                       key={key}
-                      color="blue"
+                      color={added ? 'blue' : undefined}
+                      icon={added ? undefined : <PlusOutlined />}
                       style={{ marginInlineEnd: 0, cursor: 'pointer' }}
                       onClick={() => onOpenMount(m.kind, m.name)}
                     >
                       {label}
                     </Tag>
-                  ) : (
-                    <Tag key={key} style={{ marginInlineEnd: 0 }}>{label}</Tag>
                   );
                 })}
               </Space>
@@ -184,6 +186,8 @@ export default function ResourceItemCard({
   return (
     <Card
       size="small"
+      style={{ width: '100%' }}
+      styles={{ body: { padding: 16 } }}
       title={
         <Space size={6}>
           <Tag color="geekblue" style={{ marginInlineEnd: 0 }}>{item.kind}</Tag>
