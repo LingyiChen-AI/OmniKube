@@ -425,6 +425,38 @@ func TestAuthorize_ControlledReadConfigReaderStillAllowed(t *testing.T) {
 	}
 }
 
+// 未知资源(如 replicasets,不在内置 13 种)应按 customresources 授权判定;
+// 内置资源(deployments)不借 customresources 授权。
+func TestAuthorizeMapsUnknownToCustomResources(t *testing.T) {
+	svc, _ := newServiceWithNS(t, "c1", "dev")
+	// 非管理员 subject:DB 中无此用户 → isAdminUser 视为非 admin → 走 casbin。
+	uid := "42"
+	if err := svc.AddGrant(uid, "perm:test-cr", "c1:dev"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.enforcer.AddPolicy("perm:test-cr", "*", CustomResource, "read"); err != nil {
+		t.Fatal(err)
+	}
+
+	// replicasets 非内置 → 映射到 customresources → 放行。
+	ok, _, err := svc.Authorize(uid, "c1", "dev", "replicasets", "read")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ok {
+		t.Fatalf("未知资源 replicasets 应经 customresources 放行")
+	}
+
+	// deployments 内置 → 不走 customresources → 无 deployments 授权 → 拒绝。
+	ok, _, err = svc.Authorize(uid, "c1", "dev", "deployments", "read")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ok {
+		t.Fatalf("内置资源 deployments 不应借 customresources 授权放行")
+	}
+}
+
 func TestListVisibleNamespaces(t *testing.T) {
 	svc, _ := newServiceWithNS(t, "cluster_f", "default", "dev", "prod", "kube-system")
 	// cluster-level role → all namespaces from the pool.
