@@ -7,6 +7,7 @@ import {
   CloseOutlined,
   CodeOutlined,
   HistoryOutlined,
+  MessageFilled,
   PlayCircleOutlined,
   PlusOutlined,
   SendOutlined,
@@ -590,6 +591,10 @@ export default function AiAssistant() {
           >
             <span className="ok-ai-fab__spark" />
             <BrandMark size="58%" />
+            {/* Chat badge so it reads as the AI conversation entry. */}
+            <span className="ok-ai-fab__chat" aria-hidden>
+              <MessageFilled />
+            </span>
             {!ready && (
               <span className="ok-ai-fab__badge">
                 <WarningFilled />
