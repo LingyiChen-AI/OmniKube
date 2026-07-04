@@ -1,20 +1,20 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  App as AntApp, Button, Card, Col, Descriptions, Divider, Drawer, Form, Input, Modal, Row, Select,
-  Space, Steps, Table, Tag, Timeline,
+  App as AntApp, Button, Card, Col, Descriptions, Divider, Empty, Form, Input, Modal, Row, Select,
+  Space, Steps, Tag, Timeline,
 } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
-  integratedDeployApi, orderedItems, DEPLOY_KINDS, DEPLOY_KIND_GROUP,
+  integratedDeployApi, orderedItems, DEPLOY_KIND_GROUP,
   type DeployItem, type DeployRun, type ItemResult,
 } from '../../api/integratedDeploy';
 import { clusterApi } from '../../api/cluster';
-import CodeBox from '../../components/editor/CodeBox';
-import { fromYAML } from '../../components/editor/util';
 import { useAuthStore } from '../../store/auth';
 import { useCtxStore } from '../../store/ctx';
 import { canGlobal } from '../../nav';
+import ManifestDrawer, { type ManifestDrawerMode } from './ManifestDrawer';
+import ResourceItemCard from './ResourceItemCard';
 
 const GROUP_KEY: Record<number, string> = {
   1: 'integratedDeploy.group1',
@@ -84,71 +84,43 @@ export default function DeployOrderEditor() {
   }, [id, form]);
 
   const preview = useMemo(() => orderedItems(items), [items]);
+  const inOrder = useMemo(() => new Set(items.map((i) => `${i.kind}:${i.name}`)), [items]);
 
-  // —— 从集群选取:内联在条目卡片里 ——
-  const [selKind, setSelKind] = useState('configmaps');
-  const [selName, setSelName] = useState('');
-  const [selectableNames, setSelectableNames] = useState<string[]>([]);
-
-  // 拉可选资源名单(按写权限过滤)。
-  useEffect(() => {
-    if (!clusterId || !namespace) {
-      setSelectableNames([]);
-      return;
-    }
-    integratedDeployApi.selectable(clusterId, namespace, selKind).then(setSelectableNames).catch(() => setSelectableNames([]));
-  }, [clusterId, namespace, selKind]);
-
-  const addSelected = async () => {
-    if (!clusterId || !namespace || !selName) return;
-    // 快照选中资源当前 YAML(集群显式:走工单所属 clusterId,而非全局当前集群)。
-    try {
-      const yamlText = await integratedDeployApi.snapshot(clusterId, namespace, selKind, selName);
-      const nextIndex = items.filter((i) => DEPLOY_KIND_GROUP[i.kind] === DEPLOY_KIND_GROUP[selKind]).length;
-      setItems([...items, { kind: selKind, name: selName, source: 'selected', manifest_yaml: yamlText, sort_index: nextIndex }]);
-      setSelName('');
-    } catch {
-      /* axios interceptor already toasts */
-    }
-  };
-
-  // —— 手写 YAML / 编辑条目:统一 Drawer ——
+  // —— 资源条目 Drawer:从集群选取 / 新建资源 / 编辑 ——
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [drawerIdx, setDrawerIdx] = useState<number | null>(null);
-  const [drawerKind, setDrawerKind] = useState('configmaps');
-  const [drawerYaml, setDrawerYaml] = useState('');
+  const [drawerMode, setDrawerMode] = useState<ManifestDrawerMode>('select-add');
+  const [drawerEditIdx, setDrawerEditIdx] = useState<number | null>(null);
 
-  const openAuthorDrawer = () => {
-    setDrawerIdx(null);
-    setDrawerKind('configmaps');
-    setDrawerYaml('');
+  const openSelectAdd = () => {
+    setDrawerMode('select-add');
+    setDrawerEditIdx(null);
     setDrawerOpen(true);
   };
 
-  const openEditDrawer = (idx: number) => {
-    setDrawerIdx(idx);
-    setDrawerKind(items[idx].kind);
-    setDrawerYaml(items[idx].manifest_yaml);
+  const openNewAdd = () => {
+    setDrawerMode('new-add');
+    setDrawerEditIdx(null);
     setDrawerOpen(true);
   };
 
-  const confirmDrawer = () => {
-    let name = '';
-    try {
-      const obj = fromYAML(drawerYaml);
-      name = obj.metadata?.name ?? '';
-    } catch {
-      /* handled below */
-    }
-    if (!name) {
-      message.error(t('integratedDeploy.nameRequired'));
-      return;
-    }
-    if (drawerIdx === null) {
-      const nextIndex = items.filter((i) => DEPLOY_KIND_GROUP[i.kind] === DEPLOY_KIND_GROUP[drawerKind]).length;
-      setItems([...items, { kind: drawerKind, name, source: 'authored', manifest_yaml: drawerYaml, sort_index: nextIndex }]);
+  const openEditByIdx = (idx: number) => {
+    setDrawerMode('edit');
+    setDrawerEditIdx(idx);
+    setDrawerOpen(true);
+  };
+
+  const openEditMount = (kind: string, name: string) => {
+    const idx = items.findIndex((i) => i.kind === kind && i.name === name);
+    if (idx >= 0) openEditByIdx(idx);
+  };
+
+  const handleDrawerConfirm = ({ kind, name, yaml }: { kind: string; name: string; yaml: string }) => {
+    if (drawerMode === 'edit' && drawerEditIdx !== null) {
+      setItems(items.map((it, i) => (i === drawerEditIdx ? { ...it, name, manifest_yaml: yaml } : it)));
     } else {
-      setItems(items.map((it, i) => (i === drawerIdx ? { ...it, name, manifest_yaml: drawerYaml } : it)));
+      const source = drawerMode === 'select-add' ? 'selected' : 'authored';
+      const nextIndex = items.filter((i) => DEPLOY_KIND_GROUP[i.kind] === DEPLOY_KIND_GROUP[kind]).length;
+      setItems([...items, { kind, name, source, manifest_yaml: yaml, sort_index: nextIndex }]);
     }
     setDrawerOpen(false);
   };
@@ -194,33 +166,7 @@ export default function DeployOrderEditor() {
     });
   };
 
-  const itemColumns = [
-    { title: t('integratedDeploy.kind'), dataIndex: 'kind' },
-    {
-      title: t('integratedDeploy.resourceName'),
-      dataIndex: 'name',
-      render: (name: string, _r: DeployItem, idx: number) =>
-        canEdit ? (
-          <Button type="link" style={{ padding: 0, height: 'auto' }} onClick={() => openEditDrawer(idx)}>
-            {name}
-          </Button>
-        ) : (
-          name
-        ),
-    },
-    {
-      title: t('integratedDeploy.source'),
-      dataIndex: 'source',
-      render: (s: string) =>
-        s === 'selected' ? t('integratedDeploy.addSelected') : t('integratedDeploy.addAuthored'),
-    },
-    {
-      title: t('integratedDeploy.actions'),
-      key: 'x',
-      render: (_: unknown, _r: DeployItem, idx: number) =>
-        canEdit ? <Button size="small" danger onClick={() => removeItem(idx)}>{t('integratedDeploy.delete')}</Button> : null,
-    },
-  ];
+  const drawerEditItem = drawerMode === 'edit' && drawerEditIdx !== null ? items[drawerEditIdx] : null;
 
   return (
     <Space direction="vertical" style={{ width: '100%' }} size={16}>
@@ -273,32 +219,45 @@ export default function DeployOrderEditor() {
       <Card
         title={t('integratedDeploy.items')}
         extra={
-          canEdit && <Button onClick={openAuthorDrawer}>{t('integratedDeploy.addAuthored')}</Button>
+          canEdit && (
+            <Space>
+              <Button
+                onClick={openSelectAdd}
+                disabled={!clusterId || !namespace}
+              >
+                {t('integratedDeploy.addSelected')}
+              </Button>
+              <Button onClick={openNewAdd} disabled={!clusterId || !namespace}>
+                {t('integratedDeploy.newResource')}
+              </Button>
+            </Space>
+          )
         }
       >
-        {canEdit && (
-          <Space style={{ marginBottom: 12 }}>
-            <Select
-              style={{ width: 200 }}
-              value={selKind}
-              onChange={setSelKind}
-              options={DEPLOY_KINDS.map((k) => ({ value: k, label: k }))}
-            />
-            <Select
-              style={{ width: 280 }}
-              showSearch
-              placeholder={t('integratedDeploy.selectResource')}
-              value={selName || undefined}
-              onChange={setSelName}
-              options={selectableNames.map((n) => ({ value: n, label: n }))}
-              notFoundContent={t('integratedDeploy.noSelectable')}
-            />
-            <Button onClick={addSelected} disabled={!clusterId || !namespace || !selName}>
-              {t('integratedDeploy.addItem')}
-            </Button>
-          </Space>
+        {items.length === 0 ? (
+          <Empty />
+        ) : (
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+              gap: 16,
+            }}
+          >
+            {items.map((item, idx) => (
+              <ResourceItemCard
+                key={`${item.kind}:${item.name}:${idx}`}
+                item={item}
+                groupLabel={t(GROUP_KEY[DEPLOY_KIND_GROUP[item.kind] ?? 3])}
+                inOrder={inOrder}
+                canEdit={canEdit}
+                onEdit={() => openEditByIdx(idx)}
+                onDelete={() => removeItem(idx)}
+                onOpenMount={openEditMount}
+              />
+            ))}
+          </div>
         )}
-        <Table rowKey={(_, i) => String(i)} columns={itemColumns} dataSource={items} pagination={false} size="small" />
         <Divider>{t('integratedDeploy.orderPreview')}</Divider>
         <Steps
           direction="vertical"
@@ -347,33 +306,17 @@ export default function DeployOrderEditor() {
         </Card>
       )}
 
-      <Drawer
+      <ManifestDrawer
         open={drawerOpen}
-        title={drawerIdx === null ? t('integratedDeploy.addAuthored') : t('integratedDeploy.editItem')}
+        mode={drawerMode}
+        clusterId={clusterId}
+        namespace={namespace}
+        initialKind={drawerEditItem?.kind}
+        initialYaml={drawerEditItem?.manifest_yaml}
+        readOnly={!canEdit}
         onClose={() => setDrawerOpen(false)}
-        width="min(1100px, 90vw)"
-        extra={
-          canEdit && (
-            <Button type="primary" onClick={confirmDrawer}>
-              {drawerIdx === null ? t('integratedDeploy.addItem') : t('integratedDeploy.save')}
-            </Button>
-          )
-        }
-      >
-        <Space direction="vertical" style={{ width: '100%' }} size={12}>
-          {drawerIdx === null ? (
-            <Select
-              style={{ width: 240 }}
-              value={drawerKind}
-              onChange={setDrawerKind}
-              options={DEPLOY_KINDS.map((k) => ({ value: k, label: k }))}
-            />
-          ) : (
-            <Tag>{drawerKind}</Tag>
-          )}
-          <CodeBox label="YAML" minHeight={480} value={drawerYaml} onChange={setDrawerYaml} readOnly={!canEdit} />
-        </Space>
-      </Drawer>
+        onConfirm={handleDrawerConfirm}
+      />
     </Space>
   );
 }
