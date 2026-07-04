@@ -201,6 +201,9 @@ export default function DeployOrderEditor() {
                   onChange={(v) => {
                     setClusterId(v);
                     setNamespace(''); // 换集群后命名空间失效,需重选
+                    // 换集群会使已选资源失效(它们属于旧集群),清空未保存的选择与条目。
+                    setSelName('');
+                    setItems([]);
                   }}
                   options={clusters.map((c) => ({ value: c.id, label: c.name }))}
                 />
