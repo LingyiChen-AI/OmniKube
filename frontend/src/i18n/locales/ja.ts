@@ -685,6 +685,8 @@ const ja: Resources = {
     subtitle: 'このページを表示する権限がありません。',
   },
   ai: {
+    enableNoPerm: 'AI の有効/無効切替には「AI 有効化」権限が必要です',
+    enableAction: 'AI 有効化 / 無効化スイッチ',
     executing: '実行中…',
     done: '完了',
     toolCall: '呼び出し',

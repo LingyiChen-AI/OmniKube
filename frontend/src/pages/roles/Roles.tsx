@@ -570,14 +570,20 @@ export function GlobalPermsMatrix({ value = {}, onChange, disabled }: GlobalPerm
         </td>
         {BASE_ACTIONS.map((a) => {
           const ok = applies(area, a);
+          // For the `ai` area the `create` column means the AI enable/disable switch,
+          // not a generic 'create' — clarify with a tooltip.
+          const hint = area === 'ai' && a === 'create' ? t('ai.enableAction') : undefined;
+          const cb = (
+            <Checkbox
+              aria-label={`gp-${area}-${a}`}
+              disabled={disabled || !ok}
+              checked={ok && has(area, a)}
+              onChange={(e) => setCell(area, a, e.target.checked)}
+            />
+          );
           return (
             <td key={a} className={ok ? undefined : 'ok-ops-na'}>
-              <Checkbox
-                aria-label={`gp-${area}-${a}`}
-                disabled={disabled || !ok}
-                checked={ok && has(area, a)}
-                onChange={(e) => setCell(area, a, e.target.checked)}
-              />
+              {hint ? <Tooltip title={hint}>{cb}</Tooltip> : cb}
             </td>
           );
         })}

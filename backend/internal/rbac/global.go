@@ -48,6 +48,7 @@ func AllGlobalPerms() map[string][]string {
 		"roles":    full,
 		"releases": {"view"},
 		"audit":    {"view"},
-		"ai":       {"view", "edit"},
+		// ai:create 语义为「AI 启用/停用开关」（与 edit=编辑模型配置 分离）。
+		"ai": {"view", "edit", "create"},
 	}
 }

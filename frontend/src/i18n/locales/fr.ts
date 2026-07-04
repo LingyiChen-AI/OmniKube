@@ -685,6 +685,8 @@ const fr: Resources = {
     subtitle: "Vous n'avez pas l'autorisation de voir cette page.",
   },
   ai: {
+    enableNoPerm: 'Nécessite la permission « activation de l’IA » pour activer/désactiver',
+    enableAction: 'Interrupteur activer / désactiver l’IA',
     executing: 'Exécution…',
     done: 'Terminé',
     toolCall: 'Appel',

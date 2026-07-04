@@ -683,6 +683,8 @@ const en = {
     subtitle: "You don't have permission to view this page.",
   },
   ai: {
+    enableNoPerm: 'Requires the “AI enable switch” permission to turn AI on/off',
+    enableAction: 'AI enable / disable switch',
     executing: 'Executing…',
     done: 'Done',
     toolCall: 'Call',

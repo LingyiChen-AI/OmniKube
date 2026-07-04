@@ -35,7 +35,11 @@ func TestConfigRoundTripEncryptsKey(t *testing.T) {
 	db, cipher := testDB(t), testCipher(t)
 	s := NewStore(db, cipher)
 
-	if err := s.SaveConfig(ConfigInput{Enabled: true, BaseURL: "https://api.x/v1", APIKey: "secret-key", ModelID: "gpt-x"}); err != nil {
+	if err := s.SaveConfig(ConfigInput{BaseURL: "https://api.x/v1", APIKey: "secret-key", ModelID: "gpt-x"}); err != nil {
+		t.Fatal(err)
+	}
+	// Enabled is a separate concern (ai:create) — set via SetEnabled, not SaveConfig.
+	if err := s.SetEnabled(true); err != nil {
 		t.Fatal(err)
 	}
 	got, err := s.LoadConfig()

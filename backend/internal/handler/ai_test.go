@@ -53,6 +53,7 @@ func aiApp(t *testing.T) (*gin.Engine, *gorm.DB) {
 	api.GET("/ai/status", h.GetAIStatus)
 	api.GET("/ai/config", h.GetAIConfig)
 	api.PUT("/ai/config", h.PutAIConfig)
+	api.PUT("/ai/enabled", h.PutAIEnabled)
 	api.GET("/ai/conversations", h.ListConversations)
 	api.POST("/ai/conversations", h.CreateConversation)
 	api.GET("/ai/conversations/:id", h.GetConversation)
@@ -272,10 +273,14 @@ func TestAIConfigMaskAndStatus(t *testing.T) {
 		t.Fatalf("fresh status should be disabled+unconfigured, got %+v", st)
 	}
 
-	// Save config with a key.
-	body := map[string]any{"enabled": true, "base_url": "https://x/v1", "api_key": "sk-1", "model_id": "m"}
+	// Save model config with a key (enabled is separate now — not set here).
+	body := map[string]any{"base_url": "https://x/v1", "api_key": "sk-1", "model_id": "m"}
 	if w := aiReq(app, "PUT", "/api/v1/ai/config", "1", true, body); w.Code != http.StatusOK {
 		t.Fatalf("put config: %d %s", w.Code, w.Body.String())
+	}
+	// Enabling is a separate endpoint/permission (ai:create).
+	if w := aiReq(app, "PUT", "/api/v1/ai/enabled", "1", true, map[string]any{"enabled": true}); w.Code != http.StatusOK {
+		t.Fatalf("put enabled: %d %s", w.Code, w.Body.String())
 	}
 
 	// GET config must NOT leak the key, but flags it present.

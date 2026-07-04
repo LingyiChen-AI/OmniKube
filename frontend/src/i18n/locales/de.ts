@@ -685,6 +685,8 @@ const de: Resources = {
     subtitle: 'Sie haben keine Berechtigung, diese Seite anzuzeigen.',
   },
   ai: {
+    enableNoPerm: 'Zum Ein-/Ausschalten der KI ist die Berechtigung „KI-Schalter“ nötig',
+    enableAction: 'KI ein- / ausschalten',
     executing: 'Wird ausgeführt…',
     done: 'Fertig',
     toolCall: 'Aufruf',

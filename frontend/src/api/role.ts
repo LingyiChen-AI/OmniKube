@@ -116,7 +116,8 @@ export const GLOBAL_AREAS: GlobalArea[] = ['clusters', 'users', 'roles', 'releas
 /** Actions applicable to a global area (`releases`/`audit` are view-only; `ai` is view/edit). */
 export function actionsForGlobalArea(area: GlobalArea): TreeAction[] {
   if (VIEW_ONLY_AREAS.includes(area)) return ['view'];
-  if (area === 'ai') return ['view', 'edit'];
+  // `ai`: view=查看配置, edit=编辑模型配置, create=启用/停用开关（单独授权）。
+  if (area === 'ai') return ['view', 'edit', 'create'];
   return BASE_ACTIONS;
 }
 

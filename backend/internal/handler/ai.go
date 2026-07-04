@@ -70,6 +70,25 @@ func (h *Handler) PutAIConfig(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "已保存"})
 }
 
+type aiEnabledReq struct {
+	Enabled bool `json:"enabled"`
+}
+
+// PutAIEnabled PUT /ai/enabled — RequireGlobalPerm("ai","create")：AI 启用/停用开关，
+// 与模型配置编辑(ai:edit)分离授权。有编辑权不代表能开关 AI。
+func (h *Handler) PutAIEnabled(c *gin.Context) {
+	var req aiEnabledReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
+		return
+	}
+	if err := h.aiStore().SetEnabled(req.Enabled); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "保存失败"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "已保存"})
+}
+
 // ---- 会话 REST（任意登录用户；GetConversation 强制归属校验）----
 
 // ListConversations GET /ai/conversations — 返回当前用户自己的会话（最新在前）。

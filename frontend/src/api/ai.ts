@@ -54,6 +54,8 @@ export const aiApi = {
   status: () => client.get<AiStatus>('/ai/status').then((r) => r.data),
   getConfig: () => client.get<AiConfig>('/ai/config').then((r) => r.data),
   putConfig: (body: AiConfigInput) => client.put('/ai/config', body).then((r) => r.data),
+  // Enable/disable is a separate permission (ai:create) from editing model config.
+  setEnabled: (enabled: boolean) => client.put('/ai/enabled', { enabled }).then((r) => r.data),
 
   // ---- Conversations (current user; newest-first) ----
   listConversations: () =>

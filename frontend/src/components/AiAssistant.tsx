@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { App as AntApp, Button, Collapse, Empty, Input, Popover, Tooltip, Typography, theme as antdTheme } from 'antd';
+import type { TextAreaRef } from 'antd/es/input/TextArea';
 import {
   CaretRightOutlined,
   CheckCircleFilled,
@@ -214,6 +215,7 @@ export default function AiAssistant() {
 
   const socketRef = useRef<WebSocket | null>(null);
   const listEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<TextAreaRef>(null);
   // Guards for async callbacks that may fire after unmount / after a turn ends.
   const mountedRef = useRef(true);
   const streamingRef = useRef(false);
@@ -531,6 +533,15 @@ export default function AiAssistant() {
     : [];
   const composerDisabled = !currentCluster || streaming || pendingConfirm;
 
+  // Auto-focus the composer whenever it becomes usable — on open and, crucially,
+  // right after a turn finishes streaming — so the user can immediately type again.
+  useEffect(() => {
+    if (open && !composerDisabled) {
+      const id = window.setTimeout(() => inputRef.current?.focus(), 0);
+      return () => window.clearTimeout(id);
+    }
+  }, [open, composerDisabled]);
+
   const onComposerKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key !== 'Enter' || e.shiftKey) return;
     // Skip the Enter that only commits an IME (Chinese/Japanese/…) candidate.
@@ -665,11 +676,13 @@ export default function AiAssistant() {
             <div ref={listEndRef} />
           </div>
 
-          {/* Composer */}
+          {/* Composer — a single rounded card: borderless textarea + footer bar. */}
           <div className="ok-ai-composer">
-            <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+            <div className={`ok-ai-inputbox${composerDisabled ? ' is-disabled' : ''}`}>
               <Input.TextArea
-                autoSize={{ minRows: 1, maxRows: 5 }}
+                ref={inputRef}
+                variant="borderless"
+                autoSize={{ minRows: 1, maxRows: 6 }}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder={currentCluster ? t('ai.askPlaceholder') : t('ai.selectClusterFirst')}
@@ -677,19 +690,26 @@ export default function AiAssistant() {
                 onCompositionStart={() => (composingRef.current = true)}
                 onCompositionEnd={() => (composingRef.current = false)}
                 onKeyDown={onComposerKeyDown}
-                style={{ borderRadius: 12, resize: 'none' }}
+                style={{ resize: 'none', padding: '2px 4px' }}
               />
-              <Button
-                type="primary"
-                shape="circle"
-                icon={<SendOutlined />}
-                loading={streaming}
-                disabled={composerDisabled || !input.trim()}
-                onClick={() => void send()}
-                aria-label={t('ai.send')}
-              />
+              <div className="ok-ai-inputbar">
+                <span className="ok-ai-inputchip">
+                  <span className="ok-ai-dot" style={{ background: currentCluster ? '#22c55e' : '#f59e0b' }} />
+                  {currentCluster || t('ai.noCluster')}
+                </span>
+                <Tooltip title={t('ai.enterHint')}>
+                  <Button
+                    type="primary"
+                    shape="circle"
+                    icon={<SendOutlined />}
+                    loading={streaming}
+                    disabled={composerDisabled || !input.trim()}
+                    onClick={() => void send()}
+                    aria-label={t('ai.send')}
+                  />
+                </Tooltip>
+              </div>
             </div>
-            <div className="ok-ai-composer__hint">{t('ai.enterHint')}</div>
           </div>
         </div>
       )}

@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Alert, App as AntApp, Button, Card, Col, Form, Input, InputNumber, Row, Switch } from 'antd';
+import { Alert, App as AntApp, Button, Card, Col, Form, Input, InputNumber, Row, Switch, Tooltip } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { aiApi } from '../../api/ai';
 import CodeBox from '../../components/editor/CodeBox';
+import { useAuthStore } from '../../store/auth';
+import { canGlobal } from '../../nav';
 
 /** Default OmniKube system prompt shown when none is configured yet. */
 const DEFAULT_SYSTEM_PROMPT = `你是 OmniKube,一个 Kubernetes 多集群运维助手。你在用户当前选中的集群里,按用户的自然语言帮助查询和操作资源(部署、Pod、服务、配置等)。
@@ -19,12 +21,18 @@ export default function AiConfig() {
   const [form] = Form.useForm();
   const [hasKey, setHasKey] = useState(false);
   const [saving, setSaving] = useState(false);
+  // Enable/disable is a separate permission (ai:create) from editing config (ai:edit).
+  const me = useAuthStore((s) => s.user);
+  const canToggle = canGlobal('ai', 'create', me);
+  const [enabled, setEnabled] = useState(false);
+  const [toggling, setToggling] = useState(false);
 
   useEffect(() => {
     let active = true;
     aiApi.getConfig().then((c) => {
       if (!active) return;
       setHasKey(c.has_key);
+      setEnabled(c.enabled);
       form.setFieldsValue({
         ...c,
         api_key: '',
@@ -35,6 +43,19 @@ export default function AiConfig() {
       active = false;
     };
   }, [form]);
+
+  const toggleEnabled = async (next: boolean) => {
+    setToggling(true);
+    setEnabled(next); // optimistic
+    try {
+      await aiApi.setEnabled(next);
+      message.success(t('ai.saved'));
+    } catch {
+      setEnabled(!next); // revert on failure
+    } finally {
+      setToggling(false);
+    }
+  };
 
   const saveConfig = async () => {
     const v = await form.validateFields();
@@ -54,10 +75,17 @@ export default function AiConfig() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <Alert type="info" showIcon message={t('ai.followsUserPermsTitle')} description={t('ai.followsUserPerms')} />
       <Card title={t('ai.modelConfig')}>
+        {/* Enable switch is OUTSIDE the config form: its own permission (ai:create) + endpoint. */}
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ marginBottom: 6, color: 'rgba(0,0,0,0.88)' }}>{t('ai.enabled')}</div>
+          <Tooltip title={!canToggle ? t('ai.enableNoPerm') : undefined}>
+            <Switch checked={enabled} loading={toggling} disabled={!canToggle} onChange={toggleEnabled} />
+          </Tooltip>
+          {!canToggle && (
+            <div style={{ marginTop: 4, fontSize: 12, color: 'rgba(0,0,0,0.45)' }}>{t('ai.enableNoPerm')}</div>
+          )}
+        </div>
         <Form form={form} layout="vertical">
-          <Form.Item label={t('ai.enabled')} name="enabled" valuePropName="checked">
-            <Switch />
-          </Form.Item>
           <Row gutter={16}>
             <Col xs={24} sm={12}>
               <Form.Item label={t('ai.baseUrl')} name="base_url">

@@ -89,6 +89,7 @@ func (s *Store) loadConfig(decryptKey bool) (Config, error) {
 }
 
 // SaveConfig upserts the single config row; a blank APIKey keeps the stored one.
+// 注意：不改 Enabled——启用/停用是单独权限，只经 SetEnabled 变更（见 handler PutAIEnabled）。
 func (s *Store) SaveConfig(in ConfigInput) error {
 	var row model.AIConfig
 	err := s.db.First(&row, configRowID).Error
@@ -96,7 +97,6 @@ func (s *Store) SaveConfig(in ConfigInput) error {
 		return err
 	}
 	row.ID = configRowID
-	row.Enabled = in.Enabled
 	row.BaseURL = in.BaseURL
 	row.ModelID = in.ModelID
 	row.Temperature = in.Temperature
@@ -109,5 +109,18 @@ func (s *Store) SaveConfig(in ConfigInput) error {
 		}
 		row.APIKeyEnc = enc
 	}
+	return s.db.Save(&row).Error
+}
+
+// SetEnabled 单独设置 AI 启用状态（对应「AI 启用开关」权限 ai:create），与模型配置编辑
+// (ai:edit) 分离：有编辑权不代表能开关 AI。其它字段保持不动。
+func (s *Store) SetEnabled(enabled bool) error {
+	var row model.AIConfig
+	err := s.db.First(&row, configRowID).Error
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
+	row.ID = configRowID
+	row.Enabled = enabled
 	return s.db.Save(&row).Error
 }

@@ -897,11 +897,49 @@ body[data-theme='dark'] {
   border-top: 1px solid var(--ok-ai-border);
   background: var(--ok-ai-bg);
 }
-.ok-ai-composer__hint {
-  font-size: 11px;
+/* Single rounded input card: borderless textarea on top, action bar at the bottom. */
+.ok-ai-inputbox {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px 8px;
+  border-radius: 18px;
+  border: 1px solid var(--ok-ai-border);
+  background: var(--ok-ai-canvas);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.ok-ai-inputbox:focus-within {
+  border-color: #0ea5e9;
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.14);
+}
+.ok-ai-inputbox.is-disabled {
+  opacity: 0.7;
+}
+.ok-ai-inputbox .ant-input {
+  background: transparent;
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+.ok-ai-inputbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.ok-ai-inputchip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 70%;
+  padding: 3px 10px 3px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--ok-ai-border);
+  background: var(--ok-ai-bg);
   color: var(--ok-ai-muted);
-  margin-top: 6px;
-  text-align: right;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .ok-ai-confirm {

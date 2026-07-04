@@ -49,6 +49,8 @@ func New(h *handler.Handler, jm *auth.JWTManager) *gin.Engine {
 			authed.GET("/ai/status", h.GetAIStatus)
 			authed.GET("/ai/config", middleware.RequireGlobalPerm(h.GlobalPermCheck, "ai", "view"), h.GetAIConfig)
 			authed.PUT("/ai/config", middleware.RequireGlobalPerm(h.GlobalPermCheck, "ai", "edit"), h.PutAIConfig)
+			// AI 启用/停用开关：单独授权（ai:create），与模型配置编辑(ai:edit)分离。
+			authed.PUT("/ai/enabled", middleware.RequireGlobalPerm(h.GlobalPermCheck, "ai", "create"), h.PutAIEnabled)
 
 			// AI 会话 REST：任意登录用户可用；GetConversation 在 handler 内强制归属校验。
 			authed.GET("/ai/conversations", h.ListConversations)
