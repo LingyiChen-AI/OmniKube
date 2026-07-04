@@ -1,7 +1,7 @@
 import { useCallback, useEffect } from 'react';
 import { create } from 'zustand';
 import { meApi, type CapabilityResources } from '../api/me';
-import type { TreeAction } from '../api/role';
+import { CUSTOM_RESOURCE, isBuiltinResource, type TreeAction } from '../api/role';
 import { useCtxStore } from './ctx';
 
 /** Key identifying which (cluster, namespace) the loaded capabilities belong to. */
@@ -61,6 +61,21 @@ export interface Capabilities {
 }
 
 /**
+ * 判定 `resources` 能力集中,当前用户能否对 `resource` 执行 `action`。
+ * 内置资源用其自身条目(可能为空数组=已知但无权);未知/CRD 资源回退到粗粒度
+ * customresources 授权。resource 为空一律 false。
+ */
+export function capabilityAllows(
+  resources: CapabilityResources,
+  resource: string | undefined,
+  action: TreeAction,
+): boolean {
+  if (!resource) return false;
+  const acts = resources[resource] ?? (isBuiltinResource(resource) ? [] : resources[CUSTOM_RESOURCE] ?? []);
+  return acts.includes(action);
+}
+
+/**
  * Hook that keeps capabilities in sync with the current cluster + namespace and
  * exposes a `can(resource, action)` helper. When the resource is unknown the
  * helper returns false (callers should keep always-allowed actions like "view"
@@ -78,7 +93,7 @@ export function useCapabilities(): Capabilities {
 
   const can = useCallback(
     (resource: string | undefined, action: TreeAction): boolean =>
-      resource ? (resources[resource] ?? []).includes(action) : false,
+      capabilityAllows(resources, resource, action),
     [resources],
   );
 
