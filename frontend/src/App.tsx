@@ -59,9 +59,11 @@ export default function App() {
   }, [mode]);
 
   // Hydrate the current user when a token exists but the user isn't loaded yet.
+  // If hydration fails (stale/invalid token, server error), drop the token so
+  // the app falls back to the login screen instead of hanging on the loader.
   useEffect(() => {
     if (token && !user) {
-      authApi.me().then(setUser).catch(() => undefined);
+      authApi.me().then(setUser).catch(() => useAuthStore.getState().logout());
     }
   }, [token, user, setUser]);
 

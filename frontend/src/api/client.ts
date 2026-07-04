@@ -51,9 +51,17 @@ client.interceptors.response.use(
     const data = error?.response?.data as Partial<ApiError> | undefined;
     const msg = data?.message || error?.message || 'Request failed';
 
-    if (status === 401 && window.location.pathname === '/login') {
-      // A 401 on the login page is a failed sign-in attempt (wrong password /
-      // captcha), NOT an expired session — surface the server's reason.
+    // Key off the REQUEST url, not the browser path: a bad-credentials 401 comes
+    // from the auth submit (POST /login or /change-password). The bootstrap
+    // hydration (GET /me) can also fire while sitting on /login with a stale
+    // token — that 401 must fall through to logout, or the app deadlocks on the
+    // loader (token present, user never hydrates).
+    const reqUrl = error?.config?.url ?? '';
+    const isAuthSubmit = /\/(login|change-password)$/.test(reqUrl);
+
+    if (status === 401 && isAuthSubmit) {
+      // Failed sign-in / change-password attempt (wrong password / captcha),
+      // NOT an expired session — surface the server's reason.
       message.error(msg);
     } else if (status === 401) {
       useAuthStore.getState().logout();
