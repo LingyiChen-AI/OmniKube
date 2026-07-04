@@ -22,6 +22,7 @@ export interface ReleaseListParams {
   cluster_id?: string;
   namespace?: string;
   limit?: number;
+  offset?: number;
 }
 
 export const releaseApi = {
@@ -30,6 +31,12 @@ export const releaseApi = {
     client
       .get<{ releases: ReleaseRecord[] }>('/releases', { params })
       .then((r) => unwrapList<ReleaseRecord>(r.data)),
+
+  /** Server-side paginated list (newest first), returning the page + total count. */
+  listPaged: (params: ReleaseListParams = {}) =>
+    client
+      .get<{ releases: ReleaseRecord[]; total: number }>('/releases', { params })
+      .then((r) => ({ releases: r.data.releases ?? [], total: r.data.total ?? 0 })),
 };
 
 /** True if an ISO timestamp falls on the same local calendar day as `ref`. */

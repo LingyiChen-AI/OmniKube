@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useState } from 'react';
 import {
   Card,
   Empty,
@@ -103,14 +104,29 @@ export default function Releases() {
   const { token } = antdTheme.useToken();
   const { currentCluster, currentNamespace } = useCtxStore();
 
-  const releases = useApi<ReleaseRecord[]>(
-    () =>
-      releaseApi.list({
-        cluster_id: currentCluster ?? undefined,
-        namespace: currentNamespace ?? undefined,
-      }),
-    [currentCluster, currentNamespace],
-    { initial: [], skip: !currentCluster },
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+
+  // Reset to page 1 whenever the cluster/namespace filter changes, so we don't
+  // land on an out-of-range page for the new filter's result set.
+  useEffect(() => {
+    setPage(1);
+  }, [currentCluster, currentNamespace]);
+
+  const query = useMemo(
+    () => ({
+      cluster_id: currentCluster ?? undefined,
+      namespace: currentNamespace ?? undefined,
+      limit: pageSize,
+      offset: (page - 1) * pageSize,
+    }),
+    [currentCluster, currentNamespace, page, pageSize],
+  );
+
+  const releases = useApi<{ releases: ReleaseRecord[]; total: number }>(
+    () => releaseApi.listPaged(query),
+    [query],
+    { initial: { releases: [], total: 0 }, skip: !currentCluster },
   );
 
   if (!currentCluster) {
@@ -254,14 +270,23 @@ export default function Releases() {
         <Table<ReleaseRecord>
           rowKey="id"
           columns={columns}
-          dataSource={releases.data}
+          dataSource={releases.data?.releases}
           loading={releases.loading}
           {...defaultTableProps}
           scroll={tableScrollX(columns)}
           locale={{
             emptyText: <Empty description={t('release.empty')} image={Empty.PRESENTED_IMAGE_SIMPLE} />,
           }}
-          pagination={defaultPagination}
+          pagination={{
+            ...defaultPagination,
+            current: page,
+            pageSize,
+            total: releases.data?.total ?? 0,
+            onChange: (p, ps) => {
+              setPage(p);
+              setPageSize(ps);
+            },
+          }}
         />
       </Card>
     </div>

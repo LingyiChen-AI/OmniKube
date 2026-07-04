@@ -13,7 +13,7 @@ vi.mock('../store/ctx', () => ({
 
 vi.mock('../api/release', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../api/release')>();
-  return { ...actual, releaseApi: { list: vi.fn() } };
+  return { ...actual, releaseApi: { list: vi.fn(), listPaged: vi.fn() } };
 });
 
 // EditResourceDrawer dependencies.
@@ -67,6 +67,7 @@ describe('splitImageTag', () => {
 describe('Releases page', () => {
   beforeEach(() => {
     (releaseApi.list as ReturnType<typeof vi.fn>).mockResolvedValue([ROW]);
+    (releaseApi.listPaged as ReturnType<typeof vi.fn>).mockResolvedValue({ releases: [ROW], total: 1 });
   });
 
   it('renders a release record row with releaser, images and comment', async () => {

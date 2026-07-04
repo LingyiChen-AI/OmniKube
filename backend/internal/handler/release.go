@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"omnikube/internal/model"
@@ -124,23 +125,38 @@ func (h *Handler) notifyRelease(clusterID string, rec model.ReleaseRecord) {
 	})
 }
 
-// ListReleases GET /api/v1/releases?cluster_id=&namespace=&limit= —— 发布记录列表（时间倒序）。
-// 鉴权：由路由层 RequireGlobalPerm("releases","view") 门控；admin 在中间件旁路。
-func (h *Handler) ListReleases(c *gin.Context) {
-	q := h.DB.Model(&model.ReleaseRecord{})
+// releaseFilter 按 query 参数构造过滤后的 *gorm.DB（不含分页/排序）。
+func releaseFilter(db *gorm.DB, c *gin.Context) *gorm.DB {
+	q := db.Model(&model.ReleaseRecord{})
 	if cid := c.Query("cluster_id"); cid != "" {
 		q = q.Where("cluster_id = ?", cid)
 	}
 	if ns := c.Query("namespace"); ns != "" {
 		q = q.Where("namespace = ?", ns)
 	}
-	limit := 200
+	return q
+}
+
+// ListReleases GET /api/v1/releases?cluster_id=&namespace=&limit=&offset= —— 发布记录列表（时间倒序，分页）。
+// 鉴权：由路由层 RequireGlobalPerm("releases","view") 门控；admin 在中间件旁路。
+func (h *Handler) ListReleases(c *gin.Context) {
+	var total int64
+	releaseFilter(h.DB, c).Count(&total)
+
+	limit := 20
 	if l := c.Query("limit"); l != "" {
-		if n, err := strconv.Atoi(l); err == nil && n > 0 {
+		if n, err := strconv.Atoi(l); err == nil && n > 0 && n <= 500 {
 			limit = n
 		}
 	}
+	offset := 0
+	if o := c.Query("offset"); o != "" {
+		if n, err := strconv.Atoi(o); err == nil && n >= 0 {
+			offset = n
+		}
+	}
+
 	records := []model.ReleaseRecord{}
-	q.Order("created_at desc").Limit(limit).Find(&records)
-	c.JSON(http.StatusOK, gin.H{"releases": records})
+	releaseFilter(h.DB, c).Order("created_at desc").Limit(limit).Offset(offset).Find(&records)
+	c.JSON(http.StatusOK, gin.H{"releases": records, "total": total})
 }

@@ -152,7 +152,7 @@ export default function Dashboard() {
       .catch(() => active && setDeployments({ status: 'error' }));
 
     releaseApi
-      .list({ cluster_id: currentCluster })
+      .list({ cluster_id: currentCluster, limit: 500 })
       .then((items) => active && setTodayReleases({ status: 'ok', data: countTodayReleases(items) }))
       .catch(() => active && setTodayReleases({ status: 'error' }));
 
