@@ -96,4 +96,10 @@ export const integratedDeployApi = {
         params: { cluster_id: clusterId, ns, kind },
       })
       .then((r) => r.data.names ?? []),
+  snapshot: (clusterId: string, ns: string, kind: string, name: string) =>
+    client
+      .get<{ manifest_yaml: string }>('/integrated-deploy/snapshot', {
+        params: { cluster_id: clusterId, ns, kind, name },
+      })
+      .then((r) => r.data.manifest_yaml),
 };

@@ -323,6 +323,62 @@ func (h *Handler) ListSelectable(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"names": names})
 }
 
+// SnapshotResource GET /integrated-deploy/snapshot?cluster_id=&ns=&kind=&name=
+// 按工单选定的 cluster_id(而非全局 X-Cluster-ID)取回资源当前 YAML,剥离服务端噪声字段。
+// 修复:编辑器"从集群选取"此前用 resourceApi.get 走全局当前集群,与工单所属集群不一致时
+// 会 404 或抓错集群的 manifest。
+func (h *Handler) SnapshotResource(c *gin.Context) {
+	clusterID := c.Query("cluster_id")
+	ns := c.Query("ns")
+	kind := c.Query("kind")
+	name := c.Query("name")
+	if clusterID == "" || ns == "" || name == "" || !deployAllowedKind(kind) {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "参数缺失或资源类型不支持"})
+		return
+	}
+	uid := c.GetUint("user_id")
+	sid := strconv.FormatUint(uint64(uid), 10)
+	ok, _, err := h.RBAC.Authorize(sid, clusterID, ns, kind, "write")
+	if err != nil || !ok {
+		c.JSON(http.StatusForbidden, gin.H{"message": "无该资源写入权限"})
+		return
+	}
+	cc, found := h.Pool.Get(clusterID)
+	if !found {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "集群不可用"})
+		return
+	}
+	gvr, namespaced, gerr := resolveGVR(cc, kind)
+	if gerr != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": gerr.Error()})
+		return
+	}
+	ri := cc.Dynamic.Resource(gvr)
+	ctx := c.Request.Context()
+	var obj *unstructured.Unstructured
+	if namespaced {
+		obj, err = ri.Namespace(ns).Get(ctx, name, metav1.GetOptions{})
+	} else {
+		obj, err = ri.Get(ctx, name, metav1.GetOptions{})
+	}
+	if err != nil {
+		writeK8sError(c, err)
+		return
+	}
+	unstructured.RemoveNestedField(obj.Object, "metadata", "managedFields")
+	unstructured.RemoveNestedField(obj.Object, "metadata", "creationTimestamp")
+	unstructured.RemoveNestedField(obj.Object, "metadata", "resourceVersion")
+	unstructured.RemoveNestedField(obj.Object, "metadata", "uid")
+	unstructured.RemoveNestedField(obj.Object, "metadata", "generation")
+	unstructured.RemoveNestedField(obj.Object, "status")
+	out, merr := yaml.Marshal(obj.Object)
+	if merr != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": merr.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"manifest_yaml": string(out)})
+}
+
 // applyDeployItem 对一条资源做 upsert(存在则 Update 回填 resourceVersion,不存在则 Create)。
 // 返回 phase(created|updated|failed)+ message。
 func applyDeployItem(ctx context.Context, cc *cluster.ClusterClient, ns string, it DeployItem) (string, string) {

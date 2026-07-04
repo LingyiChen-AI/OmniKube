@@ -10,9 +10,8 @@ import {
   type DeployItem, type DeployRun, type ItemResult,
 } from '../../api/integratedDeploy';
 import { clusterApi } from '../../api/cluster';
-import { resourceApi } from '../../api/resource';
 import CodeBox from '../../components/editor/CodeBox';
-import { toYAML, fromYAML } from '../../components/editor/util';
+import { fromYAML } from '../../components/editor/util';
 import { useAuthStore } from '../../store/auth';
 import { canGlobal } from '../../nav';
 
@@ -102,13 +101,11 @@ export default function DeployOrderEditor() {
         message.error(t('integratedDeploy.selectResource'));
         return;
       }
-      // 快照选中资源当前 YAML。
+      // 快照选中资源当前 YAML(集群显式:走工单所属 clusterId,而非全局当前集群)。
       try {
-        const obj = await resourceApi.get(namespace, addKind, name);
-        yamlText = toYAML(obj);
+        yamlText = await integratedDeployApi.snapshot(clusterId, namespace, addKind, name);
       } catch {
-        message.error(t('integratedDeploy.selectResource'));
-        return;
+        return; // axios interceptor already toasts
       }
     } else {
       // 手写模式:从 YAML 解析出 metadata.name,立即用于表格/预览显示。
