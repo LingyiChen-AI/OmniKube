@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"sort"
 	"strconv"
@@ -406,9 +407,15 @@ func (h *Handler) PublishDeployOrder(c *gin.Context) {
 		OrderID: o.ID, UserID: uid, Username: h.currentUsername(uid),
 		Status: runStatus, Results: string(resultsJSON),
 	}
-	h.DB.Create(&run)
+	// 集群变更已发生:即便历史/状态持久化失败,也要返回 200 让用户看到逐条结果,
+	// 但不能静默吞掉错误——落日志以便排查(否则 run.ID=0,发布历史丢失且无从追溯)。
+	if err := h.DB.Create(&run).Error; err != nil {
+		log.Printf("publish run 持久化失败: cluster changes applied but history not recorded (order=%d): %v", o.ID, err)
+	}
 	o.Status = runStatus
-	h.DB.Save(&o)
+	if err := h.DB.Save(&o).Error; err != nil {
+		log.Printf("publish order 状态回写失败 (order=%d, status=%s): %v", o.ID, runStatus, err)
+	}
 	c.JSON(http.StatusOK, gin.H{
 		"run": gin.H{
 			"id": run.ID, "status": run.Status, "results": results,
