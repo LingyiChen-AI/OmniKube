@@ -10,6 +10,10 @@ const getConversationMock = vi.fn();
 const confirmConversationMock = vi.fn();
 
 vi.mock('../api/ai', () => ({
+  // The launcher subscribes to AI_STATUS_EVENT to re-check readiness without a
+  // reload, so the mock must provide the event name + notifier the component imports.
+  AI_STATUS_EVENT: 'omnikube:ai-status-changed',
+  notifyAiStatusChanged: () => {},
   aiApi: {
     status: () => statusMock(),
     createConversation: (clusterId: string, title: string) => createConversationMock(clusterId, title),
