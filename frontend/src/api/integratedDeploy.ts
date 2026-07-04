@@ -1,0 +1,99 @@
+import client from './client';
+
+export type DeploySource = 'selected' | 'authored';
+export type ItemPhase = 'created' | 'updated' | 'failed' | 'skipped';
+
+export interface DeployItem {
+  kind: string;
+  name: string;
+  source: DeploySource;
+  manifest_yaml: string;
+  sort_index: number;
+}
+
+export interface DeployOrder {
+  id: number;
+  user_id: number;
+  username: string;
+  cluster_id: string;
+  namespace: string;
+  title: string;
+  description: string;
+  items: DeployItem[];
+  status: string; // draft | succeeded | failed
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ItemResult {
+  kind: string;
+  name: string;
+  phase: ItemPhase;
+  message: string;
+}
+
+export interface DeployRun {
+  id: number;
+  user_id?: number;
+  username: string;
+  status: string;
+  results: ItemResult[];
+  created_at: string;
+}
+
+export interface DeployOrderInput {
+  cluster_id: string;
+  namespace: string;
+  title: string;
+  description: string;
+  items: DeployItem[];
+}
+
+/** 允许进入工单的资源类型 → 发布组序(与后端 deployKindGroup 值一致)。 */
+export const DEPLOY_KIND_GROUP: Record<string, number> = {
+  secrets: 1, configmaps: 1, persistentvolumeclaims: 1,
+  deployments: 2, statefulsets: 2, daemonsets: 2, jobs: 2, cronjobs: 2,
+  services: 3, ingresses: 3,
+};
+
+export const DEPLOY_KINDS: string[] = Object.keys(DEPLOY_KIND_GROUP);
+
+/** 固定发布顺序排序:先按组序,再按 sort_index。 */
+export function orderedItems(items: DeployItem[]): DeployItem[] {
+  return [...items].sort((a, b) => {
+    const ga = DEPLOY_KIND_GROUP[a.kind] ?? 99;
+    const gb = DEPLOY_KIND_GROUP[b.kind] ?? 99;
+    return ga !== gb ? ga - gb : a.sort_index - b.sort_index;
+  });
+}
+
+export const integratedDeployApi = {
+  list: (clusterId?: string) =>
+    client
+      .get<{ orders: DeployOrder[] }>('/integrated-deploy/orders', {
+        params: clusterId ? { cluster_id: clusterId } : undefined,
+      })
+      .then((r) => r.data.orders ?? []),
+  get: (id: number) =>
+    client
+      .get<{ order: DeployOrder; runs: DeployRun[] }>(`/integrated-deploy/orders/${id}`)
+      .then((r) => r.data),
+  create: (body: DeployOrderInput) =>
+    client.post<DeployOrder>('/integrated-deploy/orders', body).then((r) => r.data),
+  update: (id: number, body: DeployOrderInput) =>
+    client.put<DeployOrder>(`/integrated-deploy/orders/${id}`, body).then((r) => r.data),
+  remove: (id: number) =>
+    client.delete(`/integrated-deploy/orders/${id}`).then((r) => r.data),
+  copy: (id: number) =>
+    client.post<DeployOrder>(`/integrated-deploy/orders/${id}/copy`).then((r) => r.data),
+  publish: (id: number) =>
+    client
+      .post<{ run: DeployRun }>(`/integrated-deploy/orders/${id}/publish`)
+      .then((r) => r.data.run),
+  selectable: (clusterId: string, ns: string, kind: string) =>
+    client
+      .get<{ names: string[] }>('/integrated-deploy/selectable', {
+        params: { cluster_id: clusterId, ns, kind },
+      })
+      .then((r) => r.data.names ?? []),
+};

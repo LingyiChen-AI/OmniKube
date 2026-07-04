@@ -497,7 +497,7 @@ interface GlobalPermsMatrixProps {
 export function GlobalPermsMatrix({ value = {}, onChange, disabled }: GlobalPermsMatrixProps) {
   const { t } = useTranslation();
   const gp = value;
-  const allAreas: GlobalArea[] = [...SYSTEM_AREAS, 'releases', 'audit'];
+  const allAreas: GlobalArea[] = [...SYSTEM_AREAS, 'integrated_deploy', 'releases', 'audit'];
 
   const applies = (area: GlobalArea, a: TreeAction) => actionsForGlobalArea(area).includes(a);
   const has = (area: GlobalArea, a: TreeAction) => (gp[area] ?? []).includes(a);
@@ -644,6 +644,7 @@ export function GlobalPermsMatrix({ value = {}, onChange, disabled }: GlobalPerm
           <td colSpan={BASE_ACTIONS.length} />
         </tr>
         {SYSTEM_AREAS.map((area) => areaRow(area))}
+        {areaRow('integrated_deploy')}
         {/* 发布记录 / 审计日志: standalone, view-only. */}
         {areaRow('releases')}
         {areaRow('audit')}

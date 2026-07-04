@@ -8,12 +8,12 @@ export type RuleScope = 'cluster' | 'namespace';
  * Tree action names, aligned with the backend permission tree.
  * `exec` only applies to pods, `reveal` only to secrets.
  */
-export type TreeAction = 'view' | 'create' | 'edit' | 'delete' | 'exec' | 'reveal';
+export type TreeAction = 'view' | 'create' | 'edit' | 'delete' | 'exec' | 'reveal' | 'publish';
 
 /** The base actions every resource supports. */
 export const BASE_ACTIONS: TreeAction[] = ['view', 'create', 'edit', 'delete'];
 /** All tree actions, in canonical display order. */
-export const TREE_ACTIONS: TreeAction[] = ['view', 'create', 'edit', 'delete', 'exec', 'reveal'];
+export const TREE_ACTIONS: TreeAction[] = ['view', 'create', 'edit', 'delete', 'exec', 'reveal', 'publish'];
 
 /** Concrete k8s resources, grouped by display module. */
 export type ModuleKey = 'workloads' | 'networking' | 'storage' | 'nodes';
@@ -104,20 +104,21 @@ export function cleanOperations(ops: Operations): Operations {
 }
 
 /** Global permission areas (platform-level, not per-cluster). */
-export type GlobalArea = 'clusters' | 'users' | 'roles' | 'releases' | 'audit' | 'ai';
+export type GlobalArea = 'clusters' | 'users' | 'roles' | 'releases' | 'audit' | 'ai' | 'integrated_deploy';
 
 /** View-only global areas (no create/edit/delete). */
 export const VIEW_ONLY_AREAS: GlobalArea[] = ['releases', 'audit'];
 
 /** The system-management areas (each supports view/create/edit/delete). */
 export const SYSTEM_AREAS: Exclude<GlobalArea, 'releases' | 'audit'>[] = ['clusters', 'users', 'roles', 'ai'];
-export const GLOBAL_AREAS: GlobalArea[] = ['clusters', 'users', 'roles', 'releases', 'audit', 'ai'];
+export const GLOBAL_AREAS: GlobalArea[] = ['clusters', 'users', 'roles', 'releases', 'audit', 'ai', 'integrated_deploy'];
 
-/** Actions applicable to a global area (`releases`/`audit` are view-only; `ai` is view/edit). */
+/** Actions applicable to a global area (`releases`/`audit` are view-only; `ai` is view/edit; `integrated_deploy` adds `publish`). */
 export function actionsForGlobalArea(area: GlobalArea): TreeAction[] {
   if (VIEW_ONLY_AREAS.includes(area)) return ['view'];
   // `ai`: view=查看配置, edit=编辑模型配置, create=启用/停用开关（单独授权）。
   if (area === 'ai') return ['view', 'edit', 'create'];
+  if (area === 'integrated_deploy') return ['view', 'create', 'edit', 'delete', 'publish'];
   return BASE_ACTIONS;
 }
 
