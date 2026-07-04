@@ -1087,7 +1087,11 @@ export function ResourceOpsMatrix({ operations, onChange, disabled, nsScoped }: 
                   indeterminate={rs.indeterminate}
                   onChange={(e) => setRow(CUSTOM_RESOURCE, e.target.checked)}
                 >
-                  <Text strong>{t('role.customResources')}</Text>
+                  <Tooltip title={t('role.customResourcesHint')}>
+                    <Text strong style={{ borderBottom: '1px dotted currentColor', cursor: 'help' }}>
+                      {t('role.customResources')}
+                    </Text>
+                  </Tooltip>
                 </Checkbox>
               </td>
               {TREE_ACTIONS.map((a) => {

@@ -394,6 +394,7 @@ const zh: Resources = {
     clusterSection: '集群权限',
     systemMgmt: '系统管理',
     customResources: '其它 / 自定义资源',
+    customResourcesHint: '覆盖所有非内置资源(含 CRD),权限粒度较粗。集群范围授予「创建/编辑」相当于赋予该集群近乎管理员的权限(如可创建 ClusterRoleBinding),请谨慎授权。',
     module: {
       workloads: '工作负载',
       networking: '网络',

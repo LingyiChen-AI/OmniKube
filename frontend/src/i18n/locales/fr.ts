@@ -394,6 +394,7 @@ const fr: Resources = {
     clusterSection: 'Permissions du cluster',
     systemMgmt: 'Gestion système',
     customResources: 'Autres / Ressources personnalisées',
+    customResourcesHint: 'Couvre toutes les ressources non intégrées (y compris les CRD) à une granularité grossière. Accorder création/édition à l’échelle du cluster équivaut à un quasi-administrateur sur ce cluster (p. ex. créer des ClusterRoleBindings) — accordez avec prudence.',
     module: {
       workloads: 'Charges de travail',
       networking: 'Réseau',

@@ -394,6 +394,7 @@ const ko: Resources = {
     clusterSection: '클러스터 권한',
     systemMgmt: '시스템 관리',
     customResources: '기타 / 사용자 정의 리소스',
+    customResourcesHint: '내장되지 않은 모든 리소스(CRD 포함)를 거친 단위로 포괄합니다. 클러스터 범위로 생성/편집을 부여하면 해당 클러스터에서 사실상 관리자에 가까운 권한(예: ClusterRoleBinding 생성)이 됩니다. 신중히 부여하세요.',
     module: {
       workloads: '워크로드',
       networking: '네트워킹',

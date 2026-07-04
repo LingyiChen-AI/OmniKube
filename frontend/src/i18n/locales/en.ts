@@ -392,6 +392,7 @@ const en = {
     clusterSection: 'Cluster permissions',
     systemMgmt: 'System management',
     customResources: 'Other / Custom Resources',
+    customResourcesHint: 'Covers every non-built-in resource (incl. CRDs) at a coarse granularity. Granting create/edit at cluster scope is effectively near-admin over that cluster (e.g. can create ClusterRoleBindings) — grant with care.',
     module: {
       workloads: 'Workloads',
       networking: 'Networking',

@@ -394,6 +394,7 @@ const ja: Resources = {
     clusterSection: 'クラスター権限',
     systemMgmt: 'システム管理',
     customResources: 'その他 / カスタムリソース',
+    customResourcesHint: '組み込み以外のすべてのリソース(CRD 含む)を粗い粒度でカバーします。クラスター範囲で作成/編集を付与すると、そのクラスターでほぼ管理者権限(例:ClusterRoleBinding の作成)になります。慎重に付与してください。',
     module: {
       workloads: 'ワークロード',
       networking: 'ネットワーク',

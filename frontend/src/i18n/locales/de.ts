@@ -394,6 +394,7 @@ const de: Resources = {
     clusterSection: 'Cluster-Berechtigungen',
     systemMgmt: 'Systemverwaltung',
     customResources: 'Andere / Benutzerdefinierte Ressourcen',
+    customResourcesHint: 'Deckt alle nicht integrierten Ressourcen (inkl. CRDs) grobgranular ab. Create/Edit auf Cluster-Ebene zu gewähren ist faktisch nahezu Admin über diesen Cluster (z. B. Erstellen von ClusterRoleBindings) — mit Bedacht vergeben.',
     module: {
       workloads: 'Workloads',
       networking: 'Netzwerk',

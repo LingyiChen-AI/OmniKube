@@ -394,6 +394,7 @@ const es: Resources = {
     clusterSection: 'Permisos del clúster',
     systemMgmt: 'Gestión del sistema',
     customResources: 'Otros / Recursos personalizados',
+    customResourcesHint: 'Abarca todos los recursos no integrados (incluidos los CRD) con granularidad gruesa. Conceder crear/editar a nivel de clúster equivale a casi administrador de ese clúster (p. ej. crear ClusterRoleBindings) — concédalo con cuidado.',
     module: {
       workloads: 'Cargas de trabajo',
       networking: 'Red',
