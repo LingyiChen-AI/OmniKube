@@ -24,6 +24,7 @@ export default function AiConfig() {
   // Enable/disable is a separate permission (ai:create) from editing config (ai:edit).
   const me = useAuthStore((s) => s.user);
   const canToggle = canGlobal('ai', 'create', me);
+  const canEdit = canGlobal('ai', 'edit', me);
   const [enabled, setEnabled] = useState(false);
   const [toggling, setToggling] = useState(false);
 
@@ -85,7 +86,7 @@ export default function AiConfig() {
             <div style={{ marginTop: 4, fontSize: 12, color: 'rgba(0,0,0,0.45)' }}>{t('ai.enableNoPerm')}</div>
           )}
         </div>
-        <Form form={form} layout="vertical">
+        <Form form={form} layout="vertical" disabled={!canEdit}>
           <Row gutter={16}>
             <Col xs={24} sm={12}>
               <Form.Item label={t('ai.baseUrl')} name="base_url">
@@ -114,11 +115,13 @@ export default function AiConfig() {
             </Col>
           </Row>
           <Form.Item label={t('ai.systemPrompt')} name="system_prompt">
-            <CodeBox label="SYSTEM" minHeight={160} />
+            <CodeBox label="SYSTEM" minHeight={160} readOnly={!canEdit} />
           </Form.Item>
-          <Button type="primary" loading={saving} onClick={saveConfig}>
-            {t('ai.save')}
-          </Button>
+          {canEdit && (
+            <Button type="primary" loading={saving} onClick={saveConfig}>
+              {t('ai.save')}
+            </Button>
+          )}
         </Form>
       </Card>
     </div>

@@ -10,7 +10,14 @@ vi.mock('../api/ai', () => ({
       enabled: false, base_url: '', model_id: '', temperature: 0, system_prompt: '', max_steps: 0, has_key: false,
     }),
     putConfig: vi.fn().mockResolvedValue({}),
+    setEnabled: vi.fn().mockResolvedValue({}),
   },
+}));
+
+// Admin user → has ai:edit / ai:create, so the form is editable and Save shows.
+vi.mock('../store/auth', () => ({
+  useAuthStore: (sel: (s: { user: unknown }) => unknown) =>
+    sel({ user: { id: 1, username: 'admin', is_admin: true } }),
 }));
 
 import AiConfig from '../pages/ai/AiConfig';

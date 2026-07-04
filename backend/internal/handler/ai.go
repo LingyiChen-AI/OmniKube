@@ -21,7 +21,8 @@ func (h *Handler) GetAIStatus(c *gin.Context) {
 		return
 	}
 	configured := cfg.BaseURL != "" && cfg.ModelID != "" && cfg.HasKey
-	c.JSON(http.StatusOK, gin.H{"enabled": cfg.Enabled, "configured": configured})
+	// model 供悬浮助手输入框显示当前模型名（任意登录用户可读，不含密钥/地址）。
+	c.JSON(http.StatusOK, gin.H{"enabled": cfg.Enabled, "configured": configured, "model": cfg.ModelID})
 }
 
 // GetAIConfig GET /ai/config — RequireGlobalPerm("ai","view"); api_key masked.

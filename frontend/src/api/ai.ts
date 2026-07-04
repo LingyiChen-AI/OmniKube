@@ -4,6 +4,7 @@ import type { AiChatEvent } from './aiChat';
 export interface AiStatus {
   enabled: boolean;
   configured: boolean;
+  model?: string; // configured model id, shown in the composer chip
 }
 
 export interface AiConfig {

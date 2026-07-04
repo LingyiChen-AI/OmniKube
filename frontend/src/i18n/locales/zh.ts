@@ -685,6 +685,7 @@ const zh: Resources = {
     subtitle: '您没有权限查看此页面。',
   },
   ai: {
+    noModel: '未配置模型',
     enableNoPerm: '需要「AI 启用开关」权限才能开启 / 关闭 AI',
     enableAction: 'AI 启用 / 停用开关',
     executing: '执行中…',

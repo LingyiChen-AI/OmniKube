@@ -685,6 +685,7 @@ const es: Resources = {
     subtitle: 'No tienes permiso para ver esta página.',
   },
   ai: {
+    noModel: 'Sin modelo',
     enableNoPerm: 'Requiere el permiso «interruptor de IA» para activar/desactivar',
     enableAction: 'Interruptor de activación / desactivación de IA',
     executing: 'Ejecutando…',

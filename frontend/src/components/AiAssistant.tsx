@@ -204,6 +204,7 @@ export default function AiAssistant() {
   const currentCluster = useCtxStore((s) => s.currentCluster);
 
   const [ready, setReady] = useState(false);
+  const [modelName, setModelName] = useState('');
   const [open, setOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
 
@@ -255,7 +256,10 @@ export default function AiAssistant() {
       aiApi
         .status()
         .then((s) => {
-          if (mountedRef.current) setReady(s.enabled && s.configured);
+          if (mountedRef.current) {
+            setReady(s.enabled && s.configured);
+            setModelName(s.model ?? '');
+          }
           return s.enabled && s.configured;
         })
         .catch(() => {
@@ -693,9 +697,9 @@ export default function AiAssistant() {
                 style={{ resize: 'none', padding: '2px 4px' }}
               />
               <div className="ok-ai-inputbar">
-                <span className="ok-ai-inputchip">
-                  <span className="ok-ai-dot" style={{ background: currentCluster ? '#22c55e' : '#f59e0b' }} />
-                  {currentCluster || t('ai.noCluster')}
+                <span className="ok-ai-inputchip" title={modelName || undefined}>
+                  <span className="ok-ai-dot" style={{ background: ready ? '#22c55e' : '#f59e0b' }} />
+                  {modelName || t('ai.noModel')}
                 </span>
                 <Tooltip title={t('ai.enterHint')}>
                   <Button
