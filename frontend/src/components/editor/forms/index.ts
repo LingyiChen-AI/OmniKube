@@ -226,13 +226,17 @@ const TEMPLATES: Record<string, (ns: string) => CreateTemplate> = {
  * resource plural (→ Kind); unknown kinds fall back to a generic skeleton so the
  * user can still author any resource by hand.
  */
-export function createTemplate(resource: string, namespace: string): CreateTemplate {
+export function createTemplate(
+  resource: string,
+  namespace: string,
+  hint?: { apiVersion?: string; kind?: string },
+): CreateTemplate {
   const ns = namespace || 'default';
-  const kind = kindFromResource(resource);
+  const kind = kindFromResource(resource) ?? hint?.kind;
   const make = kind ? TEMPLATES[kind] : undefined;
   if (make) return make(ns);
   return {
-    apiVersion: 'v1',
+    apiVersion: hint?.apiVersion ?? 'v1',
     kind: kind ?? '',
     metadata: { name: '', namespace: ns },
   };

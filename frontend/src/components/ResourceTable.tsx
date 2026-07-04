@@ -68,6 +68,9 @@ export interface ResourceTableProps {
   /** Allow YAML editing (PUT). Defaults to true. */
   editable?: boolean;
   description?: string;
+  /** 通用资源页可覆盖 Kind / apiVersion(内置资源页不传,由 kindFromResource 推断)。 */
+  kind?: string;
+  apiVersion?: string;
 }
 
 export default function ResourceTable({
@@ -79,6 +82,8 @@ export default function ResourceTable({
   editable = true,
   description,
   nameLink,
+  kind: kindOverride,
+  apiVersion,
 }: ResourceTableProps) {
   const { t } = useTranslation();
   const { message } = AntApp.useApp();
@@ -309,7 +314,8 @@ export default function ResourceTable({
         <EditResourceDrawer
           open
           resource={resource}
-          kind={kindFromResource(resource)}
+          kind={kindOverride ?? kindFromResource(resource)}
+          apiVersion={apiVersion}
           namespace={drawer.rec.metadata?.namespace || currentNamespace || 'default'}
           name={drawer.rec.metadata?.name || ''}
           readOnly={drawer.mode === 'view'}
@@ -323,7 +329,8 @@ export default function ResourceTable({
           open
           creating
           resource={resource}
-          kind={kindFromResource(resource)}
+          kind={kindOverride ?? kindFromResource(resource)}
+          apiVersion={apiVersion}
           namespace={currentNamespace || 'default'}
           name=""
           onClose={() => setCreating(false)}
