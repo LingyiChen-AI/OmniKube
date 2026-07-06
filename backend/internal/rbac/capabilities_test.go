@@ -51,3 +51,20 @@ func TestAllCapabilities_PerResource(t *testing.T) {
 		}
 	}
 }
+
+func TestAllCapabilitiesIncludesCustomResources(t *testing.T) {
+	caps := AllCapabilities()
+	acts, ok := caps[CustomResource]
+	if !ok {
+		t.Fatalf("AllCapabilities 应含 customresources")
+	}
+	want := map[string]bool{"view": true, "create": true, "edit": true, "delete": true}
+	if len(acts) != len(want) {
+		t.Fatalf("customresources 动作 = %v, want view/create/edit/delete", acts)
+	}
+	for _, a := range acts {
+		if !want[a] {
+			t.Fatalf("customresources 含意外动作 %s", a)
+		}
+	}
+}

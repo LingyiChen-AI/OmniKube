@@ -144,6 +144,10 @@ func (s *Service) seedPresetRoles() error {
 		adminOps[res] = resourceActions(res)
 		viewOps[res] = []string{"view"}
 	}
+	// 「所有资源全部动作」的预置角色(集群管理员 / 运维工程师,均用 adminOps)同时对
+	// customresources 全动作,使其能管理 CRD 与未纳入的内置资源。其余预置角色不含
+	// (admin 用户本就旁路)。
+	adminOps[CustomResource] = resourceActions(CustomResource)
 	for mod, rs := range moduleResources {
 		for _, res := range rs {
 			if mod == "nodes" {
@@ -258,8 +262,15 @@ func (s *Service) Authorize(userID, clusterID, namespace, resource, action strin
 	} else if admin {
 		return true, nil, nil
 	}
+	// 通用资源支持:请求到达此处时 resource 已被中间件用 RESTMapper 解析为真实存在的
+	// 资源。凡非内置 13 种(未在 validResources)的真实资源,统一映射到粗粒度伪资源
+	// customresources 做 enforce,使 CRD / 未纳入的内置资源受单一权限门控。
+	effResource := resource
+	if !IsValidResource(resource) {
+		effResource = CustomResource
+	}
 	dom := domainOf(clusterID, namespace)
-	ok, err := s.enforcer.Enforce(userID, dom, resource, action)
+	ok, err := s.enforcer.Enforce(userID, dom, effResource, action)
 	if err != nil {
 		return false, nil, err
 	}

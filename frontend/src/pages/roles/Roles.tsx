@@ -43,6 +43,7 @@ import {
   GLOBAL_MATRIX_ACTIONS,
   MODULE_KEYS,
   MODULE_RESOURCES,
+  CUSTOM_RESOURCE,
   isClusterScopedResource,
   stripClusterScopedOps,
   SYSTEM_AREAS,
@@ -1072,6 +1073,43 @@ export function ResourceOpsMatrix({ operations, onChange, disabled, nsScoped }: 
             </Fragment>
           );
         })}
+        {/* 其它/自定义资源:粗粒度 customresources,承载所有 CRD 与未纳入内置资源的权限。
+            独立于上方模块,不随「全部资源」母开关联动。 */}
+        {(() => {
+          const rs = rowState(CUSTOM_RESOURCE);
+          return (
+            <tr className="ok-ops-res" key={CUSTOM_RESOURCE}>
+              <td>
+                <Checkbox
+                  aria-label={`op-row-${CUSTOM_RESOURCE}`}
+                  disabled={disabled}
+                  checked={rs.checked}
+                  indeterminate={rs.indeterminate}
+                  onChange={(e) => setRow(CUSTOM_RESOURCE, e.target.checked)}
+                >
+                  <Tooltip title={t('role.customResourcesHint')}>
+                    <Text strong style={{ borderBottom: '1px dotted currentColor', cursor: 'help' }}>
+                      {t('role.customResources')}
+                    </Text>
+                  </Tooltip>
+                </Checkbox>
+              </td>
+              {TREE_ACTIONS.map((a) => {
+                const applicable = actionAppliesToResource(CUSTOM_RESOURCE, a);
+                return (
+                  <td key={a} className={applicable ? undefined : 'ok-ops-na'}>
+                    <Checkbox
+                      aria-label={`op-${CUSTOM_RESOURCE}-${a}`}
+                      disabled={disabled || !applicable}
+                      checked={applicable && has(CUSTOM_RESOURCE, a)}
+                      onChange={(e) => setCell(CUSTOM_RESOURCE, a, e.target.checked)}
+                    />
+                  </td>
+                );
+              })}
+            </tr>
+          );
+        })()}
       </tbody>
     </table>
   );

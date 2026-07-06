@@ -29,6 +29,7 @@ const de: Resources = {
     ai: 'KI-Assistent',
     aiConfig: 'KI-Konfiguration',
     integrated_deploy: 'Integriertes Deployment',
+    apiResources: 'API-Ressourcen',
   },
   topbar: {
     toggleSidebar: 'Seitenleiste umschalten',
@@ -392,6 +393,8 @@ const de: Resources = {
     globalSection: 'Globale Berechtigungen',
     clusterSection: 'Cluster-Berechtigungen',
     systemMgmt: 'Systemverwaltung',
+    customResources: 'Andere / Benutzerdefinierte Ressourcen',
+    customResourcesHint: 'Deckt alle nicht integrierten Ressourcen (inkl. CRDs) grobgranular ab. Create/Edit auf Cluster-Ebene zu gewähren ist faktisch nahezu Admin über diesen Cluster (z. B. Erstellen von ClusterRoleBindings) — mit Bedacht vergeben.',
     module: {
       workloads: 'Workloads',
       networking: 'Netzwerk',
@@ -784,6 +787,12 @@ const de: Resources = {
     pending: 'Ausstehend',
     publishing: 'Wird veröffentlicht',
     publishGenericError: 'Die Veröffentlichungsverbindung wurde unterbrochen, bitte erneut versuchen',
+  },
+  apiResources: {
+    title: 'API-Ressourcen',
+    desc: 'Durchsuchen und verwalten Sie beliebige Ressourcentypen im Cluster, einschließlich CRDs und integrierter Ressourcen ohne eigene Seite.',
+    pickType: 'Ressourcentyp auswählen',
+    hideBuiltin: 'Integrierte Ressourcen mit eigener Seite ausblenden',
   },
   common: {
     cancel: 'Abbrechen',

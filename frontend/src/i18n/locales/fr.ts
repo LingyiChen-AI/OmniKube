@@ -29,6 +29,7 @@ const fr: Resources = {
     ai: 'Assistant IA',
     aiConfig: 'Configuration IA',
     integrated_deploy: 'Déploiement intégré',
+    apiResources: 'Ressources API',
   },
   topbar: {
     toggleSidebar: 'Afficher/masquer la barre latérale',
@@ -392,6 +393,8 @@ const fr: Resources = {
     globalSection: 'Permissions globales',
     clusterSection: 'Permissions du cluster',
     systemMgmt: 'Gestion système',
+    customResources: 'Autres / Ressources personnalisées',
+    customResourcesHint: 'Couvre toutes les ressources non intégrées (y compris les CRD) à une granularité grossière. Accorder création/édition à l’échelle du cluster équivaut à un quasi-administrateur sur ce cluster (p. ex. créer des ClusterRoleBindings) — accordez avec prudence.',
     module: {
       workloads: 'Charges de travail',
       networking: 'Réseau',
@@ -784,6 +787,12 @@ const fr: Resources = {
     pending: 'En attente',
     publishing: 'Publication en cours',
     publishGenericError: 'La connexion de publication a été interrompue, veuillez réessayer',
+  },
+  apiResources: {
+    title: 'Ressources API',
+    desc: 'Parcourez et gérez tout type de ressource du cluster, y compris les CRD et les ressources intégrées sans page dédiée.',
+    pickType: 'Sélectionner un type de ressource',
+    hideBuiltin: 'Masquer les ressources intégrées ayant une page dédiée',
   },
   common: {
     cancel: 'Annuler',

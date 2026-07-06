@@ -63,6 +63,8 @@ export interface EditResourceDrawerProps {
   resource: string;
   /** k8s Kind, e.g. "Deployment" — selects the visual form. */
   kind?: string;
+  /** 通用资源页(CRD)可传入 group/version,让 create 骨架带上正确 apiVersion。 */
+  apiVersion?: string;
   namespace: string;
   name: string;
   /**
@@ -85,6 +87,7 @@ export default function EditResourceDrawer({
   open,
   resource,
   kind,
+  apiVersion,
   namespace,
   name,
   readOnly = false,
@@ -127,7 +130,7 @@ export default function EditResourceDrawer({
     setYamlError(null);
     setShowDiff(false);
     if (creating) {
-      const tpl = createTemplate(resource, namespace) as K8sObject;
+      const tpl = createTemplate(resource, namespace, { apiVersion, kind }) as K8sObject;
       // No "original" in create mode → save stays enabled and primary keys are
       // not force-restored (the user may freely set name/namespace/kind).
       setOriginal(null);

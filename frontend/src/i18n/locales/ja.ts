@@ -29,6 +29,7 @@ const ja: Resources = {
     ai: 'AI アシスタント',
     aiConfig: 'AI 設定',
     integrated_deploy: '統合デプロイ',
+    apiResources: 'API リソース',
   },
   topbar: {
     toggleSidebar: 'サイドバーの切り替え',
@@ -392,6 +393,8 @@ const ja: Resources = {
     globalSection: 'グローバル権限',
     clusterSection: 'クラスター権限',
     systemMgmt: 'システム管理',
+    customResources: 'その他 / カスタムリソース',
+    customResourcesHint: '組み込み以外のすべてのリソース(CRD 含む)を粗い粒度でカバーします。クラスター範囲で作成/編集を付与すると、そのクラスターでほぼ管理者権限(例:ClusterRoleBinding の作成)になります。慎重に付与してください。',
     module: {
       workloads: 'ワークロード',
       networking: 'ネットワーク',
@@ -784,6 +787,12 @@ const ja: Resources = {
     pending: '未公開',
     publishing: '公開中',
     publishGenericError: '公開接続が中断されました。再試行してください',
+  },
+  apiResources: {
+    title: 'API リソース',
+    desc: 'CRD や専用ページのない組み込みリソースを含む、クラスター内の任意のリソースタイプを閲覧・管理します。',
+    pickType: 'リソースタイプを選択',
+    hideBuiltin: '専用ページのある組み込みリソースを隠す',
   },
   common: {
     cancel: 'キャンセル',

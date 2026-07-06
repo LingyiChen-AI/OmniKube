@@ -35,6 +35,11 @@
 - Service、Ingress(带正则重写路径编辑)、ConfigMap、Secret(明文揭示带审计)、PVC、PV、Node。
 - 节点 CPU / 内存**水位**、Pod 用量列、仪表盘集群资源卡(接 **metrics-server**,缺失优雅降级)。
 
+### 通用资源 / CRD 支持
+- **「API 资源」页**:经 API discovery + RESTMapper 动态发现集群里的**任意资源类型**——含 **CRD**(Istio / cert-manager / ArgoCD / Prometheus Operator 等)与未纳入专页的内置资源(ReplicaSet / HPA / ServiceAccount / NetworkPolicy…),选中即可**浏览 / 查看 / 编辑 / 删除**,未知类型自动回退 **YAML 编辑器**。
+- **一处粗粒度权限**:所有非内置资源统一由伪资源 `customresources`(`view / create / edit / delete`)门控——鉴权时把「真实但非内置」的资源映射到它,角色页多一行「其它 / 自定义资源」勾选即可授权。
+- **AI 助手同步放开**:助手可对任意资源类型读写,仍受用户本人 `customresources` 权限双闸门与两阶段确认约束。
+
 ### 系统管理:用户 / 角色 / 集群权限(RBAC v3)
 
 **用户管理**
@@ -49,7 +54,7 @@
 **集群权限(细粒度授权)**
 - 每个角色包含两部分:
   - **全局权限**(平台级):`clusters / users / roles / releases / audit / ai / integrated_deploy` × `view/create/edit/delete`(releases、audit 仅 view;集成部署另含 `publish` 发布动作)。
-  - **集群规则**(数据面):每条规则 = **某集群(或 `*` 全部)+ 范围(整集群 / 指定命名空间)+ 「每资源 × 操作」矩阵**,操作含 `view / create / edit / delete / exec(仅 Pod)/ reveal(仅 Secret)`。
+  - **集群规则**(数据面):每条规则 = **某集群(或 `*` 全部)+ 范围(整集群 / 指定命名空间)+ 「每资源 × 操作」矩阵**,操作含 `view / create / edit / delete / exec(仅 Pod)/ reveal(仅 Secret)`;另有一行「其它 / 自定义资源」(`customresources`)统管所有非内置资源(含 CRD)。
 - 前端用**权限矩阵**直观勾选(而非深层树);角色规则可跨多集群配置、复用首条配置。
 - 底层经 `rbac.SyncUserGrants` 把角色**物化**成 Casbin `g/p` 策略,鉴权走 domain 域隔离;删除集群时级联清理规则并重物化受影响用户。
 - **菜单按权限派生**:侧边栏子菜单由用户角色里「有 view 的资源」自动生成,看不到=无权限;写操作按钮按 `capabilities` 逐项显隐。
@@ -78,7 +83,7 @@
 
 | 层 | 技术 |
 |----|------|
-| 后端 | Go · Gin · GORM · Casbin · client-go(dynamic client)· Google Wire(DI)· PostgreSQL |
+| 后端 | Go · Gin · GORM · Casbin · client-go(dynamic client · discovery · RESTMapper)· Google Wire(DI)· PostgreSQL |
 | 前端 | React 18 · TypeScript · Vite · Ant Design 5 · Zustand · react-i18next · react-markdown |
 | AI | Eino ReAct agent · OpenAI 兼容大模型(baseURL / apiKey / modelId) |
 | 观测 | metrics-server(节点 / Pod 用量) |

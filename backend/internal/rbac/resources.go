@@ -61,7 +61,15 @@ var AllResources = func() []string {
 	return out
 }()
 
-var validResources = setOf(AllResources...)
+// CustomResource 是承载「所有非内置资源」(CRD 及未纳入的内置资源)权限的粗粒度伪资源。
+// 它合法(可授予、可鉴权),但不进 moduleResources/AllResources(不生成导航子菜单)。
+const CustomResource = "customresources"
+
+var validResources = func() map[string]bool {
+	m := setOf(AllResources...)
+	m[CustomResource] = true
+	return m
+}()
 var validResourceActions = setOf("view", "create", "edit", "delete", "exec", "reveal")
 var validGlobalAreas = setOf("clusters", "users", "roles", "releases", "audit", "ai", "integrated_deploy")
 var validGlobalActions = setOf("view", "create", "edit", "delete", "publish")

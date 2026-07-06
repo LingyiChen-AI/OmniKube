@@ -74,6 +74,9 @@ func VisibleSubmenus(opsRaws []string) []string {
 			if !IsValidResource(res) {
 				continue
 			}
+			if res == CustomResource {
+				continue // 粗粒度伪资源无资源专页,不进导航子菜单。
+			}
 			for _, a := range acts {
 				if a == "view" {
 					set[res] = true

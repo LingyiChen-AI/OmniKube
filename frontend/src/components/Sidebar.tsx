@@ -26,6 +26,7 @@ import {
   SettingOutlined,
   AuditOutlined,
   RobotOutlined,
+  ApiOutlined,
 } from '@ant-design/icons';
 import { useAuthStore } from '../store/auth';
 import { canSeeResource, canSeeModule, canGlobal, canSeeSystem } from '../nav';
@@ -93,6 +94,9 @@ export default function Sidebar({ collapsed }: Props) {
     if (canSeeResource('nodes', user)) {
       base.push({ key: '/cluster/nodes', icon: <NodeIndexOutlined />, label: t('nav.nodes') });
     }
+
+    // API 资源(通用/CRD 浏览器):始终显示入口,页面内按 capability 显示可操作类型。
+    base.push({ key: '/api-resources', icon: <ApiOutlined />, label: t('nav.apiResources') });
 
     // 集成部署: gated by integrated_deploy:view。
     if (canGlobal('integrated_deploy', 'view', user)) {

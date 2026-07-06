@@ -29,6 +29,7 @@ const zh: Resources = {
     ai: 'AI 助手',
     aiConfig: 'AI 配置',
     integrated_deploy: '集成部署',
+    apiResources: 'API 资源',
   },
   topbar: {
     toggleSidebar: '折叠侧边栏',
@@ -392,6 +393,8 @@ const zh: Resources = {
     globalSection: '全局权限',
     clusterSection: '集群权限',
     systemMgmt: '系统管理',
+    customResources: '其它 / 自定义资源',
+    customResourcesHint: '覆盖所有非内置资源(含 CRD),权限粒度较粗。集群范围授予「创建/编辑」相当于赋予该集群近乎管理员的权限(如可创建 ClusterRoleBinding),请谨慎授权。',
     module: {
       workloads: '工作负载',
       networking: '网络',
@@ -784,6 +787,12 @@ const zh: Resources = {
     pending: '待发布',
     publishing: '发布中',
     publishGenericError: '发布连接已中断,请重试',
+  },
+  apiResources: {
+    title: 'API 资源',
+    desc: '浏览并管理集群里的任意资源类型,包括 CRD 与未纳入专页的内置资源。',
+    pickType: '选择资源类型',
+    hideBuiltin: '隐藏已有专页的内置资源',
   },
   common: {
     cancel: '取消',

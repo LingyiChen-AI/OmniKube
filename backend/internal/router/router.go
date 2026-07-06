@@ -111,6 +111,10 @@ func New(h *handler.Handler, jm *auth.JWTManager) *gin.Engine {
 			// NS 下拉数据权限：JWTAuth + 有效 X-Cluster-ID（handler 内校验）。
 			authed.GET("/namespaces", h.ListNamespaces)
 
+			// 通用资源类型发现：JWTAuth + 有效 X-Cluster-ID（handler 内校验）。
+			// 只回类型元数据，资源数据仍由 RBACAuthMiddleware 逐资源门控。
+			authed.GET("/api-resources", h.ListAPIResources)
+
 			// 监控指标：JWTAuth + 有效 X-Cluster-ID（handler 内校验）。metrics-server 缺失时优雅降级。
 			authed.GET("/metrics/available", h.MetricsAvailable)
 			authed.GET("/metrics/nodes", h.NodeMetrics)

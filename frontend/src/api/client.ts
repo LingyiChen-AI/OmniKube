@@ -16,6 +16,7 @@ function needsClusterHeader(url?: string): boolean {
   return (
     /\/(resources|namespaces|metrics)\b/.test(url) ||
     url.includes('/namespaces') ||
+    url.includes('/api-resources') ||
     url.includes('/me/capabilities')
   );
 }
