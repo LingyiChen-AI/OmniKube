@@ -83,6 +83,20 @@ const KIND_CONFIG: Record<WorkloadKind, KindConfig> = {
   },
 };
 
+/** Controller kind that directly owns the pods of each workload type. */
+const POD_CONTROLLER_KIND: Record<WorkloadKind, string> = {
+  deployment: 'ReplicaSet',
+  statefulset: 'StatefulSet',
+  daemonset: 'DaemonSet',
+};
+
+/** Kind of the pod's controlling ownerReference, if any. */
+function podControllerKind(pod: K8sObject): string | undefined {
+  const refs = (pod.metadata?.ownerReferences as any[]) || [];
+  const controller = refs.find((r) => r?.controller) ?? refs[0];
+  return controller?.kind;
+}
+
 /** True when a pod carries every label in the workload's matchLabels. */
 export function podMatchesSelector(
   pod: K8sObject,
@@ -93,13 +107,28 @@ export function podMatchesSelector(
   return Object.entries(selector).every(([k, v]) => labels[k] === v);
 }
 
-/** Filter a pod list down to those owned (by selector) by the workload. */
+/**
+ * Filter a pod list down to those belonging to the workload.
+ *
+ * Label selectors are not unique across controllers of different kinds — e.g.
+ * a CronJob whose Job pods reuse the Deployment's `app` label would otherwise
+ * leak into the Deployment's pod list. When `controllerKind` is given we also
+ * require the pod's controlling owner to be that kind (Deployment→ReplicaSet,
+ * StatefulSet→StatefulSet, DaemonSet→DaemonSet). Orphan pods with no
+ * controller fall back to selector-only matching.
+ */
 export function filterPodsBySelector(
   pods: K8sObject[],
   selector?: Record<string, string>,
+  controllerKind?: string,
 ): K8sObject[] {
   if (!selector || Object.keys(selector).length === 0) return [];
-  return pods.filter((p) => podMatchesSelector(p, selector));
+  return pods.filter((p) => {
+    if (!podMatchesSelector(p, selector)) return false;
+    if (!controllerKind) return true;
+    const owner = podControllerKind(p);
+    return !owner || owner === controllerKind;
+  });
 }
 
 interface ConfigRef {
@@ -266,8 +295,8 @@ export default function WorkloadDetail({ kind }: WorkloadDetailProps) {
   );
 
   const pods = useMemo(
-    () => filterPodsBySelector(podsApi.data || [], selector),
-    [podsApi.data, selector],
+    () => filterPodsBySelector(podsApi.data || [], selector, POD_CONTROLLER_KIND[kind]),
+    [podsApi.data, selector, kind],
   );
 
   const reloadAll = () => {

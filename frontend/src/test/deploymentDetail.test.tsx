@@ -61,6 +61,61 @@ describe('pod selector matching', () => {
   });
 });
 
+describe('pod controller-kind filtering (name collisions)', () => {
+  const owned = (
+    name: string,
+    labels: Record<string, string>,
+    ownerKind: string,
+    ownerName: string,
+  ): K8sObject => ({
+    metadata: {
+      name,
+      namespace: 'default',
+      labels,
+      ownerReferences: [{ kind: ownerKind, name: ownerName, controller: true }],
+    },
+  });
+
+  // A Deployment and a CronJob both named voc-label-worker, whose pods share
+  // the app label. The CronJob's Job pod must NOT show up on the Deployment.
+  const rsPod = owned(
+    'voc-label-worker-5f76968986-fdtgm',
+    { app: 'voc-label-worker' },
+    'ReplicaSet',
+    'voc-label-worker-5f76968986',
+  );
+  const jobPod = owned(
+    'voc-label-worker-29725441-zqw6m',
+    { app: 'voc-label-worker', 'job-name': 'voc-label-worker-29725441' },
+    'Job',
+    'voc-label-worker-29725441',
+  );
+
+  it("excludes a same-named CronJob's Job pods from a Deployment's list", () => {
+    const out = filterPodsBySelector(
+      [rsPod, jobPod],
+      { app: 'voc-label-worker' },
+      'ReplicaSet',
+    );
+    expect(out.map((p) => p.metadata?.name)).toEqual([
+      'voc-label-worker-5f76968986-fdtgm',
+    ]);
+  });
+
+  it('keeps orphan pods (no controller ref) that match the selector', () => {
+    const orphan: K8sObject = {
+      metadata: { name: 'bare', namespace: 'default', labels: { app: 'voc-label-worker' } },
+    };
+    const out = filterPodsBySelector([orphan], { app: 'voc-label-worker' }, 'ReplicaSet');
+    expect(out.map((p) => p.metadata?.name)).toEqual(['bare']);
+  });
+
+  it('matches on labels only when no controller kind is given (back-compat)', () => {
+    const out = filterPodsBySelector([rsPod, jobPod], { app: 'voc-label-worker' });
+    expect(out.length).toBe(2);
+  });
+});
+
 describe('config reference collection', () => {
   it('dedupes ConfigMap/Secret refs across env, envFrom and volumes', () => {
     const dep: K8sObject = {
