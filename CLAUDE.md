@@ -22,6 +22,11 @@
 
 改完后更新 `backend/migrations/README.md` 末尾的「当前迁移」表。
 
+## Git 提交规范（强制）
+
+- **禁止**在 commit message（以及 PR / tag 说明）中添加任何 `Co-Authored-By:` 尾注，尤其是 `Co-Authored-By: Claude ...`。提交信息里不得出现 Claude / AI 署名。
+- 提交信息用 Conventional Commits 前缀（`feat:` / `fix:` / `docs:` / `chore:` 等），正文用中文说明改了什么、为什么。
+
 ## 常用校验
 
 - 后端：`cd backend && go build ./... && go test ./...`
