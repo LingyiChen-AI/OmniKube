@@ -11,6 +11,12 @@ export interface DeployItem {
   source: DeploySource;
   manifest_yaml: string;
   sort_index: number;
+  /**
+   * resourceVersion of the live cluster object at snapshot time. Enables
+   * optimistic-concurrency on publish so a stale snapshot can't silently
+   * overwrite a concurrent change. Empty for legacy/authored items.
+   */
+  resource_version?: string;
 }
 
 export interface DeployOrder {
@@ -113,12 +119,20 @@ export const integratedDeployApi = {
         params: { cluster_id: clusterId, ns, kind },
       })
       .then((r) => r.data.names ?? []),
+  /**
+   * Snapshot a live cluster resource as YAML, plus its resourceVersion (for
+   * later optimistic-concurrency on publish). resource_version may be '' if the
+   * backend/cluster didn't provide one.
+   */
   snapshot: (clusterId: string, ns: string, kind: string, name: string) =>
     client
-      .get<{ manifest_yaml: string }>('/integrated-deploy/snapshot', {
+      .get<{ manifest_yaml: string; resource_version?: string }>('/integrated-deploy/snapshot', {
         params: { cluster_id: clusterId, ns, kind, name },
       })
-      .then((r) => r.data.manifest_yaml),
+      .then((r) => ({
+        manifest_yaml: r.data.manifest_yaml,
+        resource_version: r.data.resource_version ?? '',
+      })),
 };
 
 /** A single server → client frame from the `/integrated-deploy/publish` WebSocket. */

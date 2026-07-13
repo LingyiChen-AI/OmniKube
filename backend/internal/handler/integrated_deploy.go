@@ -30,6 +30,9 @@ type DeployItem struct {
 	Source       string `json:"source"`
 	ManifestYAML string `json:"manifest_yaml"`
 	SortIndex    int    `json:"sort_index"`
+	// ResourceVersion 是快照时刻集群对象的 resourceVersion。发布时据此走乐观锁,
+	// 使过期快照无法静默覆盖并发改动。历史条目/手写条目为空。
+	ResourceVersion string `json:"resource_version,omitempty"`
 }
 
 // ItemResult 是一次发布中某条资源的结果。
@@ -429,6 +432,8 @@ func (h *Handler) SnapshotResource(c *gin.Context) {
 		writeK8sError(c, err)
 		return
 	}
+	// 捕获 resourceVersion 供发布时乐观锁使用(仍从 YAML 正文里剥掉,保持可读/可编辑)。
+	rv := obj.GetResourceVersion()
 	unstructured.RemoveNestedField(obj.Object, "metadata", "managedFields")
 	unstructured.RemoveNestedField(obj.Object, "metadata", "creationTimestamp")
 	unstructured.RemoveNestedField(obj.Object, "metadata", "resourceVersion")
@@ -440,10 +445,13 @@ func (h *Handler) SnapshotResource(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": merr.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"manifest_yaml": string(out)})
+	c.JSON(http.StatusOK, gin.H{"manifest_yaml": string(out), "resource_version": rv})
 }
 
-// applyDeployItem 对一条资源做 upsert(存在则 Update 回填 resourceVersion,不存在则 Create)。
+// applyDeployItem 对一条资源做 upsert(不存在则 Create,存在则 Update)。
+// 更新时:若条目带有快照时刻的 resourceVersion,则原样发送以走乐观锁——
+// 集群对象自快照后被并发改动会被 apiserver 以 409 Conflict 拒绝,避免旧快照静默
+// 覆盖他人改动;历史/手写条目(无 RV)回退为回填当前 RV 的旧行为(保持兼容)。
 // 返回 phase(created|updated|failed)+ message。
 func applyDeployItem(ctx context.Context, cc *cluster.ClusterClient, ns string, it DeployItem) (string, string) {
 	gvr, namespaced, gerr := resolveGVR(cc, it.Kind)
@@ -472,8 +480,17 @@ func applyDeployItem(ctx context.Context, cc *cluster.ClusterClient, ns string, 
 	if gerr != nil {
 		return "failed", gerr.Error()
 	}
-	obj.SetResourceVersion(current.GetResourceVersion())
+	if it.ResourceVersion != "" {
+		// 乐观锁:发送快照时刻的 RV,过期即 409。
+		obj.SetResourceVersion(it.ResourceVersion)
+	} else {
+		// 兼容无 RV 的历史/手写条目:回填当前 RV(旧行为)。
+		obj.SetResourceVersion(current.GetResourceVersion())
+	}
 	if _, err := dri.Update(ctx, obj, metav1.UpdateOptions{}); err != nil {
+		if apierrors.IsConflict(err) {
+			return "failed", "集群中的该资源自快照后已被改动(版本冲突),请在工单里重新拉取对比后再发布"
+		}
 		return "failed", err.Error()
 	}
 	return "updated", ""

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  App as AntApp, Button, Card, Col, Descriptions, Divider, Empty, Form, Input, Row, Select,
+  Alert, App as AntApp, Button, Card, Col, Descriptions, Divider, Empty, Form, Input, Modal, Row, Select,
   Space, Steps, Tag,
 } from 'antd';
 import { useTranslation } from 'react-i18next';
@@ -15,6 +15,8 @@ import { useCtxStore } from '../../store/ctx';
 import { canGlobal } from '../../nav';
 import { fromYAML } from '../../components/editor/util';
 import { extractMounts } from './mounts';
+import { baseDrifted } from './reconcile';
+import DiffView from '../../components/editor/DiffView';
 import ManifestDrawer from './ManifestDrawer';
 import PublishDrawer from './PublishDrawer';
 import ResourceItemCard from './ResourceItemCard';
@@ -123,7 +125,7 @@ export default function DeployOrderEditor() {
       try {
         const y = await integratedDeployApi.snapshot(clusterId, namespace, m.kind, m.name);
         const idx = next.filter((i) => DEPLOY_KIND_GROUP[i.kind] === DEPLOY_KIND_GROUP[m.kind]).length;
-        next = [...next, { kind: m.kind, name: m.name, source: 'selected', manifest_yaml: y, sort_index: idx }];
+        next = [...next, { kind: m.kind, name: m.name, source: 'selected', manifest_yaml: y.manifest_yaml, sort_index: idx, resource_version: y.resource_version }];
       } catch {
         /* skip: no write perm / not found in cluster */
       }
@@ -138,10 +140,10 @@ export default function DeployOrderEditor() {
       return;
     }
     try {
-      const yaml = await integratedDeployApi.snapshot(clusterId, namespace, selKind, selName);
+      const snap = await integratedDeployApi.snapshot(clusterId, namespace, selKind, selName);
       const nextIndex = items.filter((i) => DEPLOY_KIND_GROUP[i.kind] === DEPLOY_KIND_GROUP[selKind]).length;
-      const withItem = [...items, { kind: selKind, name: selName, source: 'selected' as const, manifest_yaml: yaml, sort_index: nextIndex }];
-      const withMounts = await withAutoMounts(yaml, withItem);
+      const withItem = [...items, { kind: selKind, name: selName, source: 'selected' as const, manifest_yaml: snap.manifest_yaml, sort_index: nextIndex, resource_version: snap.resource_version }];
+      const withMounts = await withAutoMounts(snap.manifest_yaml, withItem);
       setItems(withMounts);
       setSelName('');
       const n = withMounts.length - withItem.length;
@@ -157,12 +159,59 @@ export default function DeployOrderEditor() {
   const [drawerEditIdx, setDrawerEditIdx] = useState<number | null>(null);
   const [drawerKind, setDrawerKind] = useState('');
   const [drawerYaml, setDrawerYaml] = useState('');
+  // resourceVersion of the base the drawer was opened with — carried onto the
+  // item so publish can run optimistic-concurrency against it.
+  const [drawerBaseRV, setDrawerBaseRV] = useState('');
 
-  const openEditDrawer = (idx: number) => {
+  // 集群与工单快照不一致时的对比确认弹窗。
+  const [reconcile, setReconcile] = useState<
+    { idx: number; stored: string; storedRV: string; live: string; liveRV: string } | null
+  >(null);
+
+  const openDrawerWith = (idx: number | null, kind: string, yaml: string, rv: string) => {
     setDrawerEditIdx(idx);
-    setDrawerKind(items[idx].kind);
-    setDrawerYaml(items[idx].manifest_yaml);
+    setDrawerKind(kind);
+    setDrawerYaml(yaml);
+    setDrawerBaseRV(rv);
     setDrawerOpen(true);
+  };
+
+  // 编辑既有条目:先从集群拉最新做漂移检测(仅可编辑态)。若集群对象自快照后已被
+  // 改动,弹出对比让用户选择"用集群最新"还是"保留工单快照";否则直接编辑。
+  const openEditDrawer = async (idx: number) => {
+    const item = items[idx];
+    const storedRV = item.resource_version ?? '';
+    if (!canEdit || !clusterId || !namespace) {
+      openDrawerWith(idx, item.kind, item.manifest_yaml, storedRV);
+      return;
+    }
+    try {
+      const live = await integratedDeployApi.snapshot(clusterId, namespace, item.kind, item.name);
+      if (baseDrifted(item, live)) {
+        setReconcile({ idx, stored: item.manifest_yaml, storedRV, live: live.manifest_yaml, liveRV: live.resource_version });
+        return;
+      }
+    } catch {
+      /* live fetch failed (deleted / 403) → fall back to editing the stored snapshot */
+    }
+    openDrawerWith(idx, item.kind, item.manifest_yaml, storedRV);
+  };
+
+  // 保留工单快照:按原快照编辑(RV 不变,发布时若集群已变会被乐观锁拦下)。
+  const reconcileKeep = () => {
+    if (!reconcile) return;
+    const { idx, stored, storedRV } = reconcile;
+    setReconcile(null);
+    openDrawerWith(idx, items[idx].kind, stored, storedRV);
+  };
+
+  // 用集群最新:把条目基线替换为集群最新(manifest + RV),再进入编辑。
+  const reconcileUseLive = () => {
+    if (!reconcile) return;
+    const { idx, live, liveRV } = reconcile;
+    setItems(items.map((it, i) => (i === idx ? { ...it, manifest_yaml: live, resource_version: liveRV } : it)));
+    setReconcile(null);
+    openDrawerWith(idx, items[idx].kind, live, liveRV);
   };
 
   // 点击挂载点:已在工单里则打开其编辑;否则从集群快照后以"新增"模式打开,
@@ -170,16 +219,13 @@ export default function DeployOrderEditor() {
   const openEditMount = async (kind: string, name: string) => {
     const idx = items.findIndex((i) => i.kind === kind && i.name === name);
     if (idx >= 0) {
-      openEditDrawer(idx);
+      await openEditDrawer(idx);
       return;
     }
     if (!clusterId || !namespace) return;
     try {
-      const yaml = await integratedDeployApi.snapshot(clusterId, namespace, kind, name);
-      setDrawerEditIdx(null);
-      setDrawerKind(kind);
-      setDrawerYaml(yaml);
-      setDrawerOpen(true);
+      const snap = await integratedDeployApi.snapshot(clusterId, namespace, kind, name);
+      openDrawerWith(null, kind, snap.manifest_yaml, snap.resource_version);
     } catch {
       /* axios interceptor already toasts (e.g. 403/404) */
     }
@@ -192,7 +238,7 @@ export default function DeployOrderEditor() {
         message.error(t('integratedDeploy.duplicateItem'));
         return;
       }
-      setItems(items.map((it, i) => (i === drawerEditIdx ? { ...it, name, manifest_yaml: yaml } : it)));
+      setItems(items.map((it, i) => (i === drawerEditIdx ? { ...it, name, manifest_yaml: yaml, resource_version: drawerBaseRV } : it)));
     } else {
       // 新增(mount-click 快照):去重后追加,并自动带上其挂载的 configmaps/secrets。
       if (items.some((i) => i.kind === kind && i.name === name)) {
@@ -200,7 +246,7 @@ export default function DeployOrderEditor() {
         return;
       }
       const nextIndex = items.filter((i) => DEPLOY_KIND_GROUP[i.kind] === DEPLOY_KIND_GROUP[kind]).length;
-      const withItem = [...items, { kind, name, source: 'selected' as const, manifest_yaml: yaml, sort_index: nextIndex }];
+      const withItem = [...items, { kind, name, source: 'selected' as const, manifest_yaml: yaml, sort_index: nextIndex, resource_version: drawerBaseRV }];
       const withMounts = await withAutoMounts(yaml, withItem);
       setItems(withMounts);
       const n = withMounts.length - withItem.length;
@@ -316,7 +362,7 @@ export default function DeployOrderEditor() {
                 groupLabel={t(GROUP_KEY[DEPLOY_KIND_GROUP[item.kind] ?? 3])}
                 inOrder={inOrder}
                 canEdit={canEdit}
-                onEdit={() => openEditDrawer(idx)}
+                onEdit={() => { void openEditDrawer(idx); }}
                 onDelete={() => removeItem(idx)}
                 onOpenMount={openEditMount}
               />
@@ -364,6 +410,22 @@ export default function DeployOrderEditor() {
         onClose={() => setDrawerOpen(false)}
         onConfirm={handleDrawerConfirm}
       />
+
+      <Modal
+        open={!!reconcile}
+        width="min(1100px, 92vw)"
+        title={t('integratedDeploy.reconcileTitle')}
+        onCancel={() => setReconcile(null)}
+        footer={[
+          <Button key="keep" onClick={reconcileKeep}>{t('integratedDeploy.keepSnapshot')}</Button>,
+          <Button key="live" type="primary" onClick={reconcileUseLive}>{t('integratedDeploy.useCluster')}</Button>,
+        ]}
+      >
+        <Alert type="warning" showIcon style={{ marginBottom: 12 }} message={t('integratedDeploy.reconcileDesc')} />
+        <div style={{ height: '60vh', display: 'flex', flexDirection: 'column' }}>
+          {reconcile && <DiffView original={reconcile.stored} current={reconcile.live} />}
+        </div>
+      </Modal>
 
       {!isNew && (
         <PublishDrawer
